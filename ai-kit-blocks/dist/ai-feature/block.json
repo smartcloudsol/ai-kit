@@ -1,0 +1,176 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "ai-kit/feature",
+  "version": "1.0.0",
+  "title": "AI-Kit Feature (PRO)",
+  "category": "wpsuite-ai-kit",
+  "description": "AI-Kit Feature",
+  "attributes": {
+    "mode": {
+      "type": "string"
+    },
+    "editable": {
+      "type": "boolean",
+      "default": false
+    },
+    "autoRun": {
+      "type": "boolean",
+      "default": true
+    },
+    "default": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "instructions": {
+          "type": "string"
+        },
+        "tone": {
+          "type": "string"
+        },
+        "length": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "outputLanguage": {
+          "type": "string"
+        },
+        "outputFormat": {
+          "type": "string"
+        }
+      }
+    },
+    "allowOverride": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "boolean"
+        },
+        "instructions": {
+          "type": "boolean"
+        },
+        "tone": {
+          "type": "boolean"
+        },
+        "length": {
+          "type": "boolean"
+        },
+        "type": {
+          "type": "boolean"
+        },
+        "outputLanguage": {
+          "type": "boolean"
+        }
+      }
+    },
+    "optionsDisplay": {
+      "type": "string"
+    },
+    "inputSelector": {
+      "type": "string"
+    },
+    "outputSelector": {
+      "type": "string"
+    },
+    "variation": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "openButtonTitle": {
+      "type": "string"
+    },
+    "openButtonIcon": {
+      "type": "string"
+    },
+    "showOpenButtonTitle": {
+      "type": "boolean",
+      "default": true
+    },
+    "showOpenButtonIcon": {
+      "type": "boolean",
+      "default": true
+    },
+    "showRegenerateOnBackendButton": {
+      "type": "boolean",
+      "default": true
+    },
+    "acceptButtonTitle": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string"
+    },
+    "direction": {
+      "type": "string"
+    },
+    "colorMode": {
+      "type": "string"
+    },
+    "primaryColor": {
+      "type": "string"
+    },
+    "primaryShade": {
+      "type": "string"
+    },
+    "colors": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        }
+      }
+    },
+    "uid": {
+      "type": "string"
+    },
+    "customCSS": {
+      "type": "string",
+      "default": "selector {\n\t\n}"
+    },
+    "styleText": {
+      "type": "string",
+      "default": ":host {\n\t\n}\n.ai-feature-root {\n\t\n}"
+    },
+    "configB64": {
+      "type": "string"
+    },
+    "configFormat": {
+      "type": "string"
+    }
+  },
+  "textdomain": "ai-kit",
+  "editorScript": "file:./index.js",
+  "style": "file:./index.css",
+  "render": "file:./render.php",
+  "viewScript": "file:./view.js",
+  "supports": {
+    "align": true,
+    "__experimentalBorder": {
+      "color": true,
+      "style": true,
+      "width": true,
+      "radius": true
+    },
+    "shadow": true,
+    "spacing": {
+      "margin": true,
+      "padding": true,
+      "__experimentalDefaultControls": {
+        "margin": false,
+        "padding": false
+      }
+    },
+    "dimensions": {
+      "minHeight": true
+    }
+  }
+}

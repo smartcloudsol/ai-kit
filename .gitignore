@@ -1,0 +1,8 @@
+*.zip
+/ai-kit*/node_modules
+/ai-kit-admin/public
+/**/paid-features/
+/**/protected/
+/**/scripts/
+/**/publish
+/**/index.html

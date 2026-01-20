@@ -1,0 +1,73 @@
+{
+  "name": "@smart-cloud/ai-kit-ui",
+  "version": "1.0.2",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsup --minify",
+    "lint": "eslint 'src/**/*.{ts,tsx}' --report-unused-disable-directives --max-warnings 0",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "publish": "WPSUITE_PREMIUM=true tsup --minify && npm publish --access=public"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "scope": "@smart-cloud/ai-kit-ui"
+  },
+  "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@smart-cloud/ai-kit-core": "^1.0.0",
+    "@smart-cloud/wpsuite-core": "^2.0.5",
+    "@tabler/icons-react": "^3.36.1",
+    "react-markdown": "^10.1.0",
+    "rehype-sanitize": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5"
+  },
+  "peerDependencies": {
+    "@mantine/core": "^8.3.12",
+    "@mantine/hooks": "^8.3.12",
+    "@mantine/modals": "^8.3.12",
+    "@wordpress/data": "^10.37.0",
+    "aws-amplify": "^6.15.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@mantine/core": "^8.3.12",
+    "@mantine/hooks": "^8.3.12",
+    "@mantine/modals": "^8.3.12",
+    "@types/dom-chromium-ai": "^0.0.13",
+    "@types/jquery": "^3.5.33",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
+    "@wordpress/data": "^10.37.0",
+    "ajv": "^8.17.1",
+    "aws-amplify": "^6.15.9",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0",
+    "jquery": "^3.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.52.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles.css": "./dist/ai-kit-ui.css"
+  }
+}

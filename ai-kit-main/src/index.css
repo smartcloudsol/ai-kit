@@ -1,0 +1,5 @@
+body.elementor-editor-active,
+body.wp-admin,
+body.block-editor-iframe__body {
+  --gatey-in-editor: flex;
+}

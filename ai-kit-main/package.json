@@ -1,0 +1,46 @@
+{
+  "name": "@smart-cloud/ai-kit-main",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsup --minify",
+    "lint": "eslint 'src/**/*.{ts,tsx}' --report-unused-disable-directives --max-warnings 0",
+    "build-wp": "wp-scripts build --config=webpack.config.cjs --webpack-copy-php --output-path",
+    "format": "wp-scripts format",
+    "lint:css": "wp-scripts lint-style",
+    "lint:js": "wp-scripts lint-js",
+    "packages-update": "wp-scripts packages-update",
+    "plugin-zip": "wp-scripts plugin-zip",
+    "start": "wp-scripts start --webpack-copy-php --output-path",
+    "check-licenses": "wp-scripts check-licenses --prod"
+  },
+  "dependencies": {
+    "@smart-cloud/ai-kit-core": "^1.0.0",
+    "@smart-cloud/ai-kit-ui": "^1.0.2",
+    "react-google-recaptcha-v3": "^1.11.0"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/jquery": "^3.5.33",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
+    "@wordpress/scripts": "^31.1.0",
+    "ajv": "^8.17.1",
+    "country-data-list": "^1.5.5",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0",
+    "jquery": "^3.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.52.0"
+  }
+}
