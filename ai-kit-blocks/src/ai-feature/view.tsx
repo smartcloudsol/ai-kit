@@ -85,7 +85,6 @@ try {
       const isPreview = el.getAttribute("data-is-preview") === "true";
 
       const yamlInputSelector = fromYaml<string>(yamlConfig, "inputSelector");
-      console.log(yamlConfig, yamlInputSelector);
       const inputSelector =
         yamlInputSelector ??
         el.getAttribute("data-input-selector") ??

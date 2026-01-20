@@ -155,13 +155,6 @@ export const App: FunctionComponent<
     const onClose = () => {
       handle?.unmount();
     };
-    try {
-      console.log("inputSelector", inputSelector);
-      const el = document.querySelector(inputSelector || "body");
-      console.log(inputSelector, el, getValueFromElement(el));
-    } catch (e) {
-      console.error(e);
-    }
     const render = async () => {
       handle = await aiKit.features
         .renderFeature({
@@ -171,7 +164,6 @@ export const App: FunctionComponent<
               let el: HTMLElement | null = null;
               try {
                 el = document.querySelector(inputSelector || "body");
-                console.log(inputSelector, el, getValueFromElement(el));
               } catch {
                 // ignore
               }
