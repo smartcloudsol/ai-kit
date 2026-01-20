@@ -153,7 +153,17 @@ AI-Kit is an independent project and is **not affiliated with, sponsored by, or 
 
 == Source & Build ==
 
-This plugin ships as a pre-built distribution. Where applicable, shared WPSuite admin components may be included to support workspace linking, license validation, and subscription management across WP Suite plugins.
+**Public (free) source code:**
+All code that ships in the public (free) version of AI-Kit is available here: https://github.com/scsinfo/ai-kit
+
+**Build & distribution:**
+AI-Kit is shipped to WordPress.org as a pre-built distribution. Build steps and developer notes are maintained in the GitHub repository documentation.
+
+**Shared WPSuite components:**
+Some admin UI modules may originate from shared WP Suite components to support workspace linking, license validation, and subscription management across WP Suite plugins.
+
+**Pro-only features (source availability):**
+AI-Kit Pro includes additional functionality (such as backend-powered processing and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
 
