@@ -16,8 +16,8 @@
     "check-licenses": "wp-scripts check-licenses --prod"
   },
   "dependencies": {
-    "@smart-cloud/ai-kit-core": "^1.1.5",
-    "@smart-cloud/ai-kit-ui": "^1.1.14",
+    "@smart-cloud/ai-kit-core": "^1.1.6",
+    "@smart-cloud/ai-kit-ui": "^1.1.15",
     "react-google-recaptcha-v3": "^1.11.0"
   },
   "peerDependencies": {

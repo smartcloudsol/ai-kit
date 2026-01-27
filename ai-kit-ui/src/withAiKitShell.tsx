@@ -116,8 +116,6 @@ export function withAiKitShell<P extends object>(
       });
     }
 
-    console.log("withAiKitShell rendered", { customColors });
-
     const theme = createTheme({
       respectReducedMotion: true,
       ...(customColors && { colors: customColors }),

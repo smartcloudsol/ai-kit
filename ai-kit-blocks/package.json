@@ -19,8 +19,8 @@
     "check-licenses": "wp-scripts check-licenses --prod"
   },
   "dependencies": {
-    "@smart-cloud/ai-kit-core": "^1.1.5",
-    "@smart-cloud/ai-kit-ui": "^1.1.14",
+    "@smart-cloud/ai-kit-core": "^1.1.6",
+    "@smart-cloud/ai-kit-ui": "^1.1.15",
     "@smart-cloud/wpsuite-core": "^2.0.5",
     "yaml": "^2.8.2"
   },
