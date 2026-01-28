@@ -9,6 +9,7 @@ $wpsuite_ai_kit_attribute_map = [
 	'mode' => null,
 	'editable' => null,
 	'autoRun' => null,
+	'onDeviceTimeout' => null,
 	'default' => null,
 	'allowOverride' => null,
 	'optionsDisplay' => null,

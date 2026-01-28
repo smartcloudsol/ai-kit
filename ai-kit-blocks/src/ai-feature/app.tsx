@@ -97,205 +97,208 @@ export const App: FunctionComponent<
     showRegenerateOnBackendButton?: boolean;
   },
 ) => {
-    const {
-      isPreview,
-      store,
-      mode,
-      editable,
-      autoRun,
-      openButtonTitle,
-      showOpenButtonTitle,
-      openButtonIcon,
-      showOpenButtonIcon,
-      showRegenerateOnBackendButton,
-      acceptButtonTitle,
-      title,
-      variation,
-      language,
-      direction,
-      inputSelector,
-      outputSelector,
-      colorMode,
-      primaryColor,
-      primaryShade,
-      colors,
-      optionsDisplay,
-      default: defaults,
-      allowOverride,
-      themeOverrides,
-    } = props;
-    const {
-      text,
-      instructions,
-      tone,
-      length,
-      type,
-      outputLanguage,
-      outputFormat,
-    } = defaults || {};
+  const {
+    isPreview,
+    store,
+    mode,
+    editable,
+    autoRun,
+    openButtonTitle,
+    showOpenButtonTitle,
+    openButtonIcon,
+    showOpenButtonIcon,
+    showRegenerateOnBackendButton,
+    acceptButtonTitle,
+    title,
+    variation,
+    language,
+    direction,
+    inputSelector,
+    outputSelector,
+    colorMode,
+    primaryColor,
+    primaryShade,
+    colors,
+    optionsDisplay,
+    default: defaults,
+    allowOverride,
+    themeOverrides,
+    onDeviceTimeout,
+  } = props;
+  const {
+    text,
+    instructions,
+    tone,
+    length,
+    type,
+    outputLanguage,
+    outputFormat,
+  } = defaults || {};
 
-    const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-    const targetRef = useRef<HTMLDivElement>(null);
+  const targetRef = useRef<HTMLDivElement>(null);
 
-    const aiKitConfig: AiKitConfig | undefined | null = useSelect(
-      () => (store ? getStoreSelect(store).getConfig() : undefined),
-      [store],
-    );
+  const aiKitConfig: AiKitConfig | undefined | null = useSelect(
+    () => (store ? getStoreSelect(store).getConfig() : undefined),
+    [store],
+  );
 
-    useEffect(() => {
-      if (!isPreview && !aiKitConfig?.subscriptionType) {
-        return;
+  useEffect(() => {
+    if (!isPreview && !aiKitConfig?.subscriptionType) {
+      return;
+    }
+    const aiKit = getAiKitPlugin();
+    let handle: AiWorkerHandle | null = null;
+    const onClose = () => {
+      handle?.unmount();
+    };
+    const render = async () => {
+      handle = await aiKit.features
+        .renderFeature({
+          default: {
+            text: mode === "write" ? text : undefined,
+            getText: () => {
+              let el: HTMLElement | null = null;
+              try {
+                el = document.querySelector(inputSelector || "body");
+              } catch {
+                // ignore
+              }
+              return el ? getValueFromElement(el) : "";
+            },
+            instructions,
+            tone,
+            length,
+            type,
+            outputLanguage,
+            outputFormat,
+          },
+          allowOverride: {
+            text: allowOverride?.text,
+            instructions: allowOverride?.instructions,
+            tone: allowOverride?.tone,
+            length: allowOverride?.length,
+            type: allowOverride?.type,
+            outputLanguage: allowOverride?.outputLanguage,
+            outputFormat: false,
+          },
+          autoRun: autoRun !== undefined ? autoRun : mode !== "write" || !!text,
+          editable,
+          showOpenButton: true,
+          showOpenButtonTitle,
+          openButtonIcon,
+          showOpenButtonIcon,
+          showRegenerateOnBackendButton,
+          acceptButtonTitle,
+          title,
+          openButtonTitle,
+          optionsDisplay,
+          store: store!,
+          target: targetRef.current!,
+          primaryColor,
+          primaryShade,
+          colors,
+          context: isPreview ? "admin" : "frontend",
+          mode: mode!,
+          variation: variation,
+          colorMode: colorMode,
+          language,
+          direction,
+          themeOverrides,
+          onDeviceTimeout,
+          onClose,
+          ...(outputSelector && {
+            onAccept: (result) => {
+              const normalized = result == null ? "" : String(result);
+              const outputEl = document.querySelector(outputSelector);
+              applyResultToElement(outputEl, normalized, outputFormat);
+            },
+          }),
+        })
+        .catch((error) => {
+          console.debug("AI Kit: renderFeature failed", error);
+          setError(I18n.get(error.message || "An unknown error occurred."));
+          return null;
+        });
+      return handle;
+    };
+    const handlePromise = render();
+    return () => {
+      if (handlePromise) {
+        handlePromise.then((handle) => {
+          handle?.unmount();
+        });
       }
-      const aiKit = getAiKitPlugin();
-      let handle: AiWorkerHandle | null = null;
-      const onClose = () => {
-        handle?.unmount();
-      };
-      const render = async () => {
-        handle = await aiKit.features
-          .renderFeature({
-            default: {
-              text: mode === "write" ? text : undefined,
-              getText: () => {
-                let el: HTMLElement | null = null;
-                try {
-                  el = document.querySelector(inputSelector || "body");
-                } catch {
-                  // ignore
-                }
-                return el ? getValueFromElement(el) : "";
-              },
-              instructions,
-              tone,
-              length,
-              type,
-              outputLanguage,
-              outputFormat,
-            },
-            allowOverride: {
-              text: allowOverride?.text,
-              instructions: allowOverride?.instructions,
-              tone: allowOverride?.tone,
-              length: allowOverride?.length,
-              type: allowOverride?.type,
-              outputLanguage: allowOverride?.outputLanguage,
-              outputFormat: false,
-            },
-            autoRun: autoRun !== undefined ? autoRun : mode !== "write" || !!text,
-            editable,
-            showOpenButton: true,
-            showOpenButtonTitle,
-            openButtonIcon,
-            showOpenButtonIcon,
-            showRegenerateOnBackendButton,
-            acceptButtonTitle,
-            title,
-            openButtonTitle,
-            optionsDisplay,
-            store: store!,
-            target: targetRef.current!,
-            primaryColor,
-            primaryShade,
-            colors,
-            context: isPreview ? "admin" : "frontend",
-            mode: mode!,
-            variation: variation,
-            colorMode: colorMode,
-            language,
-            direction,
-            themeOverrides,
-            onClose,
-            ...(outputSelector && {
-              onAccept: (result) => {
-                const normalized = result == null ? "" : String(result);
-                const outputEl = document.querySelector(outputSelector);
-                applyResultToElement(outputEl, normalized, outputFormat);
-              },
-            }),
-          })
-          .catch((error) => {
-            console.debug("AI Kit: renderFeature failed", error);
-            setError(I18n.get(error.message || "An unknown error occurred."));
-            return null;
-          });
-        return handle;
-      };
-      const handlePromise = render();
-      return () => {
-        if (handlePromise) {
-          handlePromise.then((handle) => {
-            handle?.unmount();
-          });
-        }
-      };
-    }, [
-      store,
-      isPreview,
-      targetRef,
-      mode,
-      variation,
-      colorMode,
-      language,
-      direction,
-      inputSelector,
-      outputSelector,
-      title,
-      openButtonTitle,
-      text,
-      outputFormat,
-      optionsDisplay,
-      primaryColor,
-      primaryShade,
-      colors,
-      instructions,
-      tone,
-      length,
-      type,
-      allowOverride?.text,
-      allowOverride?.instructions,
-      allowOverride?.tone,
-      allowOverride?.length,
-      allowOverride?.type,
-      aiKitConfig?.subscriptionType,
-      allowOverride?.outputLanguage,
-      outputLanguage,
-      showOpenButtonTitle,
-      openButtonIcon,
-      showOpenButtonIcon,
-      acceptButtonTitle,
-      showRegenerateOnBackendButton,
-      autoRun,
-      editable,
-      themeOverrides,
-    ]);
+    };
+  }, [
+    store,
+    isPreview,
+    targetRef,
+    mode,
+    variation,
+    colorMode,
+    language,
+    direction,
+    inputSelector,
+    outputSelector,
+    title,
+    openButtonTitle,
+    text,
+    outputFormat,
+    optionsDisplay,
+    primaryColor,
+    primaryShade,
+    colors,
+    instructions,
+    tone,
+    length,
+    type,
+    allowOverride?.text,
+    allowOverride?.instructions,
+    allowOverride?.tone,
+    allowOverride?.length,
+    allowOverride?.type,
+    aiKitConfig?.subscriptionType,
+    allowOverride?.outputLanguage,
+    outputLanguage,
+    showOpenButtonTitle,
+    openButtonIcon,
+    showOpenButtonIcon,
+    acceptButtonTitle,
+    showRegenerateOnBackendButton,
+    autoRun,
+    editable,
+    themeOverrides,
+    onDeviceTimeout,
+  ]);
 
-    return (
-      <>
-        <div ref={targetRef}></div>
-        {error && isPreview && (
-          <div
-            style={{
-              color: "red",
-              marginTop: "8px",
-              fontSize: "0.875rem",
-            }}
-          >
-            {error}
-          </div>
-        )}
-        {isPreview && !aiKitConfig?.subscriptionType && (
-          <div
-            style={{
-              color: "rgba(220, 20, 60, 0.6)",
-              marginTop: "8px",
-              fontSize: "0.875rem",
-              fontStyle: "italic",
-            }}
-          >
-            {I18n.get("You need a subscription to use this feature on frontend.")}
-          </div>
-        )}
-      </>
-    );
-  };
+  return (
+    <>
+      <div ref={targetRef}></div>
+      {error && isPreview && (
+        <div
+          style={{
+            color: "red",
+            marginTop: "8px",
+            fontSize: "0.875rem",
+          }}
+        >
+          {error}
+        </div>
+      )}
+      {isPreview && !aiKitConfig?.subscriptionType && (
+        <div
+          style={{
+            color: "rgba(220, 20, 60, 0.6)",
+            marginTop: "8px",
+            fontSize: "0.875rem",
+            fontStyle: "italic",
+          }}
+        >
+          {I18n.get("You need a subscription to use this feature on frontend.")}
+        </div>
+      )}
+    </>
+  );
+};

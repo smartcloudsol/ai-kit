@@ -143,6 +143,7 @@ async function detectTopLanguage(
     onStatus?: (e: AiKitStatusEvent) => void;
     context?: ContextKind;
     modeOverride?: AiModePreference;
+    onDeviceTimeout?: number;
   },
 ): Promise<AiKitLanguageCode> {
   const res: DetectLanguageOutput = await detectLanguage(
@@ -152,6 +153,7 @@ async function detectTopLanguage(
       onStatus: args.onStatus,
       context: args.context,
       modeOverride: args.modeOverride,
+      onDeviceTimeoutOverride: args.onDeviceTimeout,
     },
   );
   const top =
@@ -284,6 +286,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
     allowOverride: allowOverrideDefaults,
     autoRun = true,
     editable = true,
+    onDeviceTimeout,
     variation = props.variation || "default",
     title,
     showOpenButton = false,
@@ -496,6 +499,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 onStatus,
                 context,
                 modeOverride,
+                onDeviceTimeoutOverride: onDeviceTimeout,
               });
               return out.result;
             });
@@ -526,6 +530,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 onStatus,
                 context,
                 modeOverride,
+                onDeviceTimeoutOverride: onDeviceTimeout,
               });
               return out.result;
             });
@@ -538,6 +543,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
               if (inputLang === "auto") {
                 inputLang = await detectTopLanguage(text!.trim(), {
                   signal,
+                  onDeviceTimeout,
                 });
                 setInputLanguage(inputLang);
               }
@@ -563,6 +569,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 onStatus,
                 context,
                 modeOverride,
+                onDeviceTimeoutOverride: onDeviceTimeout,
               });
               return out.result;
             });
@@ -578,6 +585,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
               if (outputLanguage === "auto") {
                 outLang = await detectTopLanguage(text!.trim(), {
                   signal,
+                  onDeviceTimeout,
                 });
                 setOutputLanguage(outLang);
               }
@@ -595,6 +603,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 onStatus,
                 context,
                 modeOverride,
+                onDeviceTimeoutOverride: onDeviceTimeout,
               });
               return out.result;
             });
@@ -619,6 +628,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 text!.trim() + "\n" + (instructions?.trim() || ""),
                 {
                   signal,
+                  onDeviceTimeout,
                 },
               );
               if (inLang !== outLang && inLang !== "en") {
@@ -644,6 +654,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 onStatus,
                 context,
                 modeOverride,
+                onDeviceTimeoutOverride: onDeviceTimeout,
               });
               return out.result;
             });
@@ -684,6 +695,7 @@ Follow these additional instructions: ${instructions}`
                   onStatus,
                   context,
                   modeOverride,
+                  onDeviceTimeoutOverride: onDeviceTimeout,
                 },
               );
               return out.result;
@@ -758,6 +770,7 @@ Follow these additional instructions: ${instructions}`
                     onStatus,
                     context,
                     modeOverride,
+                    onDeviceTimeoutOverride: onDeviceTimeout,
                   },
                 );
                 return out.result;

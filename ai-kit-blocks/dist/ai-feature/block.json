@@ -18,6 +18,9 @@
       "type": "boolean",
       "default": true
     },
+    "onDeviceTimeout": {
+      "type": "number"
+    },
     "default": {
       "type": "object",
       "properties": {

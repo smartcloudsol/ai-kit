@@ -8,6 +8,7 @@ declare const AiFeature: FC<_smart_cloud_ai_kit_core.AiWorkerProps & {
     context?: ContextKind;
     modeOverride?: AiModePreference;
     autoRun?: boolean;
+    onDeviceTimeout?: number;
     editable?: boolean;
     acceptButtonTitle?: string;
     showRegenerateOnBackendButton?: boolean;

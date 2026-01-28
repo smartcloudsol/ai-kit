@@ -325,6 +325,7 @@ export type AiFeatureProps = AiWorkerProps & {
   context?: ContextKind;
   modeOverride?: AiModePreference;
   autoRun?: boolean;
+  onDeviceTimeout?: number;
   editable?: boolean;
   acceptButtonTitle?: string;
   showRegenerateOnBackendButton?: boolean;
@@ -579,6 +580,7 @@ export interface Backend<TResponse> {
 export type FeatureOptions = BackendCallOptions & {
   context?: ContextKind;
   modeOverride?: AiModePreference;
+  onDeviceTimeoutOverride?: number;
 };
 
 export interface Features {

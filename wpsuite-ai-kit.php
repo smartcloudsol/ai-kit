@@ -312,6 +312,7 @@ __aikitGlobal.WpSuite.constants.aiKit = {
             'mode' => null,
             'editable' => null,
             'autoRun' => null,
+            'onDeviceTimeout' => null,
             'default' => null,
             'allowOverride' => null,
             'optionsDisplay' => null,

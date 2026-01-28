@@ -79,9 +79,9 @@ export interface EditorBlockProps {
     instructions?: string;
     tone?: WriteArgs["tone"] | RewriteArgs["tone"];
     length?:
-    | WriteArgs["length"]
-    | RewriteArgs["length"]
-    | SummarizeArgs["length"];
+      | WriteArgs["length"]
+      | RewriteArgs["length"]
+      | SummarizeArgs["length"];
     type?: SummarizeArgs["type"];
     outputLanguage?: AiKitLanguageCode;
     outputFormat?: "plain-text" | "markdown" | "html";
@@ -100,6 +100,7 @@ export interface EditorBlockProps {
   colors?: AiFeatureArgs["colors"];
   uid?: string;
   themeOverrides?: string;
+  onDeviceTimeout?: number;
 }
 
 const Divider = () => (
@@ -135,6 +136,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
     optionsDisplay,
     themeOverrides,
     uid,
+    onDeviceTimeout,
   } = attributes;
 
   const [fulfilledStore, setFulfilledStore] = useState<Store>();
@@ -263,6 +265,27 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                 });
               }}
               help={__("Toggle to enable or disable auto run.", TEXT_DOMAIN)}
+            />
+            <Divider />
+            <TextControl
+              label={__("On-device timeout (ms)", TEXT_DOMAIN)}
+              type="number"
+              value={
+                onDeviceTimeout === undefined ? "" : String(onDeviceTimeout)
+              }
+              onChange={(value) => {
+                const parsed = value === "" ? undefined : Number(value);
+                setAttributes({
+                  onDeviceTimeout:
+                    parsed !== undefined && Number.isFinite(parsed)
+                      ? parsed
+                      : undefined,
+                });
+              }}
+              help={__(
+                "Specify the timeout in milliseconds for on-device AI processing. Leave empty to use the default timeout (translating: 5000, other features: 45000).",
+                TEXT_DOMAIN,
+              )}
             />
             {mode !== "write" && (
               <>
@@ -540,30 +563,30 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                   options={
                     mode === "write"
                       ? [
-                        {
-                          label: __("Neutral (default)", TEXT_DOMAIN),
-                          value: "neutral",
-                        },
-                        {
-                          label: __("Formal", TEXT_DOMAIN),
-                          value: "formal",
-                        },
-                        { label: __("Casual", TEXT_DOMAIN), value: "casual" },
-                      ]
+                          {
+                            label: __("Neutral (default)", TEXT_DOMAIN),
+                            value: "neutral",
+                          },
+                          {
+                            label: __("Formal", TEXT_DOMAIN),
+                            value: "formal",
+                          },
+                          { label: __("Casual", TEXT_DOMAIN), value: "casual" },
+                        ]
                       : [
-                        {
-                          label: __("As-is (default)", TEXT_DOMAIN),
-                          value: "as-is",
-                        },
-                        {
-                          label: __("More Formal", TEXT_DOMAIN),
-                          value: "more-formal",
-                        },
-                        {
-                          label: __("More Casual", TEXT_DOMAIN),
-                          value: "more-casual",
-                        },
-                      ]
+                          {
+                            label: __("As-is (default)", TEXT_DOMAIN),
+                            value: "as-is",
+                          },
+                          {
+                            label: __("More Formal", TEXT_DOMAIN),
+                            value: "more-formal",
+                          },
+                          {
+                            label: __("More Casual", TEXT_DOMAIN),
+                            value: "more-casual",
+                          },
+                        ]
                   }
                   onChange={(value) => {
                     setAttributes({
@@ -599,18 +622,18 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
             {(mode === "write" ||
               mode === "rewrite" ||
               mode === "summarize") && (
-                <>
-                  <RadioControl
-                    label={__("Length", TEXT_DOMAIN)}
-                    selected={
-                      defaults?.length ||
-                      (mode === "write" || mode === "summarize"
-                        ? "short"
-                        : "as-is")
-                    }
-                    options={
-                      mode === "write" || mode === "summarize"
-                        ? [
+              <>
+                <RadioControl
+                  label={__("Length", TEXT_DOMAIN)}
+                  selected={
+                    defaults?.length ||
+                    (mode === "write" || mode === "summarize"
+                      ? "short"
+                      : "as-is")
+                  }
+                  options={
+                    mode === "write" || mode === "summarize"
+                      ? [
                           {
                             label: __("Short (default)", TEXT_DOMAIN),
                             value: "short",
@@ -621,7 +644,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                           },
                           { label: __("Long", TEXT_DOMAIN), value: "long" },
                         ]
-                        : [
+                      : [
                           {
                             label: __("As-is (default)", TEXT_DOMAIN),
                             value: "as-is",
@@ -635,39 +658,39 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                             value: "longer",
                           },
                         ]
-                    }
-                    onChange={(value) => {
-                      setAttributes({
-                        default: { ...defaults, length: value },
-                      });
-                    }}
-                    help={__(
-                      "Select the desired length for the AI output.",
-                      TEXT_DOMAIN,
-                    )}
-                  />
-                  <CheckboxControl
-                    label={__("Overridable", TEXT_DOMAIN)}
-                    checked={
-                      allowOverride?.length === undefined || allowOverride?.length
-                    }
-                    onChange={(value) => {
-                      setAttributes({
-                        allowOverride: {
-                          ...allowOverride,
-                          length:
-                            value !== undefined ? value : allowOverride?.length,
-                        },
-                      });
-                    }}
-                    help={__(
-                      "Allow users to override the default length when using the block.",
-                      TEXT_DOMAIN,
-                    )}
-                  />
-                  <Divider />
-                </>
-              )}
+                  }
+                  onChange={(value) => {
+                    setAttributes({
+                      default: { ...defaults, length: value },
+                    });
+                  }}
+                  help={__(
+                    "Select the desired length for the AI output.",
+                    TEXT_DOMAIN,
+                  )}
+                />
+                <CheckboxControl
+                  label={__("Overridable", TEXT_DOMAIN)}
+                  checked={
+                    allowOverride?.length === undefined || allowOverride?.length
+                  }
+                  onChange={(value) => {
+                    setAttributes({
+                      allowOverride: {
+                        ...allowOverride,
+                        length:
+                          value !== undefined ? value : allowOverride?.length,
+                      },
+                    });
+                  }}
+                  help={__(
+                    "Allow users to override the default length when using the block.",
+                    TEXT_DOMAIN,
+                  )}
+                />
+                <Divider />
+              </>
+            )}
             {mode === "summarize" && (
               <>
                 <RadioControl
@@ -817,9 +840,9 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                 })),
                 ...(colors
                   ? Object.keys(colors).map((color) => ({
-                    label: color,
-                    value: color,
-                  }))
+                      label: color,
+                      value: color,
+                    }))
                   : []),
               ]}
               onChange={(value) => {
@@ -979,16 +1002,16 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                       value === "" || value === null || value === undefined
                         ? undefined
                         : (parseInt(value!) as
-                          | 0
-                          | 1
-                          | 2
-                          | 3
-                          | 4
-                          | 5
-                          | 6
-                          | 7
-                          | 8
-                          | 9),
+                            | 0
+                            | 1
+                            | 2
+                            | 3
+                            | 4
+                            | 5
+                            | 6
+                            | 7
+                            | 8
+                            | 9),
                   },
                 });
               }}
@@ -1012,16 +1035,16 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                       value === "" || value === null || value === undefined
                         ? undefined
                         : (parseInt(value!) as
-                          | 0
-                          | 1
-                          | 2
-                          | 3
-                          | 4
-                          | 5
-                          | 6
-                          | 7
-                          | 8
-                          | 9),
+                            | 0
+                            | 1
+                            | 2
+                            | 3
+                            | 4
+                            | 5
+                            | 6
+                            | 7
+                            | 8
+                            | 9),
                   },
                 });
               }}
@@ -1070,6 +1093,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
             colors={colors}
             allowOverride={allowOverride}
             themeOverrides={themeOverrides}
+            onDeviceTimeout={onDeviceTimeout}
           />
         ) : (
           <>

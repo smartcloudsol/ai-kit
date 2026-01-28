@@ -247,6 +247,7 @@ type AiFeatureProps = AiWorkerProps & {
     context?: ContextKind;
     modeOverride?: AiModePreference;
     autoRun?: boolean;
+    onDeviceTimeout?: number;
     editable?: boolean;
     acceptButtonTitle?: string;
     showRegenerateOnBackendButton?: boolean;
@@ -418,6 +419,7 @@ interface Backend<TResponse> {
 type FeatureOptions = BackendCallOptions & {
     context?: ContextKind;
     modeOverride?: AiModePreference;
+    onDeviceTimeoutOverride?: number;
 };
 interface Features {
     getWriteOptions: (args: Partial<WriteArgs>) => Promise<WriterCreateCoreOptions>;

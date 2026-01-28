@@ -22,14 +22,21 @@ export type AiKitShellInjectedProps = {
   rootElement: HTMLElement;
 };
 
-function hashStringDjb2(str: string): string {
+const hashStringDjb2 = (str: string): string => {
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
     hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
   }
   // unsigned + base36
   return (hash >>> 0).toString(36);
-}
+};
+
+const sanitizeThemeOverrides = (input: string): string =>
+  input
+    .replace(/<\/?(?:style|script)\b[^>]*>/gi, "")
+    .replace(/@import\s+['"]?javascript:[^;]+;?/gi, "")
+    .replace(/url\(\s*(['"]?)javascript:[^)]+\)/gi, "")
+    .replace(/\bexpression\s*\([^)]*\)/gi, "");
 
 const STYLE_TEXT_ID = "ai-kit-style-text";
 
@@ -126,19 +133,19 @@ export function withAiKitShell<P extends object>(
         ].includes(primaryColor) && { primaryColor }),
       ...(primaryShade &&
         Object.keys(primaryShade).length > 0 && {
-        primaryShade: {
-          light:
-            primaryShade.light ??
-            (typeof DEFAULT_THEME.primaryShade === "object"
-              ? DEFAULT_THEME.primaryShade.light
-              : (DEFAULT_THEME.primaryShade ?? 6)),
-          dark:
-            primaryShade.dark ??
-            (typeof DEFAULT_THEME.primaryShade === "object"
-              ? DEFAULT_THEME.primaryShade.dark
-              : (DEFAULT_THEME.primaryShade ?? 6)),
-        },
-      }),
+          primaryShade: {
+            light:
+              primaryShade.light ??
+              (typeof DEFAULT_THEME.primaryShade === "object"
+                ? DEFAULT_THEME.primaryShade.light
+                : (DEFAULT_THEME.primaryShade ?? 6)),
+            dark:
+              primaryShade.dark ??
+              (typeof DEFAULT_THEME.primaryShade === "object"
+                ? DEFAULT_THEME.primaryShade.dark
+                : (DEFAULT_THEME.primaryShade ?? 6)),
+          },
+        }),
       components: {
         Button: {
           styles: { root: { borderRadius: "inherit" } },
@@ -179,36 +186,32 @@ export function withAiKitShell<P extends object>(
       return themeOverrides ? hashStringDjb2(themeOverrides) : "";
     }, [themeOverrides]);
 
-    useEffect(
-      () => {
+    useEffect(() => {
+      if (!host) {
+        return;
+      }
 
-        if (!host) {
-          return;
-        }
+      const existingStyle = host.shadowRoot!.getElementById(
+        STYLE_TEXT_ID,
+      ) as HTMLStyleElement | null;
 
-        const existingStyle = host.shadowRoot!.getElementById(
-          STYLE_TEXT_ID,
-        ) as HTMLStyleElement | null;
-
-        if (themeOverrides) {
-          if (!existingStyle) {
-            const s = host.shadowRoot!.ownerDocument.createElement("style");
-            s.id = STYLE_TEXT_ID;
-            s.setAttribute("data-hash", themeOverridesHash);
-            s.textContent = themeOverrides;
-            host.shadowRoot!.appendChild(s);
-          } else {
-            const prevHash = existingStyle.getAttribute("data-hash") || "";
-            if (prevHash !== themeOverridesHash) {
-              existingStyle.textContent = themeOverrides;
-            }
+      if (themeOverrides) {
+        if (!existingStyle) {
+          const s = host.shadowRoot!.ownerDocument.createElement("style");
+          s.id = STYLE_TEXT_ID;
+          s.setAttribute("data-hash", themeOverridesHash);
+          s.textContent = sanitizeThemeOverrides(themeOverrides);
+          host.shadowRoot!.appendChild(s);
+        } else {
+          const prevHash = existingStyle.getAttribute("data-hash") || "";
+          if (prevHash !== themeOverridesHash) {
+            existingStyle.textContent = sanitizeThemeOverrides(themeOverrides);
           }
-        } else if (existingStyle) {
-          existingStyle.remove();
         }
-      },
-      [host, themeOverrides, themeOverridesHash],
-    );
+      } else if (existingStyle) {
+        existingStyle.remove();
+      }
+    }, [host, themeOverrides, themeOverridesHash]);
 
     return (
       <ShadowBoundary
@@ -261,7 +264,8 @@ export function withAiKitShell<P extends object>(
     );
   };
 
-  Wrapped.displayName = `withAiKitShell(${RootComponent.displayName ?? RootComponent.name ?? "Component"
-    })`;
+  Wrapped.displayName = `withAiKitShell(${
+    RootComponent.displayName ?? RootComponent.name ?? "Component"
+  })`;
   return Wrapped;
 }

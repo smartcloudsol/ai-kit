@@ -53,8 +53,9 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 // New: history storage support
 const DEFAULT_HISTORY_STORAGE: HistoryStorageMode = "localstorage";
-const HISTORY_STORAGE_KEY = `ai-kit-chatbot-history-v1:${typeof window !== "undefined" ? window.location.hostname : "unknown"
-  }`;
+const HISTORY_STORAGE_KEY = `ai-kit-chatbot-history-v1:${
+  typeof window !== "undefined" ? window.location.hostname : "unknown"
+}`;
 
 export const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels> = {
   modalTitle: "AI Assistant",
@@ -295,7 +296,6 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   useEffect(() => {
     if (language) {
-      console.log(`AiChatbot: setting language to ${language}`);
       I18n.setLanguage(language || "en");
     }
   }, [language]);
@@ -595,7 +595,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       try {
         const activeSessionId =
           sessionRef.current &&
-            Date.now() - sessionRef.current.storedAt < TWENTY_FOUR_HOURS_MS
+          Date.now() - sessionRef.current.storedAt < TWENTY_FOUR_HOURS_MS
             ? sessionRef.current.id
             : undefined;
         if (!activeSessionId) return;
@@ -680,7 +680,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     try {
       const activeSessionId =
         sessionRef.current &&
-          Date.now() - sessionRef.current.storedAt < TWENTY_FOUR_HOURS_MS
+        Date.now() - sessionRef.current.storedAt < TWENTY_FOUR_HOURS_MS
           ? sessionRef.current.id
           : undefined;
 
