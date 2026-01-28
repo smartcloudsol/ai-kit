@@ -333,7 +333,7 @@ __aikitGlobal.WpSuite.constants.aiKit = {
             'primaryShade' => null,
             'colors' => null,
             'uid' => strtolower(\function_exists('wp_generate_password') ? \wp_generate_password(8, false, false) : substr(md5(uniqid('', true)), 0, 8)),
-            'innerCSS' => null,
+            'themeOverrides' => null,
         );
 
         $provided_atts = array_change_key_case((array) $atts, CASE_LOWER);
