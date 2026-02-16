@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/ai-kit-main",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "license": "ISC",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@smart-cloud/ai-kit-core": "^1.1.21",
-    "@smart-cloud/ai-kit-ui": "^1.1.42",
+    "@smart-cloud/ai-kit-ui": "^1.1.44",
     "react-google-recaptcha-v3": "^1.11.0"
   },
   "peerDependencies": {

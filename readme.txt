@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.6
+Stable tag: 1.0.7
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,9 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.0.7 =
+Improved: Doc Search modal view now uses a wider dialog for a better search-focused layout.
+
 = 1.0.6 =
 PRO: Added **Doc Search** (Knowledge Base research) UI surface:
 * New **AI-Kit Doc Search** Gutenberg block (`smartcloud-ai-kit/doc-search`)
@@ -220,6 +223,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.0.7 =
+No action required. Clear any page/CDN cache if the modal size doesn’t update immediately.
 
 = 1.0.6 =
 If you use AI-Kit Pro, this update adds the new **Doc Search** front-end UI (block + shortcode) and the matching JavaScript helper (`renderSearchComponent`) for Knowledge Base search experiences.

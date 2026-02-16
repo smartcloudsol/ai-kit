@@ -272,7 +272,7 @@ const DocSearchBase: FC<Props> = (props) => {
       onClose={close}
       padding="md"
       gap="md"
-      size="md"
+      size="xl"
       portalProps={
         variation === "modal"
           ? { target: rootElement, reuseTargetNode: true }
@@ -325,6 +325,8 @@ const DocSearchBase: FC<Props> = (props) => {
                   />
 
                   <Button
+                    variant="filled"
+                    size="sm"
                     leftSection={buttonLeftIcon}
                     onClick={() => void onSearch()}
                     disabled={!canSearch}
@@ -338,7 +340,7 @@ const DocSearchBase: FC<Props> = (props) => {
                   </Button>
 
                   {busy ? (
-                    <Button variant="light" color="red" onClick={cancel}>
+                    <Button variant="outline" size="sm" onClick={cancel}>
                       {I18n.get("Stop")}
                     </Button>
                   ) : null}

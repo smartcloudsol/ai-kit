@@ -1,7 +1,7 @@
 {
   "name": "@smart-cloud/ai-kit-blocks",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "license": "ISC",
   "scripts": {
@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@smart-cloud/ai-kit-core": "^1.1.21",
-    "@smart-cloud/ai-kit-ui": "^1.1.42",
+    "@smart-cloud/ai-kit-ui": "^1.1.43",
     "@smart-cloud/wpsuite-core": "^2.1.2",
     "yaml": "^2.8.2"
   },
