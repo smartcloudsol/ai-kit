@@ -8,7 +8,8 @@ module.exports = function () {
       ...defaultConfig.externals,
       "@mantine/core": "WpSuiteMantine",
       "@mantine/hook": "WpSuiteMantine",
-      crypto: "WpSuiteWebcrypto",
+      "crypto": "WpSuiteCrypto",
+      "jose": "WpSuiteJose",
     },
     optimization: {
       ...defaultConfig.optimization,

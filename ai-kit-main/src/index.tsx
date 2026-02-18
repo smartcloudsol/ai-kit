@@ -274,14 +274,14 @@ onDomReady(async () => {
   if (
     aiKit.settings?.reCaptchaSiteKey &&
     !document.querySelector(
-      `[smartcloud-wpsuite-recaptcha-provider='${aiKit.settings.reCaptchaSiteKey}']`,
+      `[smartcloud-wpsuite-recaptcha-provider-${aiKit.settings.reCaptchaSiteKey}]`,
     )
   ) {
     const el = document.createElement("div");
     el.id = "smartcloud-ai-kit-recaptcha-provider";
     el.setAttribute(
-      "smartcloud-wpsuite-recaptcha-provider",
-      aiKit.settings.reCaptchaSiteKey,
+      `smartcloud-wpsuite-recaptcha-provider-${aiKit.settings.reCaptchaSiteKey}`,
+      "true",
     );
     document.body.appendChild(el);
     const observer = new MutationObserver(() => {

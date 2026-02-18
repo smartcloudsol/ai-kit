@@ -19,7 +19,8 @@ module.exports = function (env = {}) {
     externals: {
       ...defaultConfig.externals,
       "@mantine/core": "WpSuiteMantine",
-      "crypto": "WpSuiteWebcrypto",
+      "crypto": "WpSuiteCrypto",
+      "jose": "WpSuiteJose",
     },
     optimization: {
       ...defaultConfig.optimization,

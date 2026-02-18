@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/ai-kit-main",
-  "version": "1.0.6",
+  "version": "1.2.0",
   "type": "module",
   "license": "ISC",
   "scripts": {
@@ -16,8 +16,9 @@
     "check-licenses": "wp-scripts check-licenses --prod"
   },
   "dependencies": {
-    "@smart-cloud/ai-kit-core": "^1.1.21",
-    "@smart-cloud/ai-kit-ui": "^1.1.44",
+    "@smart-cloud/ai-kit-core": "^1.2.7",
+    "@smart-cloud/ai-kit-ui": "^1.2.7",
+    "@smart-cloud/wpsuite-core": "^2.2.6",
     "react-google-recaptcha-v3": "^1.11.0"
   },
   "peerDependencies": {
@@ -31,8 +32,8 @@
     "@types/jquery": "^3.5.33",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@typescript-eslint/eslint-plugin": "^8.55.0",
-    "@typescript-eslint/parser": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
     "@wordpress/data": "^10.39.0",
     "@wordpress/scripts": "^31.4.0",
     "ajv": "^8.17.1",
@@ -44,6 +45,6 @@
     "react-dom": "^18.3.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.55.0"
+    "typescript-eslint": "^8.56.0"
   }
 }

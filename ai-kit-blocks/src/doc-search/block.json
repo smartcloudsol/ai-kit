@@ -2,7 +2,7 @@
   "$schema": "https://schemas.wp.org/trunk/block.json",
   "apiVersion": 3,
   "name": "smartcloud-ai-kit/doc-search",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "AI-Kit Doc Search (PRO)",
   "category": "smartcloud-ai-kit",
   "description": "AI-Kit Doc Search - knowledge base search summary with sources",

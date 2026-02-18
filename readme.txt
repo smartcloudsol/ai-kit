@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,9 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.0.8 =
+Fix: Improved WebCrypto polyfill initialization so AI-Kit works reliably even in insecure (non-HTTPS) environments where crypto.subtle may be unavailable during early boot.
+
 = 1.0.7 =
 Improved: Doc Search modal view now uses a wider dialog for a better search-focused layout.
 
@@ -223,6 +226,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.0.8 =
+Recommended update if you use AI-Kit on non-HTTPS / non-secure contexts (e.g. local dev, staging, embedded previews). Ensures WebCrypto polyfills load deterministically and prevents missing crypto.subtle initialization issues.
 
 = 1.0.7 =
 No action required. Clear any page/CDN cache if the modal size doesn’t update immediately.

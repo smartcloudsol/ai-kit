@@ -1,7 +1,7 @@
 {
   "name": "@smart-cloud/ai-kit-blocks",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.1.0",
   "type": "module",
   "license": "ISC",
   "scripts": {
@@ -19,35 +19,34 @@
     "check-licenses": "wp-scripts check-licenses --prod"
   },
   "dependencies": {
-    "@smart-cloud/ai-kit-core": "^1.1.21",
-    "@smart-cloud/ai-kit-ui": "^1.1.43",
-    "@smart-cloud/wpsuite-core": "^2.1.2",
+    "@smart-cloud/ai-kit-core": "^1.2.7",
+    "@smart-cloud/ai-kit-ui": "^1.2.7",
     "yaml": "^2.8.2"
   },
   "peerDependencies": {
-    "@mantine/core": "^8.3.14",
-    "@mantine/hooks": "^8.3.14",
+    "@mantine/core": "^8.3.15",
+    "@mantine/hooks": "^8.3.15",
     "@wordpress/block-editor": "^15.12.0",
     "@wordpress/blocks": "^15.12.0",
     "@wordpress/data": "^10.39.0",
     "@wordpress/editor": "^14.39.0",
     "@wordpress/i18n": "^6.12.0",
     "@wordpress/plugins": "^7.39.0",
-    "aws-amplify": "^6.16.0",
+    "aws-amplify": "^6.16.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@mantine/core": "^8.3.14",
-    "@mantine/hooks": "^8.3.14",
+    "@mantine/core": "^8.3.15",
+    "@mantine/hooks": "^8.3.15",
     "@types/jquery": "^3.5.33",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@types/react-google-recaptcha": "^2.1.9",
     "@types/wordpress__block-editor": "^15.0.0",
     "@types/wordpress__blocks": "^12.5.18",
-    "@typescript-eslint/eslint-plugin": "^8.55.0",
-    "@typescript-eslint/parser": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
     "@vitejs/plugin-basic-ssl": "^2.1.4",
     "@vitejs/plugin-react-swc": "^4.2.3",
     "@wordpress/block-editor": "^15.12.0",
@@ -58,7 +57,7 @@
     "@wordpress/plugins": "^7.39.0",
     "@wordpress/scripts": "^31.4.0",
     "ajv": "^8.17.1",
-    "aws-amplify": "^6.16.0",
+    "aws-amplify": "^6.16.2",
     "eslint": "^10.0.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.0",
@@ -66,7 +65,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.55.0",
+    "typescript-eslint": "^8.56.0",
     "vite": "^7.3.1"
   }
 }

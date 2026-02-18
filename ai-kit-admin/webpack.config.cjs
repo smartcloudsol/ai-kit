@@ -38,7 +38,8 @@ module.exports = function () {
       "@mantine/modals": "WpSuiteMantine",
       "@mantine/notifications": "WpSuiteMantine",
       "country-data-list": "WpSuiteAmplify",
-      "crypto": "WpSuiteWebcrypto",
+      "crypto": "WpSuiteCrypto",
+      "jose": "WpSuiteJose",
     },
     plugins: [
       ...defaultConfig.plugins.filter(

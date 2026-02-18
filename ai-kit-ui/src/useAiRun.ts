@@ -161,7 +161,7 @@ export function useAiRun<T>(): UseAiRunResult<T> {
           setError(null);
           return null;
         }
-        throw new Error(getErrorMessage(err));
+        throw new Error(getErrorMessage(err), { cause: err });
       } finally {
         setBusy(false);
         setStatusEvent(null);
