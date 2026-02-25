@@ -254,6 +254,7 @@ async function renderChatbot(args: AiWorkerProps): Promise<AiWorkerHandle> {
     <StrictMode>
       <ChatbotComponent
         Component={AiChatbot}
+        context="frontend"
         {...aiChatbotProps}
         onClose={handleClose}
         previewMode={false}

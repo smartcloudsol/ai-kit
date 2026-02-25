@@ -79,8 +79,8 @@ const pages = {
         </span>
       </Title>
       <Text>
-        Optimizes multi-turn chats (for example a chatbot conversation). After
-        a successful reCAPTCHA verification, AI-Kit will reuse that result for a
+        Optimizes multi-turn chats (for example a chatbot conversation). After a
+        successful reCAPTCHA verification, AI-Kit will reuse that result for a
         short time window and won’t request/verify new reCAPTCHA tokens on every
         message.
       </Text>
@@ -382,6 +382,421 @@ const pages = {
       <Text>
         Maximum allowed image size in bytes. This helps avoid large uploads and
         keeps requests within backend limits.
+      </Text>
+    </>
+  ),
+
+  "kb-admin": (
+    <>
+      <Title order={2}>Knowledge Base Admin</Title>
+      <Text>
+        The Knowledge Base (KB) Admin interface allows you to transform your
+        WordPress posts and pages into structured knowledge base documents that
+        can be published to your AI-Kit backend for use in chatbots and other AI
+        features.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-admin-overview">
+        <span className="highlightable">Overview</span>
+      </Title>
+      <Text>
+        KB Admin treats WordPress as the single source of truth. Any post or
+        page can be enabled as a KB source. The system automatically generates
+        markdown documents from your content, which you can review, customize,
+        and publish to your backend.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-settings-base-url">
+        <span className="highlightable">Base URL Override</span>
+      </Title>
+      <Text>
+        Optional. Overrides the WordPress site URL in source links embedded in
+        KB documents. This is useful when your development environment URL
+        differs from your production URL.
+      </Text>
+      <Text mt="xs">
+        <strong>Example:</strong> If you develop on{" "}
+        <Code>http://localhost:10004</Code> but deploy to{" "}
+        <Code>https://example.com</Code>, set this field to{" "}
+        <Code>https://example.com</Code>. This ensures that all source links in
+        published KB documents point to your production site instead of
+        localhost.
+      </Text>
+      <Text mt="xs">
+        Leave empty to use the default WordPress site URL from settings.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-sources-list">
+        <span className="highlightable">KB Sources List</span>
+      </Title>
+      <Text>
+        The sources list shows all posts and pages that are enabled as KB
+        sources. Each source displays its current status, last update time, and
+        publish state.
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>
+          <strong>Post Status:</strong> Whether the WordPress post is published
+          (Live) or in draft state
+        </List.Item>
+        <List.Item>
+          <strong>KB Status:</strong> The review and publish state of the KB
+          document (Needs Review, Ready to Publish, Published)
+        </List.Item>
+        <List.Item>
+          <strong>Filters:</strong> Search by title, filter by post type,
+          status, or KB status to quickly find sources
+        </List.Item>
+      </List>
+
+      <Title order={3} mt="md" id="kb-add-source">
+        <span className="highlightable">Adding a KB Source</span>
+      </Title>
+      <Text>
+        Click <strong>Add Source</strong> to enable a post or page as a KB
+        source. You can either:
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>
+          Search for a post by title and select it from the results
+        </List.Item>
+        <List.Item>Enter a post ID directly if you know it</List.Item>
+      </List>
+      <Text mt="xs">
+        Once enabled, the system automatically generates KB documents from the
+        post content. These documents will be marked as{" "}
+        <strong>Needs Review</strong> until you approve them.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-document-sections">
+        <span className="highlightable">Documents and Sections</span>
+      </Title>
+      <Text>
+        When you select a KB source, you&apos;ll see its generated documents and
+        sections. The system automatically converts your post content into
+        markdown format.
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>
+          <strong>Documents:</strong> Each post generates at least one base
+          document. Using special KB section blocks in Gutenberg or Elementor,
+          you can create multiple documents from a single post
+        </List.Item>
+        <List.Item>
+          <strong>Sections:</strong> Documents are divided into sections for
+          granular control. Each section can have its own metadata (title,
+          category, tags)
+        </List.Item>
+        <List.Item>
+          <strong>Override:</strong> You can edit any section&apos;s content or
+          metadata. Overridden sections are marked as &quot;locked&quot; and
+          won&apos;t be regenerated automatically
+        </List.Item>
+      </List>
+
+      <Title order={3} mt="md" id="kb-section-blocks">
+        <span className="highlightable">KB Section Blocks and Widgets</span>
+      </Title>
+      <Text>
+        To have fine-grained control over how your posts are converted to KB
+        documents, you can use special <strong>KB Section</strong> container
+        blocks (in Gutenberg) or widgets (in Elementor) within your source
+        posts.
+      </Text>
+      <Text mt="xs">
+        <strong>The KB Section block/widget allows you to:</strong>
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>
+          <strong>Create separate documents:</strong> Mark any section to
+          generate its own standalone KB document with unique metadata
+          (category, subcategory, tags) different from the main post
+        </List.Item>
+        <List.Item>
+          <strong>Exclude sections:</strong> Completely omit certain sections
+          from KB document generation (useful for site-specific content that
+          shouldn&apos;t be in the knowledge base)
+        </List.Item>
+        <List.Item>
+          <strong>Designate override targets:</strong> Mark sections where you
+          plan to set permanent overrides that won&apos;t be affected by future
+          KB document regenerations
+        </List.Item>
+        <List.Item>
+          <strong>Custom metadata per section:</strong> Assign specific
+          categories, subcategories, and tags to individual sections for better
+          organization in your knowledge base
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        <strong>Gutenberg:</strong> Look for the{" "}
+        <Code>smartcloud-ai-kit/kb-section</Code> container block in the block
+        inserter. Add it to your post and wrap the content you want to control.
+      </Text>
+      <Text mt="xs">
+        <strong>Elementor:</strong> Find the &quot;AI-Kit KB Section&quot;
+        container widget in the widget panel. Drag it onto your page and add
+        elements inside it.
+      </Text>
+      <Text mt="xs">
+        Both the block and widget include settings for mode (inherit /
+        separate_doc / exclude), document key, and metadata overrides.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-section-override">
+        <span className="highlightable">Section Overrides</span>
+      </Title>
+      <Text>
+        Overrides let you customize the generated markdown or metadata for any
+        section. This is useful when:
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>
+          The automatic conversion doesn&apos;t capture your formatting
+          correctly
+        </List.Item>
+        <List.Item>
+          You want to add extra context or explanations for AI consumers
+        </List.Item>
+        <List.Item>
+          You need to adjust metadata like title, category, or tags
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        <strong>Locking behavior:</strong> When you save an override, that
+        section becomes &quot;locked.&quot; Future regenerations won&apos;t
+        overwrite your custom content. If the source post changes, the section
+        will be marked as <strong>Needs Review</strong> so you can decide
+        whether to update your override or keep it as-is.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-regenerate">
+        <span className="highlightable">Regenerating Content</span>
+      </Title>
+      <Text>
+        Click <strong>Regenerate</strong> to re-parse the source post and update
+        all non-locked sections. This is useful when:
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>You&apos;ve edited the source post in WordPress</List.Item>
+        <List.Item>
+          You want to refresh the generated markdown to pick up changes
+        </List.Item>
+        <List.Item>
+          You&apos;ve adjusted your KB section blocks (mode, metadata)
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        Locked (overridden) sections will not be regenerated. They&apos;ll be
+        flagged for review if their source content has changed.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-approve">
+        <span className="highlightable">Approving Documents</span>
+      </Title>
+      <Text>
+        Before publishing, you must approve documents. Click{" "}
+        <strong>Approve for Publishing</strong> to mark all documents in the
+        post as <strong>Ready to Publish</strong>. This confirms that
+        you&apos;ve reviewed the content and it&apos;s ready to be sent to the
+        backend.
+      </Text>
+      <Text mt="xs">
+        This step prevents accidental publication of unreviewed or incomplete
+        content.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-publish">
+        <span className="highlightable">Publishing to Backend</span>
+      </Title>
+      <Text>
+        Click <strong>Publish to KB</strong> to upload all approved documents to
+        your AI-Kit backend. The documents are:
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>
+          Uploaded to S3 with metadata (post ID, URL, account/site info)
+        </List.Item>
+        <List.Item>
+          Ingested by the backend for use in AI features (with debouncing to
+          avoid duplicate processing)
+        </List.Item>
+        <List.Item>
+          Tracked in the publish state table so you know what&apos;s currently
+          live
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        The system automatically handles orphaned documents (documents that were
+        previously published but are no longer part of the post) by deleting
+        them from the backend.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-config-metadata">
+        <span className="highlightable">Metadata Configuration</span>
+      </Title>
+      <Text>
+        The <strong>KB Configuration</strong> section allows you to manage the
+        metadata schema used by all KB documents. This includes:
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>
+          <strong>Categories and Subcategories:</strong> Hierarchical
+          classification for documents
+        </List.Item>
+        <List.Item>
+          <strong>Tags:</strong> Flat taxonomy for cross-cutting topics
+        </List.Item>
+        <List.Item>
+          <strong>YAML format:</strong> The configuration is stored as YAML in
+          S3 for easy editing
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        You can edit the metadata configuration directly in the Monaco editor.
+        Click the <strong>Compare</strong> button to see a diff between your
+        current configuration and the metadata derived from all enabled KB
+        sources. This helps you keep the taxonomy in sync with your actual
+        content.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-config-prompts">
+        <span className="highlightable">Prompt Templates</span>
+      </Title>
+      <Text>
+        Prompt templates control how the backend processes KB queries and
+        generates responses. Each template is a markdown-formatted prompt with
+        placeholders and instructions for AI models.
+      </Text>
+      <Text mt="xs">
+        Templates are stored in S3 and loaded at runtime by the backend. Changes
+        take effect immediately after saving.
+      </Text>
+
+      <Title order={4} mt="md">
+        <strong>Retrieval Templates (RAG Pipeline):</strong>
+      </Title>
+
+      <Text mt="xs">
+        <strong>QUERY template:</strong> The model uses this to build the KB
+        retrieval query. It analyzes the user&apos;s question and selects
+        relevant categories, subcategories, and tags for metadata filtering.
+        Output must be JSON format (query, categories, subCategories, tags).
+      </Text>
+
+      <Text mt="xs">
+        <strong>RERANK template:</strong> Used to rerank KB retrieval results.
+        Semantically evaluates which passages are most relevant to the
+        user&apos;s question, enabling more accurate answers. Output must be
+        JSON format with passage IDs and scores.
+      </Text>
+
+      <Text mt="xs">
+        <strong>SUMMARY template:</strong> When conversation history grows too
+        long, this template summarizes previous messages and context so the
+        model can remember prior conversation without reprocessing every old
+        message.
+      </Text>
+
+      <Title order={4} mt="md">
+        <strong>Answer Templates (Chatbot Mode):</strong>
+      </Title>
+
+      <Text mt="xs">
+        <strong>ANSWER template:</strong> Default answer template in Chatbot
+        mode when KB retrieval returned one or more snippets. The assistant must
+        answer using the retrieved snippets/shared context according to the
+        effective grounding policy.
+      </Text>
+
+      <Text mt="xs">
+        <strong>ANSWER-AMBIGUOUS-SOURCES template:</strong> Used when the KB
+        query/filter step indicates multiple similarly relevant top-level
+        categories. The assistant must ask exactly one short clarification
+        question (no answer yet) to disambiguate which category the user needs.
+      </Text>
+
+      <Text mt="xs">
+        <strong>ANSWER-KB-ONLY template:</strong> Used when grounding is
+        required and fallback without KB is not allowed (requiresGrounding
+        &amp;&amp; !allowFallbackWithoutKb). The assistant explicitly states
+        that the documentation does not contain the requested information and
+        does not fall back to general knowledge.
+      </Text>
+
+      <Text mt="xs">
+        <strong>ANSWER-ASK-WHEN-NO-KB template:</strong> Used when grounding is
+        not required, but fallback without KB is not allowed (!requiresGrounding
+        &amp;&amp; !allowFallbackWithoutKb). The assistant asks clarifying
+        questions instead of guessing or using general knowledge.
+      </Text>
+
+      <Text mt="xs">
+        <strong>ANSWER-KB-PREFERRED template:</strong> Used when grounding is
+        not required and fallback without KB is allowed (!requiresGrounding
+        &amp;&amp; allowFallbackWithoutKb). The assistant may answer from
+        general knowledge, clearly labeled as not found in docs.
+      </Text>
+
+      <Title order={4} mt="md">
+        <strong>DocSearch Mode:</strong>
+      </Title>
+
+      <Text mt="xs">
+        <strong>ANSWER-KB-RAG template:</strong> DocSearch-specific synthesis
+        prompt used in KB research/search mode. This mode may combine evidence
+        across multiple top-level categories and produce an AI Summary grounded
+        in the retrieved snippets.
+      </Text>
+
+      <Text mt="xs" c="dimmed" size="sm">
+        <strong>Note:</strong> The backend automatically selects the appropriate
+        answer template based on retrieval results and the category grounding
+        policy defined in metadata-config.yaml. Chatbot mode uses ANSWER when
+        snippets are found, and switches to fallback templates (AMBIGUOUS,
+        KB-ONLY, ASK-WHEN-NO-KB, KB-PREFERRED) when retrieval returns no
+        snippets or needs disambiguation.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-disable-source">
+        <span className="highlightable">Disabling a KB Source</span>
+      </Title>
+      <Text>
+        To remove a post from KB sources, click the <strong>Disable</strong>{" "}
+        action. This will:
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>Remove the post from the KB sources list</List.Item>
+        <List.Item>
+          Delete all published documents from the backend (S3 cleanup)
+        </List.Item>
+        <List.Item>
+          Clear the publish state from the WordPress database
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        This is a destructive action and requires confirmation. The source post
+        itself remains unchanged in WordPress.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-backend-requirements">
+        <span className="highlightable">Backend Requirements</span>
+      </Title>
+      <Text>
+        KB Admin requires a configured backend connection. Make sure you&apos;ve
+        set up API settings with either:
+      </Text>
+      <List size="sm" spacing="xs" mt="xs" withPadding>
+        <List.Item>
+          <strong>Gatey transport:</strong> Amplify REST via WP Suite (easiest)
+        </List.Item>
+        <List.Item>
+          <strong>Fetch transport:</strong> Direct base URL to your API Gateway
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        If the backend is not available, you&apos;ll see an alert in the KB
+        Admin interface with details about why it&apos;s unavailable.
       </Text>
     </>
   ),

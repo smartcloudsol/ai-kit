@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Anchor,
+  Box,
   Button,
   Group,
   Input,
@@ -13,12 +14,14 @@ import {
 import {
   IconMaximize,
   IconMessage,
+  IconMicrophone,
   IconMinimize,
   IconPaperclip,
   IconPencil,
   IconPlayerStop,
   IconSend,
   IconTrash,
+  IconX,
 } from "@tabler/icons-react";
 
 import {
@@ -56,6 +59,8 @@ import {
 I18n.putVocabularies(translations);
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+const USE_AUDIO = false; // Set to true to enable audio recording feature (requires backend support for audio input)
 
 // New: history storage support
 const DEFAULT_PRESERVATION_TIME_DAYS = 1;
@@ -133,6 +138,8 @@ type ChatMessageAttachment = {
   blobId?: string;
   objectUrl?: string | null;
   blob?: Blob;
+  duration?: number; // For audio/video attachments
+  mediaType?: "image" | "audio"; // Distinguish media types
 };
 
 type ChatMessage = {
@@ -150,6 +157,13 @@ type ComposerImage = {
   id: string;
   file: File;
   objectUrl: string;
+};
+
+type ComposerAudio = {
+  id: string;
+  blob: Blob;
+  objectUrl: string;
+  duration: number;
 };
 
 type PersistedAttachment = Omit<ChatMessageAttachment, "objectUrl" | "blob">;
@@ -288,6 +302,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     onClose,
 
     // AiChatbotProps
+    context,
     placeholder,
     maxImages,
     maxImageBytes,
@@ -312,6 +327,16 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   const [question, setQuestion] = useState("");
   const [composerImages, setComposerImages] = useState<ComposerImage[]>([]);
+  const [composerAudio, setComposerAudio] = useState<ComposerAudio | null>(
+    null,
+  );
+  const [recording, setRecording] = useState<boolean>(false);
+  const [audioLevel, setAudioLevel] = useState<number>(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [statusLineError, setStatusLineError] = useState<string | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -355,6 +380,125 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [disposeComposerImageList]);
 
+  const clearComposerAudio = useCallback(() => {
+    if (composerAudioRef.current) {
+      revokeObjectUrlSafe(composerAudioRef.current.objectUrl);
+    }
+    setComposerAudio(null);
+    audioChunksRef.current = [];
+    setAudioLevel(0);
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    try {
+      // Clear question input when starting audio recording
+      setQuestion("");
+      // Clear any existing audio
+      clearComposerAudio();
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm",
+      });
+
+      // Setup audio analysis for visual feedback
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      // Monitor audio level
+      const dataArray = new Uint8Array(analyser.fftSize);
+      const updateLevel = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const normalized = (dataArray[i]! - 128) / 128;
+          sum += normalized * normalized;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const level = Math.min(100, rms * 200);
+        setAudioLevel(level);
+
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+      updateLevel();
+
+      audioChunksRef.current = [];
+      const recordStartTime = Date.now();
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        const duration = (Date.now() - recordStartTime) / 1000; // duration in seconds
+        const objectUrl = createObjectUrl(audioBlob);
+
+        if (objectUrl) {
+          setComposerAudio({
+            id: createMessageId("composer-audio"),
+            blob: audioBlob,
+            objectUrl,
+            duration,
+          });
+        }
+
+        stream.getTracks().forEach((track) => track.stop());
+
+        // Cleanup audio analysis
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
+        analyserRef.current = null;
+        setAudioLevel(0);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setRecording(true);
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+    }
+  }, [clearComposerAudio]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+    }
+  }, [recording]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      clearComposerAudio();
+    };
+  }, [clearComposerAudio]);
+
   // New: persist timestamp of last actually-sent user message
   const [lastUserSentAt, setLastUserSentAt] = useState<number | null>(null);
 
@@ -363,6 +507,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   const messagesRef = useRef(messages);
   const lastUserSentAtRef = useRef(lastUserSentAt);
   const composerImagesRef = useRef(composerImages);
+  const composerAudioRef = useRef(composerAudio);
 
   useEffect(() => {
     questionRef.current = question;
@@ -370,6 +515,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   useEffect(() => {
     composerImagesRef.current = composerImages;
   }, [composerImages]);
+  useEffect(() => {
+    composerAudioRef.current = composerAudio;
+  }, [composerAudio]);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -406,8 +554,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   const canSend = useMemo(() => {
     if (isChatBusy) return false;
-    return question.trim().length > 0;
-  }, [question, isChatBusy]);
+    // Can send if we have text OR audio
+    return question.trim().length > 0 || composerAudio !== null;
+  }, [question, isChatBusy, composerAudio]);
 
   const openButtonLabel = useMemo(() => {
     const raw = openButtonTitle ? openButtonTitle : labels.askMeLabel;
@@ -657,47 +806,90 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   }, [statusLineError]);
 
   const buildUserAttachments = useCallback(
-    async (sources: ComposerImage[]): Promise<ChatMessageAttachment[]> => {
-      if (!sources.length) return [];
-
+    async (
+      images: ComposerImage[],
+      audio?: ComposerAudio | null,
+    ): Promise<ChatMessageAttachment[]> => {
       const shouldPersist = historyStorage !== "nostorage";
+      const attachments: ChatMessageAttachment[] = [];
 
-      const built = await Promise.all(
-        sources.map(async (img) => {
-          const attachmentId = createMessageId("attachment");
-          let blobId: string | undefined;
-          if (shouldPersist) {
-            try {
-              const persisted = await persistAttachmentBlob(
-                attachmentId,
-                img.file,
-                {
-                  name: img.file.name,
-                  type: img.file.type,
-                  size: img.file.size,
-                },
-              );
-              blobId = persisted ?? undefined;
-            } catch (error) {
-              console.warn("[AiChatbot] Failed to persist attachment", error);
+      // Build image attachments
+      if (images.length > 0) {
+        const imageAttachments = await Promise.all(
+          images.map(async (img) => {
+            const attachmentId = createMessageId("attachment-image");
+            let blobId: string | undefined;
+            if (shouldPersist) {
+              try {
+                const persisted = await persistAttachmentBlob(
+                  attachmentId,
+                  img.file,
+                  {
+                    name: img.file.name,
+                    type: img.file.type,
+                    size: img.file.size,
+                  },
+                );
+                blobId = persisted ?? undefined;
+              } catch (error) {
+                console.warn("[AiChatbot] Failed to persist image", error);
+              }
             }
+
+            const objectUrl = createObjectUrl(img.file);
+
+            return {
+              id: attachmentId,
+              name: img.file.name,
+              type: img.file.type || "application/octet-stream",
+              size: img.file.size,
+              blobId,
+              objectUrl: objectUrl ?? undefined,
+              blob: img.file,
+              mediaType: "image" as const,
+            } satisfies ChatMessageAttachment;
+          }),
+        );
+        attachments.push(...imageAttachments.filter(Boolean));
+      }
+
+      // Build audio attachment
+      if (audio) {
+        const attachmentId = createMessageId("attachment-audio");
+        let blobId: string | undefined;
+        if (shouldPersist) {
+          try {
+            const persisted = await persistAttachmentBlob(
+              attachmentId,
+              audio.blob,
+              {
+                name: `audio-${Date.now()}.webm`,
+                type: audio.blob.type,
+                size: audio.blob.size,
+              },
+            );
+            blobId = persisted ?? undefined;
+          } catch (error) {
+            console.warn("[AiChatbot] Failed to persist audio", error);
           }
+        }
 
-          const objectUrl = createObjectUrl(img.file);
+        const objectUrl = createObjectUrl(audio.blob);
 
-          return {
-            id: attachmentId,
-            name: img.file.name,
-            type: img.file.type || "application/octet-stream",
-            size: img.file.size,
-            blobId,
-            objectUrl: objectUrl ?? undefined,
-            blob: img.file,
-          } satisfies ChatMessageAttachment;
-        }),
-      );
+        attachments.push({
+          id: attachmentId,
+          name: `audio-${Date.now()}.webm`,
+          type: audio.blob.type || "audio/webm",
+          size: audio.blob.size,
+          blobId,
+          objectUrl: objectUrl ?? undefined,
+          blob: audio.blob,
+          duration: audio.duration,
+          mediaType: "audio" as const,
+        } satisfies ChatMessageAttachment);
+      }
 
-      return built.filter(Boolean);
+      return attachments;
     },
     [historyStorage],
   );
@@ -818,6 +1010,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   const resetConversation = useCallback(() => {
     disposeMessagesAttachments(messagesRef.current);
     clearComposerImages();
+    clearComposerAudio();
     setMessages([]);
     setStatusLineError(null);
     sessionRef.current = null;
@@ -835,7 +1028,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     }
 
     void clearAllAttachments();
-  }, [clearComposerImages, historyStorage]);
+  }, [clearComposerImages, clearComposerAudio, historyStorage]);
 
   const handleResetClick = useCallback(() => {
     // Open confirmation dialog
@@ -881,6 +1074,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             {
               signal,
               onStatus,
+              context,
             },
           );
           return null;
@@ -918,20 +1112,26 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   const ask = useCallback(async () => {
     const trimmed = questionRef.current.trim();
-    if (!trimmed || ai.busy) return;
+    const selectedAudio = composerAudioRef.current;
+
+    // Can send if we have text OR audio
+    if ((!trimmed && !selectedAudio) || ai.busy) return;
 
     cancelRequestedRef.current = false;
     setStatusLineError(null);
     setActiveOp("chat");
     const selectedImages = [...composerImagesRef.current];
-    const userAttachments = await buildUserAttachments(selectedImages);
+    const userAttachments = await buildUserAttachments(
+      selectedImages,
+      selectedAudio,
+    );
 
     const userMessageId = createMessageId("user");
     const userMessageCreatedAt = Date.now();
     const userMessage: ChatMessage = {
       id: userMessageId,
       role: "user",
-      content: trimmed,
+      content: trimmed || (selectedAudio ? "[Audio message]" : ""),
       createdAt: userMessageCreatedAt,
       clientStatus: "pending",
       attachments: userAttachments.length ? userAttachments : undefined,
@@ -940,6 +1140,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     // optimistic UI
     setQuestion("");
     clearComposerImages();
+    clearComposerAudio();
     setMessages((prev) => [...prev, userMessage]);
 
     if (!opened) setOpened(true);
@@ -957,12 +1158,14 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         const out = await sendChatMessage(
           {
             sessionId: activeSessionId,
-            message: trimmed,
+            message: trimmed || undefined,
+            audio: selectedAudio?.blob,
             images: selectedImages.map((img) => img.file),
           },
           {
             signal,
             onStatus,
+            context,
           },
         );
         return out;
@@ -1044,6 +1247,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     ai,
     buildUserAttachments,
     clearComposerImages,
+    clearComposerAudio,
     opened,
     scrollToBottom,
     markLastPendingAs,
@@ -1563,40 +1767,110 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                       </Stack>
 
                       {msg.attachments && msg.attachments.length > 0 && (
-                        <Group className="ai-thumbs ai-message-thumbs" gap="xs">
-                          {msg.attachments.map((attachment) => (
-                            <button
-                              key={attachment.id}
-                              type="button"
-                              className="thumb"
-                              style={{
-                                backgroundImage: attachment.objectUrl
-                                  ? `url(${attachment.objectUrl})`
-                                  : undefined,
-                                backgroundSize: "cover",
-                                backgroundPosition: "center",
-                                backgroundRepeat: "no-repeat",
-                              }}
-                              onClick={() =>
-                                openAttachmentPreview(
-                                  attachment.objectUrl,
-                                  attachment.name,
-                                )
-                              }
-                              disabled={!attachment.objectUrl}
-                              title={attachment.name || I18n.get("View image")}
-                              aria-label={
-                                attachment.name || I18n.get("View image")
-                              }
+                        <Stack
+                          gap="xs"
+                          style={{ maxWidth: "min(400px, 100%)" }}
+                        >
+                          {/* Image attachments */}
+                          {msg.attachments.filter(
+                            (att) =>
+                              att.mediaType === "image" ||
+                              (!att.mediaType && att.type.startsWith("image/")),
+                          ).length > 0 && (
+                            <Group
+                              className="ai-thumbs ai-message-thumbs"
+                              gap="xs"
                             >
-                              {!attachment.objectUrl && (
-                                <Text size="xs" c="dimmed">
-                                  {I18n.get("Loading image...")}
-                                </Text>
-                              )}
-                            </button>
-                          ))}
-                        </Group>
+                              {msg.attachments
+                                .filter(
+                                  (att) =>
+                                    att.mediaType === "image" ||
+                                    (!att.mediaType &&
+                                      att.type.startsWith("image/")),
+                                )
+                                .map((attachment) => (
+                                  <button
+                                    key={attachment.id}
+                                    type="button"
+                                    className="thumb"
+                                    style={{
+                                      backgroundImage: attachment.objectUrl
+                                        ? `url(${attachment.objectUrl})`
+                                        : undefined,
+                                      backgroundSize: "cover",
+                                      backgroundPosition: "center",
+                                      backgroundRepeat: "no-repeat",
+                                    }}
+                                    onClick={() =>
+                                      openAttachmentPreview(
+                                        attachment.objectUrl,
+                                        attachment.name,
+                                      )
+                                    }
+                                    disabled={!attachment.objectUrl}
+                                    title={
+                                      attachment.name || I18n.get("View image")
+                                    }
+                                    aria-label={
+                                      attachment.name || I18n.get("View image")
+                                    }
+                                  >
+                                    {!attachment.objectUrl && (
+                                      <Text size="xs" c="dimmed">
+                                        {I18n.get("Image no longer available")}
+                                      </Text>
+                                    )}
+                                  </button>
+                                ))}
+                            </Group>
+                          )}
+
+                          {/* Audio attachments */}
+                          {msg.attachments
+                            .filter(
+                              (att) =>
+                                att.mediaType === "audio" ||
+                                (!att.mediaType &&
+                                  att.type.startsWith("audio/")),
+                            )
+                            .map((attachment) => (
+                              <Box
+                                key={attachment.id}
+                                p="sm"
+                                style={{
+                                  backgroundColor:
+                                    "var(--ai-kit-chat-surface-subtle)",
+                                  borderRadius: "var(--ai-kit-radius-sm)",
+                                  border:
+                                    "1px solid var(--ai-kit-chat-border-color)",
+                                }}
+                              >
+                                {attachment.objectUrl ? (
+                                  <Stack gap="xs">
+                                    <audio
+                                      className="ai-kit-audio-player"
+                                      controls
+                                      src={attachment.objectUrl}
+                                      preload="metadata"
+                                    />
+                                    {attachment.duration && (
+                                      <Text
+                                        size="xs"
+                                        c="dimmed"
+                                        style={{ textAlign: "right" }}
+                                      >
+                                        {Math.round(attachment.duration)}s
+                                      </Text>
+                                    )}
+                                  </Stack>
+                                ) : (
+                                  <Text size="xs" c="dimmed">
+                                    {I18n.get("Audio no longer available")}
+                                  </Text>
+                                )}
+                              </Box>
+                            ))}
+                        </Stack>
                       )}
 
                       {isLastCanceled && (
@@ -1759,11 +2033,60 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                   value={question}
                   onChange={(e) => {
                     setQuestion(e.target.value);
+                    // Clear audio when typing
+                    if (composerAudio) {
+                      clearComposerAudio();
+                    }
                   }}
                   onKeyDown={handleQuestionKeyDown}
                   rows={3}
+                  disabled={recording || !!composerAudio}
                 />
               </Group>
+
+              {/* Audio level indicator when recording */}
+              {USE_AUDIO && recording && (
+                <Stack gap="xs" mt="xs">
+                  <Text size="xs" c="dimmed">
+                    <em>{I18n.get("Recording...")}</em>
+                  </Text>
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "4px",
+                      backgroundColor: "var(--mantine-color-gray-3)",
+                      borderRadius: "2px",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${audioLevel}%`,
+                        height: "100%",
+                        backgroundColor: "var(--mantine-color-red-6)",
+                        transition: "width 0.1s ease",
+                      }}
+                    />
+                  </div>
+                </Stack>
+              )}
+
+              {/* Audio playback when recorded */}
+              {USE_AUDIO && composerAudio && !recording && (
+                <Stack gap="xs" mt="xs">
+                  <Text size="xs" c="dimmed">
+                    <em>
+                      {I18n.get("Audio recorded")} (
+                      {Math.round(composerAudio.duration)}s)
+                    </em>
+                  </Text>
+                  <audio
+                    className="ai-kit-audio-player"
+                    controls
+                    src={composerAudio.objectUrl}
+                  />
+                </Stack>
+              )}
 
               <Group className="ai-actions" justify="space-between" w="100%">
                 <Group justify="flex-start">
@@ -1779,6 +2102,40 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                 </Group>
 
                 <Group justify="flex-end">
+                  {/* Microphone button */}
+                  {USE_AUDIO && (
+                    <>
+                      {composerAudio ? (
+                        <Button
+                          variant="outline"
+                          leftSection={<IconX size={18} />}
+                          onClick={clearComposerAudio}
+                          disabled={isChatBusy}
+                          title={I18n.get("Clear audio")}
+                          data-ai-kit-clear-audio-button
+                        >
+                          {I18n.get("Clear")}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          leftSection={<IconMicrophone size={18} />}
+                          onClick={recording ? stopRecording : startRecording}
+                          disabled={isChatBusy}
+                          title={
+                            recording
+                              ? I18n.get("Stop recording")
+                              : I18n.get("Record audio")
+                          }
+                          color={recording ? "red" : undefined}
+                          data-ai-kit-microphone-button
+                        >
+                          {recording ? I18n.get("Stop") : I18n.get("Record")}
+                        </Button>
+                      )}
+                    </>
+                  )}
+
                   {resolvedMaxImages > 0 && (
                     <>
                       <Button
@@ -1787,7 +2144,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                         onClick={() => fileInputRef.current?.click()}
                         disabled={
                           composerImages.length >= resolvedMaxImages ||
-                          isChatBusy
+                          isChatBusy ||
+                          recording ||
+                          !!composerAudio
                         }
                         title={I18n.get(labels.addImageLabel)}
                         data-ai-kit-add-image-button

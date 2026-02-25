@@ -7,6 +7,7 @@ import {
   Loader,
   Modal,
   Paper,
+  Progress,
   Stack,
   Text,
   TextInput,
@@ -26,6 +27,7 @@ import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 
 import { IconSearch } from "@tabler/icons-react";
+import { IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 
 import { AiFeatureBorder } from "../ai-feature/AiFeatureBorder";
 import { translations } from "../i18n";
@@ -36,6 +38,8 @@ import { PoweredBy } from "../poweredBy";
 I18n.putVocabularies(translations);
 
 type Props = DocSearchProps & AiKitShellInjectedProps;
+
+const USE_AUDIO = false; // Set to true to enable audio recording feature (requires backend support for audio input)
 
 function groupChunksByDoc(result: SearchResult | null) {
   const docs = result?.citations?.docs ?? [];
@@ -81,6 +85,22 @@ const DocSearchBase: FC<Props> = (props) => {
   } = props;
 
   const [query, setQuery] = useState<string>("");
+  const [recording, setRecording] = useState<boolean>(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioLevel, setAudioLevel] = useState<number>(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Audio cache: store uploaded audio to avoid re-uploading within session
+  const audioCacheRef = useRef<{
+    blob: Blob;
+    uploadTimestamp: number;
+  } | null>(null);
+  const AUDIO_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
   const { busy, error, statusEvent, result, run, cancel, reset } =
     useAiRun<SearchResult>();
 
@@ -127,25 +147,170 @@ const DocSearchBase: FC<Props> = (props) => {
 
   const canSearch = useMemo(() => {
     if (busy) return false;
+    // Can search if we have text OR audio
     const text = typeof inputText === "function" ? inputText() : inputText;
-    return Boolean(text && text.trim().length > 0);
-  }, [inputText, busy]);
+    return Boolean((text && text.trim().length > 0) || audioBlob);
+  }, [inputText, busy, audioBlob]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      // Clear query input when starting audio recording
+      setQuery("");
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm",
+      });
+
+      // Setup audio analysis for visual feedback
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048; // Higher for smoother results
+      analyser.smoothingTimeConstant = 0.8; // Smoother transitions
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      // Monitor audio level using time domain data (more reliable)
+      const dataArray = new Uint8Array(analyser.fftSize);
+      const updateLevel = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(dataArray);
+
+        // Calculate RMS (Root Mean Square) for accurate volume
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const normalized = (dataArray[i]! - 128) / 128; // Normalize to -1 to 1
+          sum += normalized * normalized;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+
+        // Convert to percentage (0-100) with scaling for better visibility
+        const level = Math.min(100, rms * 200);
+        setAudioLevel(level);
+
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+      updateLevel();
+
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+        setAudioBlob(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+
+        // Cleanup audio analysis
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = null;
+        }
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
+        analyserRef.current = null;
+        setAudioLevel(0);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setRecording(true);
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+    }
+  }, [recording]);
+
+  const clearAudio = useCallback(() => {
+    setAudioBlob(null);
+    audioChunksRef.current = [];
+    setAudioLevel(0);
+    // Clear audio cache when user manually clears audio
+    audioCacheRef.current = null;
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
 
   const onSearch = useCallback(async () => {
-    const q =
-      typeof inputText === "function"
-        ? (inputText as () => string)()
-        : inputText;
-    if (!q) return;
-    setQuery(q);
+    let q: string | undefined;
+
+    // Get text query if available (not recording audio)
+    if (!audioBlob) {
+      q =
+        typeof inputText === "function"
+          ? (inputText as () => string)()
+          : inputText;
+      if (!q) return;
+      setQuery(q);
+    }
+
+    console.log("Starting search with query:", q, "and audio:", audioBlob);
+
+    // Check if we can reuse cached audio (same blob within TTL)
+    const now = Date.now();
+    const isSameAudio =
+      audioBlob &&
+      audioCacheRef.current?.blob === audioBlob &&
+      now - audioCacheRef.current.uploadTimestamp < AUDIO_CACHE_TTL;
+
+    if (audioBlob && !isSameAudio) {
+      // Update cache for new audio blob
+      audioCacheRef.current = {
+        blob: audioBlob,
+        uploadTimestamp: now,
+      };
+      console.log("Audio cache updated for new recording");
+    } else if (isSameAudio) {
+      console.log(
+        "Reusing cached audio (no re-upload needed within",
+        Math.round(
+          (AUDIO_CACHE_TTL - (now - audioCacheRef.current!.uploadTimestamp)) /
+            1000,
+        ),
+        "seconds)",
+      );
+    }
+
     reset();
     await run(async ({ signal, onStatus }) => {
       return await sendSearchMessage(
-        { sessionId, query: q, topK },
+        {
+          sessionId,
+          ...(q && { query: q }),
+          ...(audioBlob && { audio: audioBlob }), // Pass Blob directly
+          topK,
+        },
         { signal, onStatus, context },
       );
     });
-  }, [context, inputText, run, reset, topK, sessionId]);
+  }, [context, inputText, audioBlob, run, reset, topK, sessionId]);
 
   const close = useCallback(async () => {
     reset();
@@ -313,9 +478,19 @@ const DocSearchBase: FC<Props> = (props) => {
                   <TextInput
                     style={{ flex: 1 }}
                     value={query}
-                    onChange={(e) => setQuery(e.currentTarget.value)}
-                    placeholder={I18n.get("Search the documentation…")}
-                    disabled={busy}
+                    onChange={(e) => {
+                      setQuery(e.currentTarget.value);
+                      // Clear audio when typing
+                      if (audioBlob) {
+                        clearAudio();
+                      }
+                    }}
+                    placeholder={
+                      audioBlob
+                        ? I18n.get("Audio recorded")
+                        : I18n.get("Search the documentation…")
+                    }
+                    disabled={busy || recording || !!audioBlob}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && canSearch) {
                         e.preventDefault();
@@ -323,6 +498,48 @@ const DocSearchBase: FC<Props> = (props) => {
                       }
                     }}
                   />
+
+                  {
+                    /* Microphone button */ USE_AUDIO && (
+                      <>
+                        {audioBlob ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            color="red"
+                            onClick={clearAudio}
+                            disabled={busy}
+                            title={I18n.get("Clear audio")}
+                          >
+                            <IconMicrophoneOff size={18} />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant={recording ? "filled" : "outline"}
+                            size="sm"
+                            color={recording ? "red" : "gray"}
+                            onClick={recording ? stopRecording : startRecording}
+                            disabled={busy}
+                            title={
+                              recording
+                                ? I18n.get("Stop recording")
+                                : I18n.get("Record audio")
+                            }
+                            style={
+                              recording
+                                ? {
+                                    transform: `scale(${1 + audioLevel / 300})`,
+                                    transition: "transform 0.1s ease-out",
+                                  }
+                                : undefined
+                            }
+                          >
+                            <IconMicrophone size={18} />
+                          </Button>
+                        )}
+                      </>
+                    )
+                  }
 
                   <Button
                     variant="filled"
@@ -345,6 +562,41 @@ const DocSearchBase: FC<Props> = (props) => {
                     </Button>
                   ) : null}
                 </Group>
+
+                {
+                  /* Audio level indicator when recording */ USE_AUDIO && (
+                    <>
+                      {recording && (
+                        <Stack gap="xs">
+                          <Text size="xs" c="dimmed">
+                            {I18n.get("Recording...")} 🎤
+                          </Text>
+                          <Progress
+                            value={audioLevel}
+                            size="sm"
+                            color="red"
+                            animated
+                            striped
+                          />
+                        </Stack>
+                      )}
+
+                      {/* Audio playback when recorded */}
+                      {audioBlob && !recording && (
+                        <Stack gap="xs">
+                          <Text size="xs" c="dimmed">
+                            {I18n.get("Recorded audio:")}
+                          </Text>
+                          <audio
+                            controls
+                            src={URL.createObjectURL(audioBlob)}
+                            className="ai-kit-audio-player"
+                          />
+                        </Stack>
+                      )}
+                    </>
+                  )
+                }
 
                 {error ? (
                   <Alert color="red" title={I18n.get("Error")}>

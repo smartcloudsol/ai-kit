@@ -903,3 +903,55 @@
     transform: translateY(-4px);
   }
 }
+
+/* Audio recording pulse animation */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Recording pulse button animation */
+.recording-pulse {
+  animation: pulse 1.5s ease-in-out infinite !important;
+}
+
+/* Audio player styling */
+.ai-kit-audio-player {
+  max-width: 100%;
+  max-height: 40px;
+  border-radius: var(--ai-kit-radius, 4px);
+  outline: none;
+  background: transparent;
+  border: none;
+}
+
+.ai-kit-audio-player::-webkit-media-controls-panel {
+  background: var(--ai-kit-color-surface-3, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--ai-kit-color-border, rgba(0, 0, 0, 0.12));
+  border-radius: var(--ai-kit-radius, 4px);
+}
+
+.ai-kit-audio-player::-webkit-media-controls-play-button,
+.ai-kit-audio-player::-webkit-media-controls-mute-button {
+  background-color: transparent;
+  border-radius: 2px;
+}
+
+.ai-kit-audio-player::-webkit-media-controls-timeline {
+  border-radius: 2px;
+}
+
+.ai-kit-audio-player::-webkit-media-controls-current-time-display,
+.ai-kit-audio-player::-webkit-media-controls-time-remaining-display {
+  border-radius: 0;
+}

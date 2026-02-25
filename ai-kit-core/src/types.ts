@@ -297,6 +297,7 @@ export type AiChatbotLabels = Partial<{
 }>;
 
 export type AiChatbotProps = AiWorkerProps & {
+  context?: ContextKind;
   placeholder?: string;
   maxImages?: number;
   maxImageBytes?: number;
@@ -483,6 +484,15 @@ export type PromptImageInput =
   | VideoFrame
   | ImageData;
 
+/**
+ * Audio input for multimodal prompting.
+ * Backend supports base64-encoded audio with format specification.
+ */
+export type PromptAudioInput = {
+  format: string; // MIME type: "audio/webm", "audio/mp3", "audio/wav", etc.
+  data: string; // base64-encoded audio data
+};
+
 export interface PromptArgs {
   messages: PromptMessages;
   sharedContext?: string;
@@ -495,6 +505,13 @@ export interface PromptArgs {
    * - Backend: only Blob/File inputs are handled (inline data URLs or signed upload).
    */
   images?: PromptImageInput[];
+
+  /**
+   * Optional multimodal audio.
+   * - Backend only (Nova models support audio input)
+   * - Formats: audio/webm, audio/mp3, audio/wav, audio/flac, audio/aac
+   */
+  audio?: PromptAudioInput;
 
   /**
    * Optional response constraint schema.
@@ -563,8 +580,10 @@ export interface SearchResult {
 }
 
 export interface SearchMessageArgs {
-  /** Search query in the user's language. */
-  query: string;
+  /** Search query in the user's language (required if no audio). */
+  query?: string;
+  /** Optional audio query (alternative to text query). Blob will be uploaded to S3. */
+  audio?: Blob;
   /** Optional backend session for future optimizations. */
   sessionId?: string;
   /** Optional shared context (defaults to AiKit settings sharedContext). */
@@ -580,6 +599,7 @@ export interface SearchMessageArgs {
 export interface ChatMessageArgs {
   sessionId?: string;
   message?: string;
+  audio?: Blob;
   sharedContext?: string;
   images?: PromptImageInput[];
   /**

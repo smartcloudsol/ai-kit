@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.0.8
+Stable tag: 1.1.0
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,15 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.1.0 =
+Feature: Knowledge Base Admin — manage KB sources directly from WordPress (enable posts/pages as KB sources, generate markdown, and publish documents to your backend).
+Feature: New “KB Source” bulk actions in the Posts list to quickly enable/disable items as knowledge base sources.
+Feature: Full Elementor support for AI Feature and DocSearch (dedicated Elementor widgets, matching the Gutenberg blocks + shortcodes).
+Feature: New “KB Section” block + Elementor widget to control KB ingestion per section:
+- Exclude content from the Knowledge Base
+- Split sections into separate KB documents with custom taxonomy/metadata
+- Mark sections as overrideable so regenerated markdown won’t overwrite them
+
 = 1.0.8 =
 Fix: Improved WebCrypto polyfill initialization so AI-Kit works reliably even in insecure (non-HTTPS) environments where crypto.subtle may be unavailable during early boot.
 
@@ -226,6 +235,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.1.0 =
+Recommended update if you use the AI-Kit backend Knowledge Base: this release adds WordPress-native KB source management and introduces KB Section controls (exclude/split/overrideable content). Also includes full Elementor widgets for AI Feature, DocSearch, and KB Section.
 
 = 1.0.8 =
 Recommended update if you use AI-Kit on non-HTTPS / non-secure contexts (e.g. local dev, staging, embedded previews). Ensures WebCrypto polyfills load deterministically and prevents missing crypto.subtle initialization issues.

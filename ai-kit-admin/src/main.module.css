@@ -10,12 +10,6 @@ input[readonly].mantine-Select-input {
   padding: 1rem;
 }
 
-@media screen and (max-width: 782px) {
-  .wpc-container {
-    padding-right: 10px;
-  }
-}
-
 .wpc-tabs-label {
   display: flex;
   gap: 4px;

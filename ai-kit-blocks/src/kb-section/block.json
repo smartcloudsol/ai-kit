@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "smartcloud-ai-kit/kb-section",
+  "version": "1.0.0",
+  "title": "KB Section",
+  "category": "smartcloud-ai-kit",
+  "description": "Designate a section for Knowledge Base extraction",
+  "supports": {
+    "html": false,
+    "align": true
+  },
+  "attributes": {
+    "mode": {
+      "type": "string",
+      "default": "inherit"
+    },
+    "sectionKey": {
+      "type": "string"
+    },
+    "docKey": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "category": {
+      "type": "string"
+    },
+    "subcategory": {
+      "type": "string"
+    },
+    "priority": {
+      "type": "number"
+    },
+    "clientId": {
+      "type": "string"
+    }
+  },
+  "providesContext": {
+    "smartcloud-ai-kit/kb-section-mode": "mode",
+    "smartcloud-ai-kit/kb-section-docKey": "docKey"
+  },
+  "editorScript": "file:./index.tsx",
+  "editorStyle": "file:./index.css"
+}

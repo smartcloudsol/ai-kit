@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.0.8
+ * Version:           1.1.0
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,8 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.0.8';
+const VERSION = '1.1.0';
+const DB_VERSION = '1.2.0';
 
 if (!defined('ABSPATH')) {
     exit;
@@ -45,6 +46,9 @@ final class AiKit
     /** Admin instance */
     private Admin $admin;
 
+    /** KB Admin instance */
+    private KnowledgeBase\Admin $kbAdmin;
+
     private function __construct()
     {
         $this->defineConstants();
@@ -57,6 +61,14 @@ final class AiKit
     public static function instance(): AiKit
     {
         return self::$instance ?? (self::$instance = new self());
+    }
+
+    /**
+     * Get KB Admin instance
+     */
+    public function getKbAdmin(): KnowledgeBase\Admin
+    {
+        return $this->kbAdmin;
     }
 
     /**
@@ -75,6 +87,7 @@ final class AiKit
         if (function_exists('register_block_type')) {
             register_block_type(SMARTCLOUD_AI_KIT_PATH . 'blocks/ai-feature');
             register_block_type(SMARTCLOUD_AI_KIT_PATH . 'blocks/doc-search');
+            register_block_type(SMARTCLOUD_AI_KIT_PATH . 'blocks/kb-section');
         }
 
         // Assets
@@ -86,6 +99,11 @@ final class AiKit
         add_action('admin_enqueue_scripts', array($this, 'enqueueAdminAssets'), 20);
         // Hooks.
         add_action('admin_menu', array($this, 'createAdminMenu'), 20);
+
+        // KB Admin hooks
+        if ($this->kbAdmin) {
+            $this->kbAdmin->registerHooks();
+        }
 
         // Shortcodes
         add_shortcode('smartcloud-ai-kit-feature', array($this, 'shortcodeFeature'));
@@ -169,9 +187,17 @@ final class AiKit
      */
     public function registerWidgets(): void
     {
-        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'ai-kit-elementor-widgets.php')) {
+        // Elementor KB Section Widget
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'elementor-kb-section-widget.php')) {
             add_action('elementor/init', static function () {
-                require_once SMARTCLOUD_AI_KIT_PATH . 'ai-kit-elementor-widgets.php';
+                require_once SMARTCLOUD_AI_KIT_PATH . 'elementor-kb-section-widget.php';
+            });
+        }
+
+        // Elementor AI-Kit Widgets (Feature, Doc Search)
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'elementor-ai-kit-widgets.php')) {
+            add_action('elementor/init', static function () {
+                require_once SMARTCLOUD_AI_KIT_PATH . 'elementor-ai-kit-widgets.php';
             });
         }
     }
@@ -216,6 +242,8 @@ final class AiKit
         }
         $main_script_asset['dependencies'] = array_merge($main_script_asset['dependencies'], array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-mantine-vendor'));
         wp_enqueue_script('smartcloud-ai-kit-main-script', SMARTCLOUD_AI_KIT_URL . 'main/index.js', $main_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, false);
+        wp_enqueue_style('smartcloud-ai-kit-main-style', SMARTCLOUD_AI_KIT_URL . 'main/index.css', array(), SMARTCLOUD_AI_KIT_VERSION);
+        add_editor_style(SMARTCLOUD_AI_KIT_URL . 'main/index.css');
 
         $blocks_script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'blocks/index.asset.php')) {
@@ -551,6 +579,7 @@ __aikitGlobal.WpSuite.constants.aiKit = {
     private function defineConstants(): void
     {
         define('SMARTCLOUD_AI_KIT_VERSION', VERSION);
+        define('SMARTCLOUD_AI_KIT_DB_VERSION', DB_VERSION);
         define('SMARTCLOUD_AI_KIT_SLUG', 'smartcloud-ai-kit');
         define('SMARTCLOUD_AI_KIT_PATH', plugin_dir_path(__FILE__));
         define('SMARTCLOUD_AI_KIT_URL', plugin_dir_url(__FILE__));
@@ -561,17 +590,38 @@ __aikitGlobal.WpSuite.constants.aiKit = {
      */
     private function includes(): void
     {
+        // Load Composer autoloader
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'vendor/autoload.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'vendor/autoload.php';
+        }
+
         // Hub admin classes.
         if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'hub-loader.php')) {
             require_once SMARTCLOUD_AI_KIT_PATH . 'hub-loader.php';
         }
 
         // Admin classes.
-        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/index.php')) {
-            require_once SMARTCLOUD_AI_KIT_PATH . 'admin/index.php';
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/admin.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'admin/admin.php';
         }
         if (class_exists('\SmartCloud\WPSuite\AiKit\Admin')) {
             $this->admin = new \SmartCloud\WPSuite\AiKit\Admin();
+        }
+
+        // KB Content Parser and Converter
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/converter.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/converter.php';
+        }
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/parser.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/parser.php';
+        }
+
+        // KB Admin classes.
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/admin.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/admin.php';
+        }
+        if (class_exists('\SmartCloud\WPSuite\AiKit\KnowledgeBase\Admin')) {
+            $this->kbAdmin = new \SmartCloud\WPSuite\AiKit\KnowledgeBase\Admin();
         }
     }
     private function normalize_shortcode_content(?string $content): string
@@ -631,6 +681,7 @@ function aikitLoaded()
         $loader = loader();
         $loader->check();
     }
+    $instance->registerWidgets();
 }
 
 /**

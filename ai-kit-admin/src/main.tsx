@@ -32,6 +32,7 @@ import {
 import {
   IconAlertCircle,
   IconApi,
+  IconBook,
   IconMessage,
   IconCheck,
   IconExclamationCircle,
@@ -128,6 +129,15 @@ const ChatbotSettingsEditor = lazy(
     import(
       process.env.WPSUITE_PREMIUM
         ? "./paid-features/ChatbotSettingsEditor"
+        : "./free-features/NullEditor"
+    ),
+);
+
+const KBAdminEditor = lazy(
+  () =>
+    import(
+      process.env.WPSUITE_PREMIUM
+        ? "./paid-features/kb-admin/KBAdminEditor"
         : "./free-features/NullEditor"
     ),
 );
@@ -249,7 +259,7 @@ const Main = (props: MainProps) => {
 
   const [savingSettings, setSavingSettings] = useState<boolean>(false);
   const [activePage, setActivePage] = useState<
-    "general" | "api-settings" | "chatbot-settings"
+    "general" | "api-settings" | "chatbot-settings" | "kb-admin"
   >("general");
 
   // Add media query for responsive design
@@ -485,6 +495,17 @@ const Main = (props: MainProps) => {
         ),
         disabled: paidSettingsDisabled,
       },
+      {
+        value: "kb-admin",
+        label: __("Knowledge Base", TEXT_DOMAIN),
+        icon: <IconBook size={16} stroke={1.5} />,
+        badge: (
+          <Badge variant="light" color="red" ml="4px" miw={35}>
+            PRO
+          </Badge>
+        ),
+        disabled: paidSettingsDisabled,
+      },
     ]);
     if (paidSettingsDisabled) {
       setActivePage("general");
@@ -677,7 +698,11 @@ const Main = (props: MainProps) => {
           orientation={isMobile ? "horizontal" : "vertical"}
           onChange={(value) =>
             setActivePage(
-              value as "general" | "api-settings" | "chatbot-settings",
+              value as
+                | "general"
+                | "api-settings"
+                | "chatbot-settings"
+                | "kb-admin",
             )
           }
           w="100%"
@@ -975,6 +1000,47 @@ const Main = (props: MainProps) => {
                 onSave={handleConfigSave}
                 InfoLabelComponent={InfoLabelComponent}
                 store={store}
+              />
+            )}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="kb-admin" w="100%">
+            <Title order={2} mb="md">
+              <InfoLabelComponent
+                text="Knowledge Base Admin"
+                scrollToId="kb-admin"
+              />
+            </Title>
+
+            <Text mb="md">
+              Manage your AI-Kit Knowledge Base sources — add URL patterns, sync
+              documentation, override sections, and publish to make them
+              available for AI-powered search and assistance.
+            </Text>
+
+            {(formConfig ?? decryptedConfig)?.subscriptionType !==
+              "PROFESSIONAL" && (
+              <Alert
+                variant="light"
+                color="yellow"
+                title="PRO Feature"
+                icon={<IconExclamationCircle />}
+                mb="md"
+              >
+                This feature is available in the <strong>PRO</strong> version of
+                the plugin. You can save your settings but they will not take
+                effect until you upgrade your subscription.
+              </Alert>
+            )}
+            {(formConfig ?? decryptedConfig) && (
+              <KBAdminEditor
+                apiUrl={apiUrl}
+                config={formConfig ?? decryptedConfig}
+                accountId={accountId!}
+                siteId={siteId!}
+                siteKey={siteKey!}
+                onSave={handleConfigSave}
+                InfoLabelComponent={InfoLabelComponent}
               />
             )}
           </Tabs.Panel>

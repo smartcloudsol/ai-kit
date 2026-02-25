@@ -34,6 +34,7 @@ declare const markdownToHtml: (markdown: string) => Promise<string>;
 
 declare const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels>;
 declare const AiChatbot: React__default.FC<_smart_cloud_ai_kit_core.AiWorkerProps & {
+    context?: _smart_cloud_ai_kit_core.ContextKind;
     placeholder?: string;
     maxImages?: number;
     maxImageBytes?: number;

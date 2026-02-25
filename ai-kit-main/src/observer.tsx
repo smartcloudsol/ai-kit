@@ -36,13 +36,18 @@ export const observe = () => {
         },
       );
       elementorFrontend.hooks.addAction(
-        "frontend/element_ready/ai_kit.default",
+        "frontend/element_ready/smartcloud_ai_kit_doc_search.default",
+        () => {
+          jQuery("[data-smartcloud-ai-kit-doc-search]").each((_idx, n) =>
+            mountDocSearch(n),
+          );
+        },
+      );
+      elementorFrontend.hooks.addAction(
+        "frontend/element_ready/smartcloud_ai_kit_feature.default",
         () => {
           jQuery("[data-smartcloud-ai-kit-feature]").each((_idx, n) =>
             mountAiFeature(n),
-          );
-          jQuery("[data-smartcloud-ai-kit-doc-search]").each((_idx, n) =>
-            mountDocSearch(n),
           );
         },
       );

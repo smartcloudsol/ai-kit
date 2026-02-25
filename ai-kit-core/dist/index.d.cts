@@ -221,6 +221,7 @@ type AiChatbotLabels = Partial<{
     unexpectedErrorLabel: string;
 }>;
 type AiChatbotProps = AiWorkerProps & {
+    context?: ContextKind;
     placeholder?: string;
     maxImages?: number;
     maxImageBytes?: number;
@@ -363,6 +364,14 @@ type PromptMessages = Array<{
  * Note: For backend uploads we only handle Blob/File inputs.
  */
 type PromptImageInput = Blob | File | HTMLImageElement | SVGImageElement | HTMLVideoElement | HTMLCanvasElement | OffscreenCanvas | ImageBitmap | VideoFrame | ImageData;
+/**
+ * Audio input for multimodal prompting.
+ * Backend supports base64-encoded audio with format specification.
+ */
+type PromptAudioInput = {
+    format: string;
+    data: string;
+};
 interface PromptArgs {
     messages: PromptMessages;
     sharedContext?: string;
@@ -373,6 +382,12 @@ interface PromptArgs {
      * - Backend: only Blob/File inputs are handled (inline data URLs or signed upload).
      */
     images?: PromptImageInput[];
+    /**
+     * Optional multimodal audio.
+     * - Backend only (Nova models support audio input)
+     * - Formats: audio/webm, audio/mp3, audio/wav, audio/flac, audio/aac
+     */
+    audio?: PromptAudioInput;
     /**
      * Optional response constraint schema.
      */
@@ -434,8 +449,10 @@ interface SearchResult {
     };
 }
 interface SearchMessageArgs {
-    /** Search query in the user's language. */
-    query: string;
+    /** Search query in the user's language (required if no audio). */
+    query?: string;
+    /** Optional audio query (alternative to text query). Blob will be uploaded to S3. */
+    audio?: Blob;
     /** Optional backend session for future optimizations. */
     sessionId?: string;
     /** Optional shared context (defaults to AiKit settings sharedContext). */
@@ -450,6 +467,7 @@ interface SearchMessageArgs {
 interface ChatMessageArgs {
     sessionId?: string;
     message?: string;
+    audio?: Blob;
     sharedContext?: string;
     images?: PromptImageInput[];
     /**
@@ -568,4 +586,4 @@ declare const sendFeedbackMessage: (...args: Parameters<Features["sendFeedbackMe
 declare const sendSearchMessage: (...args: Parameters<Features["sendSearchMessage"]>) => Promise<SearchResult>;
 declare const initializeAiKit: (renderFeature: (args: AiFeatureArgs) => Promise<AiWorkerHandle>, renderSearchComponent?: (args: DocSearchArgs) => Promise<AiWorkerHandle>) => AiKitPlugin;
 
-export { type AiChatbotLabels, type AiChatbotProps, type AiFeatureArgs, type AiFeatureMode, type AiFeatureOptions, type AiFeatureProps, type AiKit, AiKitChatbotIcon, type AiKitConfig, AiKitDocSearchIcon, type AiKitErrorEvent, AiKitFeatureIcon, type AiKitFeatures, type AiKitLanguageCode, type AiKitLanguageProfile, type AiKitLanguageRef, type AiKitPlugin, type AiKitReadyEvent, type AiKitSettings, type AiKitStatusEvent, type AiKitStatusStep, type AiModePreference, type AiWorkerHandle, type AiWorkerProps, type AnyCreateCoreOptions, type Backend, type BackendCallOptions, BackendError, type BackendTransport, type BuiltInAiFeature, type Capabilities, type CapabilityDecision, type CapabilitySource, type ChatMessageArgs, type ContextKind, type CustomTranslations, type DetectLanguageArgs, type DetectLanguageOutput, type DeviceAvailability, type DocSearchArgs, type DocSearchProps, type FeatureOptions, type Features, type FeedbackMessageArgs, type HistoryStorageMode, LANGUAGE_OPTIONS, type OnDeviceUnsupportedLanguageStrategy, type OpenButtonIconLayout, type OpenButtonPosition, type ProcessedCitations, type PromptArgs, type PromptImageInput, type PromptMessages, type PromptResult, type ProofreadArgs, type ProofreadOutput, type RetrievedChunk, type RetrievedDoc, type RewriteArgs, type RewriteResult, type SearchMessageArgs, type SearchResult, type State, type Store, type SummarizeArgs, type SummarizeResult, TEXT_DOMAIN, type TranslateArgs, type TranslateResult, type WriteArgs, type WriteResult, checkOnDeviceAvailability, decideCapability, detectLanguage, dispatchBackend, getAiKitPlugin, getMinChromeVersions, getPromptOptions, getProofreadOptions, getRewriteOptions, getStore, getStoreDispatch, getStoreSelect, getSummarizeOptions, getTranslateOptions, getWriteOptions, initializeAiKit, observeStore, prompt, proofread, rewrite, sanitizeAiKitConfig, sendChatMessage, sendFeedbackMessage, sendSearchMessage, summarize, translate, waitForAiKitReady, write };
+export { type AiChatbotLabels, type AiChatbotProps, type AiFeatureArgs, type AiFeatureMode, type AiFeatureOptions, type AiFeatureProps, type AiKit, AiKitChatbotIcon, type AiKitConfig, AiKitDocSearchIcon, type AiKitErrorEvent, AiKitFeatureIcon, type AiKitFeatures, type AiKitLanguageCode, type AiKitLanguageProfile, type AiKitLanguageRef, type AiKitPlugin, type AiKitReadyEvent, type AiKitSettings, type AiKitStatusEvent, type AiKitStatusStep, type AiModePreference, type AiWorkerHandle, type AiWorkerProps, type AnyCreateCoreOptions, type Backend, type BackendCallOptions, BackendError, type BackendTransport, type BuiltInAiFeature, type Capabilities, type CapabilityDecision, type CapabilitySource, type ChatMessageArgs, type ContextKind, type CustomTranslations, type DetectLanguageArgs, type DetectLanguageOutput, type DeviceAvailability, type DocSearchArgs, type DocSearchProps, type FeatureOptions, type Features, type FeedbackMessageArgs, type HistoryStorageMode, LANGUAGE_OPTIONS, type OnDeviceUnsupportedLanguageStrategy, type OpenButtonIconLayout, type OpenButtonPosition, type ProcessedCitations, type PromptArgs, type PromptAudioInput, type PromptImageInput, type PromptMessages, type PromptResult, type ProofreadArgs, type ProofreadOutput, type RetrievedChunk, type RetrievedDoc, type RewriteArgs, type RewriteResult, type SearchMessageArgs, type SearchResult, type State, type Store, type SummarizeArgs, type SummarizeResult, TEXT_DOMAIN, type TranslateArgs, type TranslateResult, type WriteArgs, type WriteResult, checkOnDeviceAvailability, decideCapability, detectLanguage, dispatchBackend, getAiKitPlugin, getMinChromeVersions, getPromptOptions, getProofreadOptions, getRewriteOptions, getStore, getStoreDispatch, getStoreSelect, getSummarizeOptions, getTranslateOptions, getWriteOptions, initializeAiKit, observeStore, prompt, proofread, rewrite, sanitizeAiKitConfig, sendChatMessage, sendFeedbackMessage, sendSearchMessage, summarize, translate, waitForAiKitReady, write };

@@ -83,6 +83,9 @@ export async function persistAttachmentBlob(
   blob: Blob,
   meta: { name: string; type: string; size: number },
 ): Promise<string | null> {
+  // Enforce storage quota before adding new attachment
+  await enforceStorageQuota();
+
   const record: AttachmentRecord = {
     id,
     blob,
@@ -169,4 +172,67 @@ export async function cleanupDanglingAttachments(
   }).catch((error) => {
     console.warn("[AiChatbot] Failed to cleanup attachments", error);
   });
+}
+
+// Storage quota management
+const MAX_STORAGE_BYTES = 50 * 1024 * 1024; // 50 MB limit
+
+export async function getAllAttachments(): Promise<StoredAttachment[]> {
+  const db = await getDatabase();
+  if (!db) return [];
+
+  return new Promise<StoredAttachment[]>((resolve, reject) => {
+    try {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const request = tx.objectStore(STORE_NAME).getAll();
+
+      request.onsuccess = () => {
+        const records = (request.result || []) as AttachmentRecord[];
+        resolve(records);
+      };
+
+      request.onerror = () => reject(request.error);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    } catch (error) {
+      reject(error);
+    }
+  }).catch((error) => {
+    console.warn("[AiChatbot] Failed to get all attachments", error);
+    return [];
+  });
+}
+
+export async function enforceStorageQuota(): Promise<void> {
+  const attachments = await getAllAttachments();
+  if (attachments.length === 0) return;
+
+  // Sort by creation time (oldest first)
+  const sorted = attachments.sort((a, b) => a.createdAt - b.createdAt);
+
+  // Calculate total size
+  let totalSize = sorted.reduce((sum, att) => sum + att.size, 0);
+
+  // Delete oldest attachments until under quota
+  const toDelete: string[] = [];
+  let i = 0;
+  while (totalSize > MAX_STORAGE_BYTES && i < sorted.length) {
+    const attachment = sorted[i];
+    if (attachment) {
+      toDelete.push(attachment.id);
+      totalSize -= attachment.size;
+    }
+    i++;
+  }
+
+  // Delete the attachments
+  for (const id of toDelete) {
+    await deleteAttachmentBlob(id);
+  }
+
+  if (toDelete.length > 0) {
+    console.log(
+      `[AiChatbot] Deleted ${toDelete.length} old attachment(s) to enforce storage quota`,
+    );
+  }
 }

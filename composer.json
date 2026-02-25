@@ -1,0 +1,21 @@
+{
+  "name": "smartcloud/ai-kit",
+  "description": "SmartCloud AI-Kit WordPress Plugin",
+  "type": "wordpress-plugin",
+  "license": "MIT",
+  "require": {
+    "php": ">=8.1",
+    "league/html-to-markdown": "^5.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "SmartCloud\\WPSuite\\AiKit\\": "ai-kit-admin/php/"
+    }
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "platform": {
+      "php": "8.1"
+    }
+  }
+}
