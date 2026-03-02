@@ -21,6 +21,7 @@ class AiKitSettings
         public bool $enablePoweredBy = false,
         public string $defaultOutputLanguage = "",
         public int $reCaptchaChatTtlSeconds = 120,
+        public bool $debugLoggingEnabled = false,
     ) {
     }
 
@@ -42,6 +43,7 @@ class AiKitSettings
                 enablePoweredBy: (bool) ($raw->enablePoweredBy ?? false),
                 defaultOutputLanguage: (string) ($raw->defaultOutputLanguage ?? ""),
                 reCaptchaChatTtlSeconds: (int) ($raw->reCaptchaChatTtlSeconds ?? 120),
+                debugLoggingEnabled: (bool) ($raw->debugLoggingEnabled ?? false),
             );
         }
 
@@ -61,6 +63,7 @@ class AiKitSettings
             enablePoweredBy: (bool) ($arr['enablePoweredBy'] ?? false),
             defaultOutputLanguage: (string) ($arr['defaultOutputLanguage'] ?? ""),
             reCaptchaChatTtlSeconds: (int) ($arr['reCaptchaChatTtlSeconds'] ?? 120),
+            debugLoggingEnabled: (bool) ($arr['debugLoggingEnabled'] ?? false),
         );
     }
 }

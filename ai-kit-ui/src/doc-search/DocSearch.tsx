@@ -26,7 +26,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 
-import { IconSearch } from "@tabler/icons-react";
+import { IconSearch, IconX } from "@tabler/icons-react";
 import { IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 
 import { AiFeatureBorder } from "../ai-feature/AiFeatureBorder";
@@ -69,6 +69,11 @@ const DocSearchBase: FC<Props> = (props) => {
     autoRun = true,
     context,
     title,
+    showOpenButton = false,
+    openButtonTitle,
+    showOpenButtonTitle = true,
+    openButtonIcon,
+    showOpenButtonIcon = true,
     searchButtonIcon,
     showSearchButtonTitle = true,
     showSearchButtonIcon = true,
@@ -84,6 +89,7 @@ const DocSearchBase: FC<Props> = (props) => {
     onClickDoc,
   } = props;
 
+  const [featureOpen, setFeatureOpen] = useState<boolean>(!showOpenButton);
   const [query, setQuery] = useState<string>("");
   const [recording, setRecording] = useState<boolean>(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -147,10 +153,11 @@ const DocSearchBase: FC<Props> = (props) => {
 
   const canSearch = useMemo(() => {
     if (busy) return false;
+    if (!featureOpen) return false;
     // Can search if we have text OR audio
     const text = typeof inputText === "function" ? inputText() : inputText;
     return Boolean((text && text.trim().length > 0) || audioBlob);
-  }, [inputText, busy, audioBlob]);
+  }, [inputText, busy, audioBlob, featureOpen]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -313,10 +320,13 @@ const DocSearchBase: FC<Props> = (props) => {
   }, [context, inputText, audioBlob, run, reset, topK, sessionId]);
 
   const close = useCallback(async () => {
+    setFeatureOpen(false);
     reset();
-    onClose();
     autoRunOnceRef.current = false;
-  }, [onClose, reset, autoRunOnceRef]);
+    if (!showOpenButton) {
+      onClose();
+    }
+  }, [onClose, reset, autoRunOnceRef, showOpenButton]);
 
   useEffect(() => {
     if (!autoRun || !canSearch || busy || autoRunOnceRef.current) {
@@ -431,321 +441,395 @@ const DocSearchBase: FC<Props> = (props) => {
   }, [close, variation]);
 
   return (
-    <RootComponent
-      opened={true}
-      className="doc-search-root"
-      onClose={close}
-      padding="md"
-      gap="md"
-      size="xl"
-      portalProps={
-        variation === "modal"
-          ? { target: rootElement, reuseTargetNode: true }
-          : undefined
-      }
-      data-ai-kit-theme={colorMode}
-      data-ai-kit-variation={variation}
-    >
-      {variation === "modal" && <Modal.Overlay />}
-      <ContentComponent
-        w="100%"
-        style={{
-          left: 0,
-        }}
-      >
-        {variation === "modal" && (
-          <Modal.Header style={{ zIndex: 1000 }}>
-            <AiKitDocSearchIcon className="doc-search-title-icon" />
-            <Modal.Title>{I18n.get(defaultTitle)}</Modal.Title>
-            <Modal.CloseButton />
-          </Modal.Header>
-        )}
-        <BodyComponent w="100%" style={{ zIndex: 1001 }}>
-          <AiFeatureBorder
-            enabled={variation !== "modal"}
-            working={busy}
-            variation={variation}
+    <>
+      {showOpenButton && (
+        <Button
+          leftSection={
+            showOpenButtonIcon &&
+            (openButtonIcon ? (
+              <span dangerouslySetInnerHTML={{ __html: openButtonIcon }} />
+            ) : (
+              <IconSearch size={18} />
+            ))
+          }
+          className={
+            showOpenButtonTitle
+              ? "ai-feature-open-button"
+              : "ai-feature-open-button-no-title"
+          }
+          variant={"filled"}
+          disabled={featureOpen}
+          onClick={() => setFeatureOpen(true)}
+          data-ai-kit-open-button
+        >
+          {showOpenButtonTitle && I18n.get(openButtonTitle || defaultTitle)}
+        </Button>
+      )}
+
+      {featureOpen && (
+        <RootComponent
+          opened={true}
+          className="doc-search-root"
+          onClose={close}
+          padding="md"
+          gap="md"
+          size="xl"
+          portalProps={
+            variation === "modal"
+              ? { target: rootElement, reuseTargetNode: true }
+              : undefined
+          }
+          data-ai-kit-theme={colorMode}
+          data-ai-kit-variation={variation}
+        >
+          {variation === "modal" && <Modal.Overlay />}
+          <ContentComponent
+            w="100%"
+            style={{
+              left: 0,
+            }}
           >
-            <Paper shadow="sm" radius="md" p="md">
-              <Stack gap="sm">
-                {variation !== "modal" && (
-                  <Title order={4} style={{ margin: 0 }}>
-                    {I18n.get(defaultTitle)}
-                  </Title>
-                )}
-
-                <Group gap="sm" align="flex-end" wrap="nowrap">
-                  <TextInput
-                    style={{ flex: 1 }}
-                    value={query}
-                    onChange={(e) => {
-                      setQuery(e.currentTarget.value);
-                      // Clear audio when typing
-                      if (audioBlob) {
-                        clearAudio();
-                      }
-                    }}
-                    placeholder={
-                      audioBlob
-                        ? I18n.get("Audio recorded")
-                        : I18n.get("Search the documentation…")
-                    }
-                    disabled={busy || recording || !!audioBlob}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && canSearch) {
-                        e.preventDefault();
-                        void onSearch();
-                      }
-                    }}
-                  />
-
-                  {
-                    /* Microphone button */ USE_AUDIO && (
-                      <>
-                        {audioBlob ? (
+            {variation === "modal" && (
+              <Modal.Header style={{ zIndex: 1000 }}>
+                <AiKitDocSearchIcon className="doc-search-title-icon" />
+                <Modal.Title>{I18n.get(defaultTitle)}</Modal.Title>
+                <Modal.CloseButton />
+              </Modal.Header>
+            )}
+            <BodyComponent w="100%" style={{ zIndex: 1001 }}>
+              <AiFeatureBorder
+                enabled={variation !== "modal"}
+                working={busy}
+                variation={variation}
+              >
+                <Paper shadow="sm" radius="md" p="md">
+                  <Stack gap="sm">
+                    {variation !== "modal" && (
+                      <Group justify="space-between">
+                        <Title order={4} style={{ margin: 0 }}>
+                          {I18n.get(defaultTitle)}
+                        </Title>
+                        {showOpenButton && (
                           <Button
-                            variant="outline"
-                            size="sm"
-                            color="red"
-                            onClick={clearAudio}
-                            disabled={busy}
-                            title={I18n.get("Clear audio")}
+                            variant="subtle"
+                            color="gray"
+                            size="xs"
+                            onClick={close}
+                            style={{
+                              minWidth: 32,
+                              padding: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            aria-label={I18n.get("Close")}
                           >
-                            <IconMicrophoneOff size={18} />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant={recording ? "filled" : "outline"}
-                            size="sm"
-                            color={recording ? "red" : "gray"}
-                            onClick={recording ? stopRecording : startRecording}
-                            disabled={busy}
-                            title={
-                              recording
-                                ? I18n.get("Stop recording")
-                                : I18n.get("Record audio")
-                            }
-                            style={
-                              recording
-                                ? {
-                                    transform: `scale(${1 + audioLevel / 300})`,
-                                    transition: "transform 0.1s ease-out",
-                                  }
-                                : undefined
-                            }
-                          >
-                            <IconMicrophone size={18} />
+                            <IconX
+                              size={18}
+                              style={{
+                                color:
+                                  colorMode === "dark"
+                                    ? "var(--mantine-color-dark-1)"
+                                    : "var(--mantine-color-gray-7)",
+                              }}
+                            />
                           </Button>
                         )}
-                      </>
-                    )
-                  }
+                      </Group>
+                    )}
 
-                  <Button
-                    variant="filled"
-                    size="sm"
-                    leftSection={buttonLeftIcon}
-                    onClick={() => void onSearch()}
-                    disabled={!canSearch}
-                    className={
-                      showSearchButtonTitle
-                        ? "doc-search-button"
-                        : "doc-search-button-no-title"
-                    }
-                  >
-                    {showSearchButtonTitle ? I18n.get("Search") : null}
-                  </Button>
+                    <Group gap="sm" align="flex-end" wrap="nowrap">
+                      <TextInput
+                        style={{ flex: 1 }}
+                        value={query}
+                        onChange={(e) => {
+                          setQuery(e.currentTarget.value);
+                          // Clear audio when typing
+                          if (audioBlob) {
+                            clearAudio();
+                          }
+                        }}
+                        placeholder={
+                          audioBlob
+                            ? I18n.get("Audio recorded")
+                            : I18n.get("Search the documentation…")
+                        }
+                        disabled={busy || recording || !!audioBlob}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && canSearch) {
+                            e.preventDefault();
+                            void onSearch();
+                          }
+                        }}
+                      />
 
-                  {busy ? (
-                    <Button variant="outline" size="sm" onClick={cancel}>
-                      {I18n.get("Stop")}
-                    </Button>
-                  ) : null}
-                </Group>
+                      {
+                        /* Microphone button */ USE_AUDIO && (
+                          <>
+                            {audioBlob ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                color="red"
+                                onClick={clearAudio}
+                                disabled={busy}
+                                title={I18n.get("Clear audio")}
+                              >
+                                <IconMicrophoneOff size={18} />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant={recording ? "filled" : "outline"}
+                                size="sm"
+                                color={recording ? "red" : "gray"}
+                                onClick={
+                                  recording ? stopRecording : startRecording
+                                }
+                                disabled={busy}
+                                title={
+                                  recording
+                                    ? I18n.get("Stop recording")
+                                    : I18n.get("Record audio")
+                                }
+                                style={
+                                  recording
+                                    ? {
+                                        transform: `scale(${1 + audioLevel / 300})`,
+                                        transition: "transform 0.1s ease-out",
+                                      }
+                                    : undefined
+                                }
+                              >
+                                <IconMicrophone size={18} />
+                              </Button>
+                            )}
+                          </>
+                        )
+                      }
 
-                {
-                  /* Audio level indicator when recording */ USE_AUDIO && (
-                    <>
-                      {recording && (
-                        <Stack gap="xs">
-                          <Text size="xs" c="dimmed">
-                            {I18n.get("Recording...")} 🎤
-                          </Text>
-                          <Progress
-                            value={audioLevel}
-                            size="sm"
-                            color="red"
-                            animated
-                            striped
-                          />
-                        </Stack>
-                      )}
-
-                      {/* Audio playback when recorded */}
-                      {audioBlob && !recording && (
-                        <Stack gap="xs">
-                          <Text size="xs" c="dimmed">
-                            {I18n.get("Recorded audio:")}
-                          </Text>
-                          <audio
-                            controls
-                            src={URL.createObjectURL(audioBlob)}
-                            className="ai-kit-audio-player"
-                          />
-                        </Stack>
-                      )}
-                    </>
-                  )
-                }
-
-                {error ? (
-                  <Alert color="red" title={I18n.get("Error")}>
-                    {error}
-                  </Alert>
-                ) : null}
-
-                {busy && statusText && (
-                  <AiFeatureBorder
-                    enabled={variation === "modal"}
-                    working={true}
-                    variation={variation}
-                  >
-                    <Group
-                      justify="center"
-                      align="center"
-                      gap="sm"
-                      m="sm"
-                      pr="lg"
-                    >
-                      <Loader size="sm" />
-                      <Text size="sm" c="dimmed">
-                        {statusText}
-                      </Text>
-                    </Group>
-                  </AiFeatureBorder>
-                )}
-
-                {result?.result ? (
-                  <>
-                    <Divider />
-                    <Stack gap="xs" data-doc-search-result>
-                      <Text size="sm" c="dimmed" data-doc-search-result-title>
-                        {I18n.get("AI Summary")}
-                      </Text>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw]}
-                        data-doc-search-result-content
+                      <Button
+                        variant="filled"
+                        size="sm"
+                        leftSection={buttonLeftIcon}
+                        onClick={() => void onSearch()}
+                        disabled={!canSearch}
+                        className={
+                          showSearchButtonTitle
+                            ? "doc-search-button"
+                            : "doc-search-button-no-title"
+                        }
                       >
-                        {annotatedSummary || summaryText}
-                      </ReactMarkdown>
-                    </Stack>
-                  </>
-                ) : null}
+                        {showSearchButtonTitle ? I18n.get("Search") : null}
+                      </Button>
 
-                {showSources &&
-                (result?.citations?.docs?.length ||
-                  result?.citations?.chunks?.length) ? (
-                  <>
-                    <Divider />
-                    <Stack gap="sm" data-doc-search-sources>
-                      <Text size="sm" c="dimmed" data-doc-search-sources-title>
-                        {I18n.get("Sources")}
-                      </Text>
+                      {busy ? (
+                        <Button variant="outline" size="sm" onClick={cancel}>
+                          {I18n.get("Stop")}
+                        </Button>
+                      ) : null}
+                    </Group>
 
-                      {grouped.map(({ doc }) => {
-                        const href = doc.sourceUrl?.trim() || undefined;
-                        const docNumber = doc.docId
-                          ? docNumberMap.get(doc.docId)
-                          : undefined;
-                        const titleText = doc.title?.trim() || doc.docId;
-                        const titleNode = (
-                          <Text fw={600} style={{ display: "inline" }}>
-                            {docNumber ? `${docNumber}. ` : ""}
-                            {titleText}
-                          </Text>
-                        );
-                        return (
-                          <Paper key={doc.docId} withBorder radius="md" p="sm">
+                    {
+                      /* Audio level indicator when recording */ USE_AUDIO && (
+                        <>
+                          {recording && (
                             <Stack gap="xs">
-                              <Group justify="space-between" align="flex-start">
-                                <Stack
-                                  gap={2}
-                                  style={{ flex: 1 }}
-                                  data-doc-search-source
-                                >
-                                  {href ? (
-                                    <Anchor
-                                      href={href}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      style={{ textDecoration: "none" }}
-                                      onClick={(e) => {
-                                        if (!onClickDoc) return;
-                                        e.preventDefault();
-                                        onClickDoc?.(doc);
-                                      }}
-                                      data-doc-search-source-title
-                                    >
-                                      {titleNode}
-                                    </Anchor>
-                                  ) : (
-                                    titleNode
-                                  )}
-                                  <Anchor
-                                    href={href}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{ textDecoration: "none" }}
-                                    onClick={(e) => {
-                                      if (!onClickDoc) return;
-                                      e.preventDefault();
-                                      onClickDoc?.(doc);
-                                    }}
-                                    data-doc-search-source-url
-                                  >
-                                    {doc.sourceUrl}
-                                  </Anchor>
-                                  {doc.author ? (
-                                    <Text
-                                      size="xs"
-                                      c="dimmed"
-                                      data-doc-search-source-author
-                                    >
-                                      {doc.author}
-                                    </Text>
-                                  ) : null}
-                                  {doc.description ? (
-                                    <Text
-                                      size="sm"
-                                      c="dimmed"
-                                      fs="italic"
-                                      data-doc-search-source-description
-                                    >
-                                      {doc.description}
-                                    </Text>
-                                  ) : null}
-                                </Stack>
-                              </Group>
+                              <Text size="xs" c="dimmed">
+                                {I18n.get("Recording...")} 🎤
+                              </Text>
+                              <Progress
+                                value={audioLevel}
+                                size="sm"
+                                color="red"
+                                animated
+                                striped
+                              />
                             </Stack>
-                          </Paper>
-                        );
-                      })}
-                    </Stack>
-                  </>
-                ) : null}
-                {!busy && !error && !result?.result ? (
-                  <Text size="sm" c="dimmed" data-doc-search-no-results>
-                    {I18n.get("Enter a search query to start.")}
-                  </Text>
-                ) : null}
-                <PoweredBy variation={variation} />
-              </Stack>
-            </Paper>
-          </AiFeatureBorder>
-        </BodyComponent>
-      </ContentComponent>
-    </RootComponent>
+                          )}
+
+                          {/* Audio playback when recorded */}
+                          {audioBlob && !recording && (
+                            <Stack gap="xs">
+                              <Text size="xs" c="dimmed">
+                                {I18n.get("Recorded audio:")}
+                              </Text>
+                              <audio
+                                controls
+                                src={URL.createObjectURL(audioBlob)}
+                                className="ai-kit-audio-player"
+                              />
+                            </Stack>
+                          )}
+                        </>
+                      )
+                    }
+
+                    {error ? (
+                      <Alert color="red" title={I18n.get("Error")}>
+                        {error}
+                      </Alert>
+                    ) : null}
+
+                    {busy && statusText && (
+                      <AiFeatureBorder
+                        enabled={variation === "modal"}
+                        working={true}
+                        variation={variation}
+                      >
+                        <Group
+                          justify="center"
+                          align="center"
+                          gap="sm"
+                          m="sm"
+                          pr="lg"
+                        >
+                          <Loader size="sm" />
+                          <Text size="sm" c="dimmed">
+                            {statusText}
+                          </Text>
+                        </Group>
+                      </AiFeatureBorder>
+                    )}
+
+                    {result?.result ? (
+                      <>
+                        <Divider />
+                        <Stack gap="xs" data-doc-search-result>
+                          <Text
+                            size="sm"
+                            c="dimmed"
+                            data-doc-search-result-title
+                          >
+                            {I18n.get("AI Summary")}
+                          </Text>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw]}
+                            data-doc-search-result-content
+                          >
+                            {annotatedSummary || summaryText}
+                          </ReactMarkdown>
+                        </Stack>
+                      </>
+                    ) : null}
+
+                    {showSources &&
+                    (result?.citations?.docs?.length ||
+                      result?.citations?.chunks?.length) ? (
+                      <>
+                        <Divider />
+                        <Stack gap="sm" data-doc-search-sources>
+                          <Text
+                            size="sm"
+                            c="dimmed"
+                            data-doc-search-sources-title
+                          >
+                            {I18n.get("Sources")}
+                          </Text>
+
+                          {grouped.map(({ doc }) => {
+                            const href = doc.sourceUrl?.trim() || undefined;
+                            const docNumber = doc.docId
+                              ? docNumberMap.get(doc.docId)
+                              : undefined;
+                            const titleText = doc.title?.trim() || doc.docId;
+                            const titleNode = (
+                              <Text fw={600} style={{ display: "inline" }}>
+                                {docNumber ? `${docNumber}. ` : ""}
+                                {titleText}
+                              </Text>
+                            );
+                            return (
+                              <Paper
+                                key={doc.docId}
+                                withBorder
+                                radius="md"
+                                p="sm"
+                              >
+                                <Stack gap="xs">
+                                  <Group
+                                    justify="space-between"
+                                    align="flex-start"
+                                  >
+                                    <Stack
+                                      gap={2}
+                                      style={{ flex: 1 }}
+                                      data-doc-search-source
+                                    >
+                                      {href ? (
+                                        <Anchor
+                                          href={href}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          style={{ textDecoration: "none" }}
+                                          onClick={(e) => {
+                                            if (!onClickDoc) return;
+                                            e.preventDefault();
+                                            onClickDoc?.(doc);
+                                          }}
+                                          data-doc-search-source-title
+                                        >
+                                          {titleNode}
+                                        </Anchor>
+                                      ) : (
+                                        titleNode
+                                      )}
+                                      <Anchor
+                                        href={href}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{ textDecoration: "none" }}
+                                        onClick={(e) => {
+                                          if (!onClickDoc) return;
+                                          e.preventDefault();
+                                          onClickDoc?.(doc);
+                                        }}
+                                        data-doc-search-source-url
+                                      >
+                                        {doc.sourceUrl}
+                                      </Anchor>
+                                      {doc.author ? (
+                                        <Text
+                                          size="xs"
+                                          c="dimmed"
+                                          data-doc-search-source-author
+                                        >
+                                          {doc.author}
+                                        </Text>
+                                      ) : null}
+                                      {doc.description ? (
+                                        <Text
+                                          size="sm"
+                                          c="dimmed"
+                                          fs="italic"
+                                          data-doc-search-source-description
+                                        >
+                                          {doc.description}
+                                        </Text>
+                                      ) : null}
+                                    </Stack>
+                                  </Group>
+                                </Stack>
+                              </Paper>
+                            );
+                          })}
+                        </Stack>
+                      </>
+                    ) : null}
+                    {!busy && !error && !result?.result ? (
+                      <Text size="sm" c="dimmed" data-doc-search-no-results>
+                        {I18n.get("Enter a search query to start.")}
+                      </Text>
+                    ) : null}
+                    <PoweredBy variation={variation} />
+                  </Stack>
+                </Paper>
+              </AiFeatureBorder>
+            </BodyComponent>
+          </ContentComponent>
+        </RootComponent>
+      )}
+    </>
   );
 };
 

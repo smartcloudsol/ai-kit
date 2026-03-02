@@ -35,6 +35,7 @@ export {
   getStoreSelect,
   observeStore,
   sanitizeAiKitConfig,
+  reloadConfig,
   type AiKitConfig,
   type CustomTranslations,
   type State,

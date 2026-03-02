@@ -92,10 +92,22 @@ class Schema
             KEY ix_post (post_id)
         ) $charset_collate;";
 
+        // Table 5: kb_dependencies
+        // Tracks which KB sources reference which posts (for invalidation on post updates)
+        $sql_dependencies = "CREATE TABLE {$prefix}kb_dependencies (
+            kb_source_post_id BIGINT UNSIGNED NOT NULL,
+            referenced_post_id BIGINT UNSIGNED NOT NULL,
+            reference_type VARCHAR(50) NOT NULL DEFAULT 'content',
+            PRIMARY KEY (kb_source_post_id, referenced_post_id),
+            KEY ix_referenced (referenced_post_id),
+            KEY ix_source (kb_source_post_id)
+        ) $charset_collate;";
+
         dbDelta($sql_sources);
         dbDelta($sql_generated);
         dbDelta($sql_overrides);
         dbDelta($sql_publish);
+        dbDelta($sql_dependencies);
     }
 
     /**
@@ -110,7 +122,8 @@ class Schema
             "{$prefix}kb_sources",
             "{$prefix}kb_generated",
             "{$prefix}kb_overrides",
-            "{$prefix}kb_publish_state"
+            "{$prefix}kb_publish_state",
+            "{$prefix}kb_dependencies"
         ];
 
         foreach ($tables as $table) {

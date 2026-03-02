@@ -18,6 +18,14 @@ if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/schema.php')) {
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repository.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repository.php';
 }
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php';
+}
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php';
+}
+
+use SmartCloud\WPSuite\AiKit\Logger;
 
 class Admin
 {
@@ -25,6 +33,7 @@ class Admin
     private KBGeneratedRepository $generated;
     private KBOverrideRepository $overrides;
     private KBPublishStateRepository $publish_state;
+    private RepositoryDependencies $dependencies;
 
     public function __construct()
     {
@@ -32,6 +41,7 @@ class Admin
         $this->generated = new KBGeneratedRepository();
         $this->overrides = new KBOverrideRepository();
         $this->publish_state = new KBPublishStateRepository();
+        $this->dependencies = new RepositoryDependencies();
     }
 
     /**
@@ -49,8 +59,8 @@ class Admin
         add_action('admin_notices', [$this, 'showMigrationNotice']);
 
         // AJAX handlers
-        add_action('wp_ajax_aikit_run_db_migration', [$this, 'ajaxRunMigration']);
-        add_action('wp_ajax_aikit_dismiss_migration_notice', [$this, 'ajaxDismissNotice']);
+        add_action('wp_ajax_smartcloud_ai_kit_run_db_migration', [$this, 'ajaxRunMigration']);
+        add_action('wp_ajax_smartcloud_ai_kit_dismiss_migration_notice', [$this, 'ajaxDismissNotice']);
 
         // Post lifecycle hooks
         add_action('save_post', [$this, 'onPostSave'], 10, 3);
@@ -119,7 +129,10 @@ class Admin
             update_option('smartcloud_ai_kit_db_migration_dismissed', false);
             return true;
         } catch (\Exception $e) {
-            //error_log('AI-Kit DB Migration Error: ' . $e->getMessage());
+            Logger::error('DB Migration Error: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString()
+            ]);
             return false;
         }
     }
@@ -149,7 +162,7 @@ class Admin
                 return;
             }
 
-            echo '<div class="notice notice-warning is-dismissible aikit-migration-notice" data-nonce="' . esc_attr(wp_create_nonce('aikit_migration')) . '">';
+            echo '<div class="notice notice-warning is-dismissible aikit-migration-notice" data-nonce="' . esc_attr(wp_create_nonce('smartcloud_ai_kit_migration')) . '">';
             echo '<p><strong>' . esc_html__('AI-Kit Database Update Required', 'smartcloud-ai-kit') . '</strong></p>';
             echo '<p>' . esc_html__('AI-Kit needs to update its database structure for the new Knowledge Base Editor feature.', 'smartcloud-ai-kit') . '</p>';
             echo '<p>';
@@ -165,7 +178,7 @@ class Admin
                     btn.prop("disabled", true).text("' . esc_js(__('Updating...', 'smartcloud-ai-kit')) . '");
                     
                     $.post(ajaxurl, {
-                        action: "aikit_run_db_migration",
+                        action: "smartcloud_ai_kit_run_db_migration",
                         nonce: $(".aikit-migration-notice").data("nonce")
                     }, function(response) {
                         if (response.success) {
@@ -181,7 +194,7 @@ class Admin
                 
                 $("#aikit-dismiss-migration").on("click", function() {
                     $.post(ajaxurl, {
-                        action: "aikit_dismiss_migration_notice",
+                        action: "smartcloud_ai_kit_dismiss_migration_notice",
                         nonce: $(".aikit-migration-notice").data("nonce")
                     }, function() {
                         $(".aikit-migration-notice").fadeOut();
@@ -197,7 +210,7 @@ class Admin
      */
     public function ajaxRunMigration(): void
     {
-        check_ajax_referer('aikit_migration', 'nonce');
+        check_ajax_referer('smartcloud_ai_kit_migration', 'nonce');
 
         if (!current_user_can('manage_options')) {
             wp_send_json_error(['message' => __('Permission denied.', 'smartcloud-ai-kit')]);
@@ -226,7 +239,7 @@ class Admin
      */
     public function ajaxDismissNotice(): void
     {
-        check_ajax_referer('aikit_migration', 'nonce');
+        check_ajax_referer('smartcloud_ai_kit_migration', 'nonce');
 
         if (!current_user_can('manage_options')) {
             wp_send_json_error();
@@ -247,15 +260,15 @@ class Admin
         }
 
         // Handle Quick Edit / Bulk Edit KB source actions
-        if (isset($_POST['aikit_kb_source_action']) || isset($_POST['aikit_kb_source_bulk_action'])) {
+        if (isset($_POST['smartcloud_ai_kit_kb_source_action']) || isset($_POST['smartcloud_ai_kit_kb_source_bulk_action'])) {
             // Verify nonce for Quick/Bulk Edit (WordPress uses inlineeditnonce)
             if (isset($_POST['_inline_edit']) && !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_inline_edit'] ?? '')), 'inlineeditnonce')) {
                 return;
             }
 
-            $action = isset($_POST['aikit_kb_source_action'])
-                ? sanitize_text_field(wp_unslash($_POST['aikit_kb_source_action']))
-                : sanitize_text_field(wp_unslash($_POST['aikit_kb_source_bulk_action'] ?? ''));
+            $action = isset($_POST['smartcloud_ai_kit_kb_source_action'])
+                ? sanitize_text_field(wp_unslash($_POST['smartcloud_ai_kit_kb_source_action']))
+                : sanitize_text_field(wp_unslash($_POST['smartcloud_ai_kit_kb_source_bulk_action'] ?? ''));
 
             if ($action === 'enable') {
                 // Enable KB source with default settings
@@ -267,20 +280,82 @@ class Admin
                 // Regenerate KB content
                 $this->regeneratePost($post_id);
             } elseif ($action === 'disable') {
-                // Disable KB source
+                // Disable the KB source
                 $this->sources->disable($post_id);
+
+                // Check if post has published content in backend (S3)
+                $kb_status = $this->calculate_kb_publish_status($post_id);
+
+                if ($kb_status === 'published') {
+                    // Keep publish_state so user can see published content in KB Admin UI
+                    // and delete from S3 using their credentials via frontend
+                    // The disabled source will appear in KB sources list as "disabled but published"
+                    Logger::info(
+                        sprintf(
+                            'KB source disabled for post %d via quick/bulk edit - publish_state preserved (has published content)',
+                            $post_id
+                        ),
+                        ['post_id' => $post_id, 'kb_status' => $kb_status]
+                    );
+                } else {
+                    // No published content or only pending/error - safe to delete publish_state
+                    $this->publish_state->deleteByPost($post_id);
+                    Logger::info(
+                        sprintf(
+                            'KB source disabled for post %d via quick/bulk edit - publish_state cleared (no published content)',
+                            $post_id
+                        ),
+                        ['post_id' => $post_id, 'kb_status' => $kb_status]
+                    );
+                }
             }
 
             return;
         }
 
         // Check if this post is a KB source
-        if (!$this->sources->isEnabled($post_id)) {
-            return;
-        }
+        if ($this->sources->isEnabled($post_id)) {
+            // This is a KB source - regenerate its content
+            $this->regeneratePost($post_id);
+        } else {
+            // This is NOT a KB source - check if any KB sources reference this post
+            $dependent_sources = $this->dependencies->getSourcesReferencingPost($post_id);
 
-        // Regenerate KB content for this post (async in future)
-        $this->regeneratePost($post_id);
+            if (!empty($dependent_sources)) {
+                Logger::info(
+                    sprintf(
+                        'Post %d changed - invalidating %d dependent KB source(s)',
+                        $post_id,
+                        count($dependent_sources)
+                    ),
+                    [
+                        'changed_post_id' => $post_id,
+                        'dependent_sources' => $dependent_sources
+                    ]
+                );
+
+                foreach ($dependent_sources as $source_post_id) {
+                    // Delete publish_state to mark as needs review
+                    $this->publish_state->deleteByPost($source_post_id);
+
+                    Logger::info(
+                        sprintf(
+                            'KB source %d invalidated (needs re-review) due to referenced post %d change',
+                            $source_post_id,
+                            $post_id
+                        ),
+                        [
+                            'kb_source_post_id' => $source_post_id,
+                            'referenced_post_id' => $post_id
+                        ]
+                    );
+
+                    // Optional: Auto-regenerate the dependent KB source
+                    // Uncomment if you want automatic regeneration instead of just invalidation
+                    $this->regeneratePost($source_post_id);
+                }
+            }
+        }
     }
 
     /**
@@ -297,6 +372,10 @@ class Admin
         $this->generated->deleteByPost($post_id);
         $this->overrides->deleteByPost($post_id);
         $this->publish_state->deleteByPost($post_id);
+
+        // Clean up dependencies (both as source and as referenced post)
+        $this->dependencies->deleteBySource($post_id);
+        $this->dependencies->deleteByReferencedPost($post_id);
     }
 
     /**
@@ -482,6 +561,21 @@ class Admin
             ]
         ]);
 
+        // Delete publish state after backend deletion (e.g., S3 cleanup)
+        register_rest_route($namespace, '/kb/posts/(?P<post_id>\d+)/publish-state', [
+            'methods' => 'DELETE',
+            'callback' => [$this, 'restDeletePublishState'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+            'args' => [
+                'post_id' => [
+                    'required' => true,
+                    'validate_callback' => function ($param) {
+                        return is_numeric($param);
+                    }
+                ]
+            ]
+        ]);
+
         // Mark post as reviewed (approve all docs for publishing)
         register_rest_route($namespace, '/kb/posts/(?P<post_id>\d+)/approve', [
             'methods' => 'POST',
@@ -510,6 +604,8 @@ class Admin
             'callback' => [$this, 'restUpdateSettings'],
             'permission_callback' => [$this, 'checkManagePermission']
         ]);
+
+        // Note: debug_logging_enabled is managed in the main admin.php at root level
 
         // Derive metadata config structure from KB sources
         register_rest_route($namespace, '/kb/metadata-config/derive', [
@@ -549,7 +645,17 @@ class Admin
         $publish_state_table = $wpdb->prefix . 'smartcloud_ai_kit_kb_publish_state';
         $kb_status_filter = $request->get_param('kb_status');
 
-        $where_clauses = ['s.enabled = 1'];
+        // Include both enabled sources AND disabled sources that still have published content
+        // This allows users to delete published content from the backend even after disabling the source
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safe (wpdb prefix + constant)
+        $where_clauses = [
+            "(s.enabled = 1 OR EXISTS (
+            SELECT 1 
+            FROM {$publish_state_table} ps 
+            WHERE ps.post_id = s.post_id 
+            AND ps.last_backend_status = 'success'
+        ))"
+        ];
         $where_values = [];
 
         // Search filter
@@ -621,6 +727,7 @@ class Admin
                 'post_title' => $source->post_title,
                 'post_status' => $source->post_status,
                 'enabled' => (bool) $source->enabled,
+                'is_disabled_but_published' => !(bool) $source->enabled && $kb_publish_status === 'published',
                 'default_doc_mode' => $source->default_doc_mode,
                 'updated_at' => $source->updated_at,
                 'kb_publish_status' => $kb_publish_status
@@ -902,16 +1009,53 @@ class Admin
             $success = $this->sources->enable($post_id, $post->post_type, $options);
 
             if ($success) {
-                // Trigger initial regeneration
-                $this->regeneratePost($post_id);
+                // Check if this is a "re-enable after disable" scenario
+                // by checking for existing publish_state (indicates previously published content)
+                $existing_publish_states = $this->publish_state->getByPost($post_id);
+
+                if (!empty($existing_publish_states)) {
+                    // This is a "mark as resolved" scenario for disabled but published source
+                    // Preserve existing publish_state and don't regenerate
+                    // (regeneration would delete publish_state)
+                    Logger::info(
+                        sprintf(
+                            'Re-enabled disabled but published KB source for post %d - publish_state preserved',
+                            $post_id
+                        ),
+                        ['post_id' => $post_id, 'publish_states_count' => count($existing_publish_states)]
+                    );
+                } else {
+                    // No publish_state exists - check if we need to generate initial content
+                    $existing_content = $this->generated->getByPost($post_id);
+                    if (empty($existing_content)) {
+                        // First time enabling - generate initial content
+                        $this->regeneratePost($post_id);
+                    }
+                    // If re-enabling (already has content but no publish_state), 
+                    // preserve existing generated content
+                    // User can manually regenerate if needed
+                }
             }
         } else {
             $success = $this->sources->disable($post_id);
 
-            // Delete publish state to ensure it doesn't appear as published when re-enabled
-            // Note: Frontend should handle backend deletion (S3) before calling this endpoint
-            if ($success) {
+            // Auto-cleanup publish_state when disable is requested
+            // This handles the "delete published KB source" workflow where:
+            // 1. Frontend deletes documents from S3 (using user credentials)
+            // 2. Frontend calls this disable endpoint
+            // 3. We cleanup publish_state automatically so source disappears from list
+            //
+            // Frontend can explicitly control this with delete_publish_state parameter:
+            // - delete_publish_state=true: Always delete (default for most cases)
+            // - delete_publish_state=false: Keep publish_state (advanced use case)
+            $should_delete_publish_state = $params['delete_publish_state'] ?? true;
+
+            if ($success && $should_delete_publish_state) {
                 $this->publish_state->deleteByPost($post_id);
+                Logger::info(
+                    sprintf('Publish state deleted for disabled KB source post %d', $post_id),
+                    ['post_id' => $post_id, 'requested_by' => 'rest_api']
+                );
             }
         }
 
@@ -930,6 +1074,15 @@ class Admin
     {
         $post_id = (int) $request['post_id'];
         $params = $request->get_json_params();
+
+        // Check if source is enabled - disabled sources cannot be modified
+        $source = $this->sources->getByPostId($post_id);
+        if (!$source || !$source->enabled) {
+            return new \WP_REST_Response([
+                'error' => 'Cannot modify disabled KB source',
+                'message' => __('This KB source is disabled. Re-enable it first to make changes.', 'smartcloud-ai-kit')
+            ], 403);
+        }
 
         $doc_id = $params['doc_id'] ?? '';
         $section_id = $params['section_id'] ?? '';
@@ -956,19 +1109,66 @@ class Admin
             'origin_hash_at_override' => $generated->origin_hash
         ];
 
+        // Check if source is disabled - if so, re-enable it automatically
+        $source = $this->sources->getByPostId($post_id);
+        $was_disabled = $source && !$source->enabled;
+
+        if ($was_disabled) {
+            $post = get_post($post_id);
+            if ($post) {
+                // Prepare taxonomy_mapping (decode JSON if stored as string)
+                $taxonomy_mapping = null;
+                if (!empty($source->taxonomy_mapping)) {
+                    $taxonomy_mapping = is_string($source->taxonomy_mapping)
+                        ? json_decode($source->taxonomy_mapping, true)
+                        : $source->taxonomy_mapping;
+                }
+
+                // Re-enable the source with existing settings
+                $enable_success = $this->sources->enable($post_id, $post->post_type, [
+                    'default_doc_mode' => $source->default_doc_mode ?? 'separate_doc',
+                    'taxonomy_mapping' => $taxonomy_mapping
+                ]);
+
+                Logger::info(
+                    sprintf(
+                        'Auto-enabled disabled KB source for post %d after override save - enable_success: %s',
+                        $post_id,
+                        $enable_success ? 'true' : 'false'
+                    ),
+                    [
+                        'post_id' => $post_id,
+                        'doc_id' => $doc_id,
+                        'section_id' => $section_id,
+                        'source_enabled_before' => $source->enabled,
+                        'enable_result' => $enable_success
+                    ]
+                );
+            }
+        }
+
         $success = $this->overrides->save($override);
 
         if ($success) {
-            // Delete publish state for this document since content changed
-            // This resets the KB status back to 'needs_review'
-            $this->publish_state->delete($post_id, $doc_id);
+            // Only delete publish state if source was NOT disabled
+            // If it was disabled, preserve publish_state (keeps published status)
+            if (!$was_disabled) {
+                // Delete publish state for this document since content changed
+                // This resets the KB status back to 'needs_review'
+                $this->publish_state->delete($post_id, $doc_id);
+            }
         }
 
         return new \WP_REST_Response([
             'success' => $success,
             'message' => $success
                 ? __('Override saved successfully.', 'smartcloud-ai-kit')
-                : __('Failed to save override.', 'smartcloud-ai-kit')
+                : __('Failed to save override.', 'smartcloud-ai-kit'),
+            'debug' => [
+                'was_disabled' => $was_disabled,
+                'source_enabled_after' => $was_disabled ? $this->sources->isEnabled($post_id) : null,
+                'publish_state_deleted' => !$was_disabled
+            ]
         ], $success ? 200 : 500);
     }
 
@@ -980,6 +1180,15 @@ class Admin
         $post_id = (int) $request['post_id'];
         $params = $request->get_json_params();
 
+        // Check if source is enabled - disabled sources cannot be modified
+        $source = $this->sources->getByPostId($post_id);
+        if (!$source || !$source->enabled) {
+            return new \WP_REST_Response([
+                'error' => 'Cannot modify disabled KB source',
+                'message' => __('This KB source is disabled. Re-enable it first to make changes.', 'smartcloud-ai-kit')
+            ], 403);
+        }
+
         $doc_id = $params['doc_id'] ?? '';
         $section_id = $params['section_id'] ?? '';
 
@@ -987,19 +1196,66 @@ class Admin
             return new \WP_REST_Response(['error' => 'doc_id and section_id required'], 400);
         }
 
+        // Check if source is disabled - if so, re-enable it automatically
+        $source = $this->sources->getByPostId($post_id);
+        $was_disabled = $source && !$source->enabled;
+
+        if ($was_disabled) {
+            $post = get_post($post_id);
+            if ($post) {
+                // Prepare taxonomy_mapping (decode JSON if stored as string)
+                $taxonomy_mapping = null;
+                if (!empty($source->taxonomy_mapping)) {
+                    $taxonomy_mapping = is_string($source->taxonomy_mapping)
+                        ? json_decode($source->taxonomy_mapping, true)
+                        : $source->taxonomy_mapping;
+                }
+
+                // Re-enable the source with existing settings
+                $enable_success = $this->sources->enable($post_id, $post->post_type, [
+                    'default_doc_mode' => $source->default_doc_mode ?? 'separate_doc',
+                    'taxonomy_mapping' => $taxonomy_mapping
+                ]);
+
+                Logger::info(
+                    sprintf(
+                        'Auto-enabled disabled KB source for post %d after override delete - enable_success: %s',
+                        $post_id,
+                        $enable_success ? 'true' : 'false'
+                    ),
+                    [
+                        'post_id' => $post_id,
+                        'doc_id' => $doc_id,
+                        'section_id' => $section_id,
+                        'source_enabled_before' => $source->enabled,
+                        'enable_result' => $enable_success
+                    ]
+                );
+            }
+        }
+
         $success = $this->overrides->delete($post_id, $doc_id, $section_id);
 
         if ($success) {
-            // Delete publish state for this document since content changed
-            // This resets the KB status back to 'needs_review'
-            $this->publish_state->delete($post_id, $doc_id);
+            // Only delete publish state if source was NOT disabled
+            // If it was disabled, preserve publish_state (keeps published status)
+            if (!$was_disabled) {
+                // Delete publish state for this document since content changed
+                // This resets the KB status back to 'needs_review'
+                $this->publish_state->delete($post_id, $doc_id);
+            }
         }
 
         return new \WP_REST_Response([
             'success' => $success,
             'message' => $success
                 ? __('Override deleted successfully.', 'smartcloud-ai-kit')
-                : __('Failed to delete override.', 'smartcloud-ai-kit')
+                : __('Failed to delete override.', 'smartcloud-ai-kit'),
+            'debug' => [
+                'was_disabled' => $was_disabled,
+                'source_enabled_after' => $was_disabled ? $this->sources->isEnabled($post_id) : null,
+                'publish_state_deleted' => !$was_disabled
+            ]
         ], $success ? 200 : 500);
     }
 
@@ -1009,13 +1265,56 @@ class Admin
     public function restRegenerate(\WP_REST_Request $request): \WP_REST_Response
     {
         $post_id = (int) $request['post_id'];
+        $params = $request->get_json_params();
 
         $post = get_post($post_id);
         if (!$post) {
             return new \WP_REST_Response(['error' => 'Post not found'], 404);
         }
 
-        $success = $this->regeneratePost($post_id);
+        // Check if this is a re-enable request
+        $is_reenable = $params['reenable'] ?? false;
+
+        $source = $this->sources->getByPostId($post_id);
+
+        if (!$source || !$source->enabled) {
+            // Disabled source - only allow if explicit re-enable
+            if (!$is_reenable) {
+                return new \WP_REST_Response([
+                    'error' => 'Cannot regenerate disabled KB source',
+                    'message' => __('This KB source is disabled. Re-enable it first to regenerate content.', 'smartcloud-ai-kit')
+                ], 403);
+            }
+
+            // Re-enable the source
+            $taxonomy_mapping = null;
+            if (!empty($source->taxonomy_mapping)) {
+                $taxonomy_mapping = is_string($source->taxonomy_mapping)
+                    ? json_decode($source->taxonomy_mapping, true)
+                    : $source->taxonomy_mapping;
+            }
+
+            $enable_success = $this->sources->enable($post_id, $post->post_type, [
+                'default_doc_mode' => $source->default_doc_mode ?? 'separate_doc',
+                'taxonomy_mapping' => $taxonomy_mapping
+            ]);
+
+            if (!$enable_success) {
+                return new \WP_REST_Response([
+                    'error' => 'Failed to re-enable source',
+                    'message' => __('Failed to re-enable KB source.', 'smartcloud-ai-kit')
+                ], 500);
+            }
+
+            Logger::info(
+                sprintf('Re-enabled disabled KB source for post %d', $post_id),
+                ['post_id' => $post_id]
+            );
+        }
+
+        // Regenerate with optional preserve_publish_state flag
+        $preserve_publish_state = $params['preserve_publish_state'] ?? false;
+        $success = $this->regeneratePost($post_id, $preserve_publish_state);
 
         return new \WP_REST_Response([
             'success' => $success,
@@ -1036,6 +1335,15 @@ class Admin
 
         if (empty($doc_id)) {
             return new \WP_REST_Response(['error' => 'doc_id required'], 400);
+        }
+
+        // Check if source is enabled - disabled sources cannot be published
+        $source = $this->sources->getByPostId($post_id);
+        if (!$source || !$source->enabled) {
+            return new \WP_REST_Response([
+                'error' => 'Cannot publish disabled KB source',
+                'message' => __('This KB source is disabled. Re-enable it first to publish.', 'smartcloud-ai-kit')
+            ], 403);
         }
 
         $result = $this->publishDocument($post_id, $doc_id);
@@ -1156,6 +1464,62 @@ class Admin
     }
 
     /**
+     * REST: Delete publish state after backend deletion
+     * Called by frontend after successfully deleting documents from S3
+     * This removes the publish_state records, resetting the KB status to 'needs_review' or removing from list
+     */
+    public function restDeletePublishState(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $post_id = (int) $request['post_id'];
+        $params = $request->get_json_params();
+
+        $post = get_post($post_id);
+        if (!$post) {
+            return new \WP_REST_Response(['error' => 'Post not found'], 404);
+        }
+
+        // Optional: array of specific doc_ids to delete
+        // If not provided, delete all publish states for this post
+        $doc_ids = $params['doc_ids'] ?? null;
+
+        if ($doc_ids && is_array($doc_ids)) {
+            // Delete specific documents
+            $all_success = true;
+            $results = [];
+
+            foreach ($doc_ids as $doc_id) {
+                $success = $this->publish_state->delete($post_id, $doc_id);
+                $results[] = [
+                    'doc_id' => $doc_id,
+                    'success' => $success
+                ];
+
+                if (!$success) {
+                    $all_success = false;
+                }
+            }
+
+            return new \WP_REST_Response([
+                'success' => $all_success,
+                'message' => $all_success
+                    ? __('Publish states deleted successfully.', 'smartcloud-ai-kit')
+                    : __('Some publish states failed to delete.', 'smartcloud-ai-kit'),
+                'results' => $results
+            ], $all_success ? 200 : 207);
+        } else {
+            // Delete all publish states for this post
+            $success = $this->publish_state->deleteByPost($post_id);
+
+            return new \WP_REST_Response([
+                'success' => $success,
+                'message' => $success
+                    ? __('All publish states deleted successfully.', 'smartcloud-ai-kit')
+                    : __('Failed to delete publish states.', 'smartcloud-ai-kit')
+            ], $success ? 200 : 500);
+        }
+    }
+
+    /**
      * REST: Mark post as reviewed (approve all docs for publishing)
      * Creates publish_state entries with current hashes but without backend upload
      * This changes status from 'needs_review' to 'ready_to_publish'
@@ -1167,6 +1531,15 @@ class Admin
         $post = get_post($post_id);
         if (!$post) {
             return new \WP_REST_Response(['error' => 'Post not found'], 404);
+        }
+
+        // Check if source is enabled - disabled sources cannot be approved
+        $source = $this->sources->getByPostId($post_id);
+        if (!$source || !$source->enabled) {
+            return new \WP_REST_Response([
+                'error' => 'Cannot approve disabled KB source',
+                'message' => __('This KB source is disabled. Re-enable it first to approve for publishing.', 'smartcloud-ai-kit')
+            ], 403);
         }
 
         // Get all generated sections grouped by doc_id
@@ -1286,8 +1659,11 @@ class Admin
 
     /**
      * Regenerate KB content for a post
+     * 
+     * @param int $post_id The post ID to regenerate
+     * @param bool $preserve_publish_state If true, keeps existing publish_state (for re-enabling disabled sources)
      */
-    public function regeneratePost(int $post_id): bool
+    public function regeneratePost(int $post_id, bool $preserve_publish_state = false): bool
     {
         $post = get_post($post_id);
         if (!$post) {
@@ -1300,7 +1676,10 @@ class Admin
         try {
             $sections_by_doc = $parser->parsePost($post);
         } catch (\Exception $e) {
-            //error_log('AI-Kit KB Parser Error: ' . $e->getMessage());
+            Logger::error('KB Parser Error: ' . $e->getMessage(), [
+                'post_id' => $post_id,
+                'exception' => get_class($e)
+            ]);
             return false;
         }
 
@@ -1309,7 +1688,10 @@ class Admin
 
         // Delete publish state records to reset status to 'needs_review'
         // When content changes, previous approval/publish status is no longer valid
-        $this->publish_state->deleteByPost($post_id);
+        // UNLESS we're explicitly preserving it (e.g., during re-enable of disabled source)
+        if (!$preserve_publish_state) {
+            $this->publish_state->deleteByPost($post_id);
+        }
 
         // Save all new sections
         $success = true;
@@ -1329,9 +1711,42 @@ class Admin
 
                 if (!$result) {
                     $success = false;
-                    //error_log("AI-Kit: Failed to save section {$section_data['section_id']} for doc {$doc_id}");
+                    Logger::warning(
+                        sprintf(
+                            'Failed to save section %s for doc %s',
+                            $section_data['section_id'],
+                            $doc_id
+                        ),
+                        [
+                            'post_id' => $post_id,
+                            'doc_id' => $doc_id,
+                            'section_id' => $section_data['section_id']
+                        ]
+                    );
                 }
             }
+        }
+
+        // Store dependencies (post references extracted during parsing)
+        $referenced_post_ids = $parser->getReferencedPostIds();
+        if (!empty($referenced_post_ids)) {
+            $deps_saved = $this->dependencies->storeDependencies($post_id, $referenced_post_ids);
+
+            Logger::info(
+                sprintf(
+                    'Stored %d post reference(s) for KB source %d',
+                    count($referenced_post_ids),
+                    $post_id
+                ),
+                [
+                    'kb_source_post_id' => $post_id,
+                    'referenced_posts' => $referenced_post_ids,
+                    'deps_saved' => $deps_saved
+                ]
+            );
+        } else {
+            // No references - clear existing dependencies
+            $this->dependencies->deleteBySource($post_id);
         }
 
         return $success;
@@ -1425,7 +1840,7 @@ class Admin
     public function restGetSettings(\WP_REST_Request $request): \WP_REST_Response
     {
         $settings = [
-            'base_url_override' => get_option('aikit_kb_base_url_override', '')
+            'base_url_override' => get_option('smartcloud_ai_kit_kb_base_url_override', '')
         ];
 
         return new \WP_REST_Response($settings, 200);
@@ -1447,7 +1862,7 @@ class Admin
             $base_url_override = rtrim($base_url_override, '/');
         }
 
-        update_option('aikit_kb_base_url_override', $base_url_override);
+        update_option('smartcloud_ai_kit_kb_base_url_override', $base_url_override);
 
         return new \WP_REST_Response([
             'success' => true,
@@ -1615,7 +2030,7 @@ class Admin
         );
 
         wp_localize_script('aikit-kb-quick-edit', 'aikitKBQuickEdit', [
-            'nonce' => wp_create_nonce('aikit_kb_quick_edit'),
+            'nonce' => wp_create_nonce('smartcloud_ai_kit_kb_quick_edit'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'enabledText' => __('Enabled', 'smartcloud-ai-kit'),
             'disabledText' => __('Disabled', 'smartcloud-ai-kit'),
@@ -1640,7 +2055,7 @@ class Admin
             <div class="inline-edit-col">
                 <label class="inline-edit-group">
                     <span class="title"><?php esc_html_e('KB Source', 'smartcloud-ai-kit'); ?></span>
-                    <select name="aikit_kb_source_action" class="aikit-kb-source-select">
+                    <select name="smartcloud_ai_kit_kb_source_action" class="aikit-kb-source-select">
                         <option value=""><?php esc_html_e('— No Change —', 'smartcloud-ai-kit'); ?></option>
                         <option value="enable"><?php esc_html_e('Enable', 'smartcloud-ai-kit'); ?></option>
                         <option value="disable"><?php esc_html_e('Disable', 'smartcloud-ai-kit'); ?></option>
@@ -1669,7 +2084,7 @@ class Admin
             <div class="inline-edit-col">
                 <label class="inline-edit-group">
                     <span class="title"><?php esc_html_e('KB Source', 'smartcloud-ai-kit'); ?></span>
-                    <select name="aikit_kb_source_bulk_action" class="aikit-kb-source-bulk-select">
+                    <select name="smartcloud_ai_kit_kb_source_bulk_action" class="aikit-kb-source-bulk-select">
                         <option value=""><?php esc_html_e('— No Change —', 'smartcloud-ai-kit'); ?></option>
                         <option value="enable"><?php esc_html_e('Enable', 'smartcloud-ai-kit'); ?></option>
                         <option value="disable"><?php esc_html_e('Disable', 'smartcloud-ai-kit'); ?></option>
@@ -1685,8 +2100,8 @@ class Admin
      */
     public function addBulkActions(array $actions): array
     {
-        $actions['aikit_kb_enable'] = __('Enable as KB Source', 'smartcloud-ai-kit');
-        $actions['aikit_kb_disable'] = __('Disable as KB Source', 'smartcloud-ai-kit');
+        $actions['smartcloud_ai_kit_kb_enable'] = __('Enable as KB Source', 'smartcloud-ai-kit');
+        $actions['smartcloud_ai_kit_kb_disable'] = __('Disable as KB Source', 'smartcloud-ai-kit');
         return $actions;
     }
 
@@ -1695,7 +2110,7 @@ class Admin
      */
     public function handleBulkActions(string $redirect_to, string $doaction, array $post_ids): string
     {
-        if (!in_array($doaction, ['aikit_kb_enable', 'aikit_kb_disable'])) {
+        if (!in_array($doaction, ['smartcloud_ai_kit_kb_enable', 'smartcloud_ai_kit_kb_disable'])) {
             return $redirect_to;
         }
 
@@ -1707,22 +2122,30 @@ class Admin
                 continue;
             }
 
-            if ($doaction === 'aikit_kb_enable') {
+            if ($doaction === 'smartcloud_ai_kit_kb_enable') {
                 $this->sources->enable($post_id, $post->post_type, [
                     'default_doc_mode' => 'separate_doc',
                     'taxonomy_mapping' => null
                 ]);
                 $this->regeneratePost($post_id);
                 $processed++;
-            } elseif ($doaction === 'aikit_kb_disable') {
+            } elseif ($doaction === 'smartcloud_ai_kit_kb_disable') {
                 $this->sources->disable($post_id);
+
+                // Only delete publish_state if no published content in backend
+                // If published, keep it so user can delete from S3 via KB Admin UI
+                $kb_status = $this->calculate_kb_publish_status($post_id);
+                if ($kb_status !== 'published') {
+                    $this->publish_state->deleteByPost($post_id);
+                }
+
                 $processed++;
             }
         }
 
-        $redirect_to = add_query_arg('aikit_kb_bulk_action', $doaction, $redirect_to);
-        $redirect_to = add_query_arg('aikit_kb_bulk_count', $processed, $redirect_to);
-        $redirect_to = add_query_arg('aikit_kb_bulk_nonce', wp_create_nonce('aikit_kb_bulk_action'), $redirect_to);
+        $redirect_to = add_query_arg('smartcloud_ai_kit_kb_bulk_action', $doaction, $redirect_to);
+        $redirect_to = add_query_arg('smartcloud_ai_kit_kb_bulk_count', $processed, $redirect_to);
+        $redirect_to = add_query_arg('smartcloud_ai_kit_kb_bulk_nonce', wp_create_nonce('smartcloud_ai_kit_kb_bulk_action'), $redirect_to);
 
         return $redirect_to;
     }
@@ -1732,27 +2155,27 @@ class Admin
      */
     public function showBulkActionNotices(): void
     {
-        if (!isset($_GET['aikit_kb_bulk_action']) || !isset($_GET['aikit_kb_bulk_count']) || !isset($_GET['aikit_kb_bulk_nonce'])) {
+        if (!isset($_GET['smartcloud_ai_kit_kb_bulk_action']) || !isset($_GET['smartcloud_ai_kit_kb_bulk_count']) || !isset($_GET['smartcloud_ai_kit_kb_bulk_nonce'])) {
             return;
         }
 
         // Verify nonce
-        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['aikit_kb_bulk_nonce'])), 'aikit_kb_bulk_action')) {
+        if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['smartcloud_ai_kit_kb_bulk_nonce'])), 'smartcloud_ai_kit_kb_bulk_action')) {
             return;
         }
 
-        $action = sanitize_text_field(wp_unslash($_GET['aikit_kb_bulk_action']));
-        $count = intval($_GET['aikit_kb_bulk_count']);
+        $action = sanitize_text_field(wp_unslash($_GET['smartcloud_ai_kit_kb_bulk_action']));
+        $count = intval($_GET['smartcloud_ai_kit_kb_bulk_count']);
 
         if ($count === 0) {
             return;
         }
 
         $message = '';
-        if ($action === 'aikit_kb_enable') {
+        if ($action === 'smartcloud_ai_kit_kb_enable') {
             /* translators: %d: number of posts */
             $message = sprintf(_n('%d post enabled as KB source.', '%d posts enabled as KB sources.', $count, 'smartcloud-ai-kit'), $count);
-        } elseif ($action === 'aikit_kb_disable') {
+        } elseif ($action === 'smartcloud_ai_kit_kb_disable') {
             /* translators: %d: number of posts */
             $message = sprintf(_n('%d post disabled as KB source.', '%d posts disabled as KB sources.', $count, 'smartcloud-ai-kit'), $count);
         }

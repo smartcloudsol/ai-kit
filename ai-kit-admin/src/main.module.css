@@ -1,5 +1,6 @@
 :root {
   --mantine-cursor-type: pointer;
+  --switch-cursor: pointer;
 }
 
 input[readonly].mantine-Select-input {

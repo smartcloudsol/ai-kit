@@ -30,6 +30,10 @@ declare const actions: {
         type: string;
         direction: "ltr" | "rtl" | "auto" | null | undefined;
     };
+    setConfig: (config: AiKitConfig) => {
+        type: "SET_CONFIG";
+        config: AiKitConfig;
+    };
 };
 interface CustomTranslations {
     [key: string]: Record<string, string>;
@@ -50,9 +54,12 @@ type StoreSelectors = {
     getDirection(): "ltr" | "rtl" | "auto" | undefined | null;
     getState(): State;
 };
-type StoreActions = typeof actions;
-declare const getStoreDispatch: (store: Store) => StoreActions;
+type StoreActions = Omit<typeof actions, "setConfig"> & {
+    setConfig?: typeof actions.setConfig;
+};
+declare const getStoreDispatch: (store: Store) => Omit<StoreActions, "setConfig">;
 declare const getStoreSelect: (store: Store) => StoreSelectors;
+declare const reloadConfig: (store: Store) => Promise<void>;
 declare const observeStore: (observableStore: Store, selector: (state: State) => boolean | number | string | null | undefined, onChange: (nextValue: boolean | number | string | null | undefined, previousValue: boolean | number | string | null | undefined) => void) => () => void;
 
 type ContextKind = "admin" | "frontend";
@@ -105,6 +112,8 @@ interface AiKitSettings {
     reCaptchaChatTtlSeconds?: number;
     /** Whether to show "Powered by WPSuite AI-Kit" branding in UIs. */
     enablePoweredBy?: boolean;
+    /** Whether to enable server-side debug logging for AI-Kit. */
+    debugLoggingEnabled?: boolean;
 }
 interface DeviceAvailability {
     available: boolean;
@@ -586,4 +595,4 @@ declare const sendFeedbackMessage: (...args: Parameters<Features["sendFeedbackMe
 declare const sendSearchMessage: (...args: Parameters<Features["sendSearchMessage"]>) => Promise<SearchResult>;
 declare const initializeAiKit: (renderFeature: (args: AiFeatureArgs) => Promise<AiWorkerHandle>, renderSearchComponent?: (args: DocSearchArgs) => Promise<AiWorkerHandle>) => AiKitPlugin;
 
-export { type AiChatbotLabels, type AiChatbotProps, type AiFeatureArgs, type AiFeatureMode, type AiFeatureOptions, type AiFeatureProps, type AiKit, AiKitChatbotIcon, type AiKitConfig, AiKitDocSearchIcon, type AiKitErrorEvent, AiKitFeatureIcon, type AiKitFeatures, type AiKitLanguageCode, type AiKitLanguageProfile, type AiKitLanguageRef, type AiKitPlugin, type AiKitReadyEvent, type AiKitSettings, type AiKitStatusEvent, type AiKitStatusStep, type AiModePreference, type AiWorkerHandle, type AiWorkerProps, type AnyCreateCoreOptions, type Backend, type BackendCallOptions, BackendError, type BackendTransport, type BuiltInAiFeature, type Capabilities, type CapabilityDecision, type CapabilitySource, type ChatMessageArgs, type ContextKind, type CustomTranslations, type DetectLanguageArgs, type DetectLanguageOutput, type DeviceAvailability, type DocSearchArgs, type DocSearchProps, type FeatureOptions, type Features, type FeedbackMessageArgs, type HistoryStorageMode, LANGUAGE_OPTIONS, type OnDeviceUnsupportedLanguageStrategy, type OpenButtonIconLayout, type OpenButtonPosition, type ProcessedCitations, type PromptArgs, type PromptAudioInput, type PromptImageInput, type PromptMessages, type PromptResult, type ProofreadArgs, type ProofreadOutput, type RetrievedChunk, type RetrievedDoc, type RewriteArgs, type RewriteResult, type SearchMessageArgs, type SearchResult, type State, type Store, type SummarizeArgs, type SummarizeResult, TEXT_DOMAIN, type TranslateArgs, type TranslateResult, type WriteArgs, type WriteResult, checkOnDeviceAvailability, decideCapability, detectLanguage, dispatchBackend, getAiKitPlugin, getMinChromeVersions, getPromptOptions, getProofreadOptions, getRewriteOptions, getStore, getStoreDispatch, getStoreSelect, getSummarizeOptions, getTranslateOptions, getWriteOptions, initializeAiKit, observeStore, prompt, proofread, rewrite, sanitizeAiKitConfig, sendChatMessage, sendFeedbackMessage, sendSearchMessage, summarize, translate, waitForAiKitReady, write };
+export { type AiChatbotLabels, type AiChatbotProps, type AiFeatureArgs, type AiFeatureMode, type AiFeatureOptions, type AiFeatureProps, type AiKit, AiKitChatbotIcon, type AiKitConfig, AiKitDocSearchIcon, type AiKitErrorEvent, AiKitFeatureIcon, type AiKitFeatures, type AiKitLanguageCode, type AiKitLanguageProfile, type AiKitLanguageRef, type AiKitPlugin, type AiKitReadyEvent, type AiKitSettings, type AiKitStatusEvent, type AiKitStatusStep, type AiModePreference, type AiWorkerHandle, type AiWorkerProps, type AnyCreateCoreOptions, type Backend, type BackendCallOptions, BackendError, type BackendTransport, type BuiltInAiFeature, type Capabilities, type CapabilityDecision, type CapabilitySource, type ChatMessageArgs, type ContextKind, type CustomTranslations, type DetectLanguageArgs, type DetectLanguageOutput, type DeviceAvailability, type DocSearchArgs, type DocSearchProps, type FeatureOptions, type Features, type FeedbackMessageArgs, type HistoryStorageMode, LANGUAGE_OPTIONS, type OnDeviceUnsupportedLanguageStrategy, type OpenButtonIconLayout, type OpenButtonPosition, type ProcessedCitations, type PromptArgs, type PromptAudioInput, type PromptImageInput, type PromptMessages, type PromptResult, type ProofreadArgs, type ProofreadOutput, type RetrievedChunk, type RetrievedDoc, type RewriteArgs, type RewriteResult, type SearchMessageArgs, type SearchResult, type State, type Store, type SummarizeArgs, type SummarizeResult, TEXT_DOMAIN, type TranslateArgs, type TranslateResult, type WriteArgs, type WriteResult, checkOnDeviceAvailability, decideCapability, detectLanguage, dispatchBackend, getAiKitPlugin, getMinChromeVersions, getPromptOptions, getProofreadOptions, getRewriteOptions, getStore, getStoreDispatch, getStoreSelect, getSummarizeOptions, getTranslateOptions, getWriteOptions, initializeAiKit, observeStore, prompt, proofread, reloadConfig, rewrite, sanitizeAiKitConfig, sendChatMessage, sendFeedbackMessage, sendSearchMessage, summarize, translate, waitForAiKitReady, write };

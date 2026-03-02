@@ -103,6 +103,33 @@ const pages = {
         AI-Kit renders UI (where applicable). You can hide it for a cleaner
         appearance.
       </Text>
+      <Title order={3} mt="md" id="developer-settings">
+        <span className="highlightable">Developer Settings</span>
+      </Title>
+      <Text>Advanced settings for developers and debugging purposes.</Text>
+      <Title order={3} mt="md" id="enable-debug-logging">
+        <span className="highlightable">Enable Debug Logging</span>
+      </Title>
+      <Text>
+        When enabled, AI-Kit writes detailed debug information to WordPress
+        debug logs. This is useful for troubleshooting issues or understanding
+        how AI-Kit processes requests.
+      </Text>
+      <Text mt="xs">
+        <strong>Requirements:</strong> Debug logging only works when both{" "}
+        <Code>WP_DEBUG</Code> and <Code>WP_DEBUG_LOG</Code> are set to{" "}
+        <Code>true</Code> in your <Code>wp-config.php</Code> file.
+      </Text>
+      <Text mt="xs">
+        Logs will appear in <Code>wp-content/debug.log</Code>. Log entries are
+        prefixed with <Code>[AI-Kit]</Code> and include the severity level
+        (DEBUG, INFO, WARNING, ERROR).
+      </Text>
+      <Text mt="xs" c="orange">
+        <strong>Note:</strong> Enable this only when troubleshooting. Debug
+        logging can generate large log files and may impact performance on
+        high-traffic sites.
+      </Text>
     </>
   ),
 

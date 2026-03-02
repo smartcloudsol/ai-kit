@@ -796,6 +796,49 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'description' => __('CSS selector for input element', 'smartcloud-ai-kit'),
         ]);
 
+        $this->add_control('showOpenButton', [
+            'label' => __('Show Open Button', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::SWITCHER,
+            'return_value' => 'true',
+            'default' => '',
+        ]);
+
+        $this->add_control('openButtonTitle', [
+            'label' => __('Open Button Title', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::TEXT,
+            'condition' => [
+                'showOpenButton' => 'true',
+            ],
+        ]);
+
+        $this->add_control('showOpenButtonTitle', [
+            'label' => __('Show Open Button Title', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::SWITCHER,
+            'return_value' => 'true',
+            'default' => 'true',
+            'condition' => [
+                'showOpenButton' => 'true',
+            ],
+        ]);
+
+        $this->add_control('openButtonIcon', [
+            'label' => __('Open Button Icon', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::TEXT,
+            'condition' => [
+                'showOpenButton' => 'true',
+            ],
+        ]);
+
+        $this->add_control('showOpenButtonIcon', [
+            'label' => __('Show Open Button Icon', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::SWITCHER,
+            'return_value' => 'true',
+            'default' => 'true',
+            'condition' => [
+                'showOpenButton' => 'true',
+            ],
+        ]);
+
         $this->end_controls_section();
 
         // Search Settings
@@ -956,6 +999,11 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'autoRun',
             'title',
             'inputSelector',
+            'showOpenButton',
+            'openButtonTitle',
+            'showOpenButtonTitle',
+            'openButtonIcon',
+            'showOpenButtonIcon',
             'searchButtonIcon',
             'showSearchButtonTitle',
             'showSearchButtonIcon',
@@ -968,7 +1016,7 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
         ];
 
         // SWITCHER fields that need explicit boolean values
-        $switcher_fields = ['autoRun', 'showSearchButtonTitle', 'showSearchButtonIcon'];
+        $switcher_fields = ['autoRun', 'showOpenButton', 'showOpenButtonTitle', 'showOpenButtonIcon', 'showSearchButtonTitle', 'showSearchButtonIcon'];
 
         // Filter settings to only include allowed attributes with non-empty values
         $atts = array_intersect_key($all, array_flip($simple_attrs));

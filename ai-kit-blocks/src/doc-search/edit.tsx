@@ -57,7 +57,11 @@ export interface EditorBlockProps {
   instructionLabel?: string;
   summaryLabel?: string;
   sourcesLabel?: string;
-  searchButtonTitle?: string;
+  showOpenButton?: boolean;
+  openButtonTitle?: string;
+  showOpenButtonTitle?: boolean;
+  openButtonIcon?: string;
+  showOpenButtonIcon?: boolean;
   showSearchButtonTitle?: boolean;
   searchButtonIcon?: string;
   showSearchButtonIcon?: boolean;
@@ -86,6 +90,11 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
     language,
     direction,
     title,
+    showOpenButton,
+    openButtonTitle,
+    showOpenButtonTitle,
+    openButtonIcon,
+    showOpenButtonIcon,
     showSearchButtonTitle,
     searchButtonIcon,
     showSearchButtonIcon,
@@ -239,8 +248,83 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                 TEXT_DOMAIN,
               )}
             />
+            <Divider />
             <CheckboxControl
-              label={__("Show", TEXT_DOMAIN)}
+              label={__("Show Open Button", TEXT_DOMAIN)}
+              checked={showOpenButton || false}
+              onChange={(value) => {
+                setAttributes({
+                  showOpenButton: value !== undefined ? value : false,
+                });
+              }}
+              help={__(
+                "Toggle to show or hide the open button. When enabled, the search interface opens only after clicking the button.",
+                TEXT_DOMAIN,
+              )}
+            />
+            {showOpenButton && (
+              <>
+                <TextControl
+                  label={__("Open Button Title", TEXT_DOMAIN)}
+                  value={openButtonTitle || ""}
+                  placeholder={title || __("Search with AI-Kit", TEXT_DOMAIN)}
+                  onChange={(value) => {
+                    setAttributes({ openButtonTitle: value });
+                  }}
+                  help={__(
+                    "Override the default open button title. Leave empty to use the title.",
+                    TEXT_DOMAIN,
+                  )}
+                />
+                <CheckboxControl
+                  label={__("Show Open Button Title", TEXT_DOMAIN)}
+                  checked={
+                    showOpenButtonTitle === undefined || showOpenButtonTitle
+                  }
+                  onChange={(value) => {
+                    setAttributes({
+                      showOpenButtonTitle:
+                        value !== undefined ? value : showOpenButtonTitle,
+                    });
+                  }}
+                  help={__(
+                    "Toggle to show or hide the open button title.",
+                    TEXT_DOMAIN,
+                  )}
+                />
+                <TextControl
+                  label={__("Custom Open Button Icon", TEXT_DOMAIN)}
+                  value={openButtonIcon || ""}
+                  placeholder="<svg>...</svg>"
+                  onChange={(value) => {
+                    setAttributes({ openButtonIcon: value });
+                  }}
+                  help={__(
+                    "Override the default open button icon. Leave empty to use the default icon.",
+                    TEXT_DOMAIN,
+                  )}
+                />
+                <CheckboxControl
+                  label={__("Show Open Button Icon", TEXT_DOMAIN)}
+                  checked={
+                    showOpenButtonIcon === undefined || showOpenButtonIcon
+                  }
+                  onChange={(value) => {
+                    setAttributes({
+                      showOpenButtonIcon:
+                        value !== undefined ? value : showOpenButtonIcon,
+                    });
+                  }}
+                  help={__(
+                    "Toggle to show or hide the open button icon.",
+                    TEXT_DOMAIN,
+                  )}
+                />
+                <Divider />
+              </>
+            )}
+            <CheckboxControl
+              label={__("Show Search Button Title", TEXT_DOMAIN)}
               checked={
                 showSearchButtonTitle === undefined || showSearchButtonTitle
               }
@@ -268,7 +352,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
               )}
             />
             <CheckboxControl
-              label={__("Show", TEXT_DOMAIN)}
+              label={__("Show Search Button Icon", TEXT_DOMAIN)}
               checked={
                 showSearchButtonIcon === undefined || showSearchButtonIcon
               }
@@ -577,6 +661,11 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
             language={language || "en"}
             direction={themeDirection || "auto"}
             title={title}
+            showOpenButton={showOpenButton}
+            openButtonTitle={openButtonTitle}
+            showOpenButtonTitle={showOpenButtonTitle}
+            openButtonIcon={openButtonIcon}
+            showOpenButtonIcon={showOpenButtonIcon}
             showSearchButtonTitle={showSearchButtonTitle}
             searchButtonIcon={searchButtonIcon}
             showSearchButtonIcon={showSearchButtonIcon}

@@ -1276,10 +1276,10 @@
   resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.57.1.tgz#a03348e7b559c792b6277cc58874b89ef46e1e72"
   integrity sha512-mxRFDdHIWRxg3UfIIAwCm6NzvxG0jDX/wBN6KsQFTvKFqqg9vTrWUE68qEjHt19A5wwx5X5aUi2zuZT7YR0jrA==
 
-"@smart-cloud/ai-kit-core@^1.3.3":
-  version "1.3.3"
-  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-core/-/ai-kit-core-1.3.3.tgz#0c3dc46b69ee393d9f416f6e15b092e215a57494"
-  integrity sha512-Owk8c/nerFCMVg03E1kyyCPXtLMzcQVt6KCaE+ALDYh3FJR5xdii3sYCHImxlfCU3PYb2Yc+AwLnzY2KWkKJkg==
+"@smart-cloud/ai-kit-core@^1.3.5":
+  version "1.3.5"
+  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-core/-/ai-kit-core-1.3.5.tgz#52949a7abb79757692e6d6ebefe9f28828ba64ce"
+  integrity sha512-68PEVr5jHRPBNWi++zAO7PHuXfs5Fg6g5GILOx/PQCmOd3MyQiw8xw9GB9MVJtX90rXypXJdZmO7rhOh4q0f4g==
   dependencies:
     "@smart-cloud/gatey-core" "^2.1.9"
     "@smart-cloud/wpsuite-core" "^2.2.6"

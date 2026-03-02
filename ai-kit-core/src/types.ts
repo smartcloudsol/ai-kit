@@ -78,6 +78,9 @@ export interface AiKitSettings {
 
   /** Whether to show "Powered by WPSuite AI-Kit" branding in UIs. */
   enablePoweredBy?: boolean;
+
+  /** Whether to enable server-side debug logging for AI-Kit. */
+  debugLoggingEnabled?: boolean;
 }
 
 export interface DeviceAvailability {

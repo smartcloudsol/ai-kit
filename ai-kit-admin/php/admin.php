@@ -30,6 +30,7 @@ class Admin
             enablePoweredBy: false,
             defaultOutputLanguage: "",
             reCaptchaChatTtlSeconds: 120,
+            debugLoggingEnabled: false
         );
 
         // WP can return array/object depending on previous versions / serialization.
@@ -148,6 +149,8 @@ class Admin
             $reCaptchaChatTtlSeconds = 3600;
         }
 
+        $debugLoggingEnabled = (bool) ($settings_param['debugLoggingEnabled'] ?? false);
+
         $this->settings = new AiKitSettings(
             sharedContext: sanitize_textarea_field($sharedContext),
             reCaptchaSiteKey: sanitize_text_field($reCaptchaSiteKey),
@@ -156,6 +159,7 @@ class Admin
             enablePoweredBy: (bool) ($settings_param['enablePoweredBy'] ?? false),
             defaultOutputLanguage: $defaultOutputLanguage,
             reCaptchaChatTtlSeconds: $reCaptchaChatTtlSeconds,
+            debugLoggingEnabled: $debugLoggingEnabled
         );
 
         // Frissített beállítások mentése

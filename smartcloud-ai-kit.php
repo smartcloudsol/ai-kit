@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.1.0
+ * Version:           1.1.1
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,8 +18,8 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.1.0';
-const DB_VERSION = '1.2.0';
+const VERSION = '1.1.1';
+const DB_VERSION = '1.3.0';
 
 if (!defined('ABSPATH')) {
     exit;
@@ -520,6 +520,11 @@ __aikitGlobal.WpSuite.constants.aiKit = {
      * - variation (default: "default")
      * - title
      * - placeholder
+     * - showOpenButton
+     * - openButtonTitle
+     * - showOpenButtonTitle
+     * - openButtonIcon
+     * - showOpenButtonIcon
      * - searchButtonTitle
      * - showSearchButtonTitle
      * - searchButtonIcon (base64-encoded image data URI)
@@ -540,6 +545,11 @@ __aikitGlobal.WpSuite.constants.aiKit = {
             'variation' => 'default',
             'autoRun' => null,
             'title' => null,
+            'showOpenButton' => null,
+            'openButtonTitle' => null,
+            'showOpenButtonTitle' => null,
+            'openButtonIcon' => null,
+            'showOpenButtonIcon' => null,
             'showSearchButtonTitle' => null,
             'searchButtonIcon' => null,
             'showSearchButtonIcon' => null,

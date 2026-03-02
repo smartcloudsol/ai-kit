@@ -127,6 +127,52 @@ try {
       const yamlTitle = fromYaml<DocSearchArgs["title"]>(yamlConfig, "title");
       const title = yamlTitle ?? el.getAttribute("data-title") ?? undefined;
 
+      const yamlShowOpenButton = fromYaml<DocSearchArgs["showOpenButton"]>(
+        yamlConfig,
+        "showOpenButton",
+      );
+      const showOpenButton =
+        yamlShowOpenButton ??
+        (el.getAttribute("data-show-open-button") !== undefined
+          ? el.getAttribute("data-show-open-button") === "true"
+          : undefined);
+
+      const yamlOpenButtonTitle = fromYaml<DocSearchArgs["openButtonTitle"]>(
+        yamlConfig,
+        "openButtonTitle",
+      );
+      const openButtonTitle =
+        yamlOpenButtonTitle ??
+        el.getAttribute("data-open-button-title") ??
+        undefined;
+
+      const yamlShowOpenButtonTitle = fromYaml<
+        DocSearchArgs["showOpenButtonTitle"]
+      >(yamlConfig, "showOpenButtonTitle");
+      const showOpenButtonTitle =
+        yamlShowOpenButtonTitle ??
+        (el.getAttribute("data-show-open-button-title") !== undefined
+          ? el.getAttribute("data-show-open-button-title") === "true"
+          : undefined);
+
+      const yamlOpenButtonIcon = fromYaml<DocSearchArgs["openButtonIcon"]>(
+        yamlConfig,
+        "openButtonIcon",
+      );
+      const openButtonIcon =
+        yamlOpenButtonIcon ??
+        el.getAttribute("data-open-button-icon") ??
+        undefined;
+
+      const yamlShowOpenButtonIcon = fromYaml<
+        DocSearchArgs["showOpenButtonIcon"]
+      >(yamlConfig, "showOpenButtonIcon");
+      const showOpenButtonIcon =
+        yamlShowOpenButtonIcon ??
+        (el.getAttribute("data-show-open-button-icon") !== undefined
+          ? el.getAttribute("data-show-open-button-icon") === "true"
+          : undefined);
+
       const yamlTopK = fromYaml<DocSearchArgs["topK"]>(yamlConfig, "topK");
       const topK =
         yamlTopK ??
@@ -270,6 +316,11 @@ try {
             language={language}
             direction={direction}
             title={title}
+            showOpenButton={showOpenButton}
+            openButtonTitle={openButtonTitle}
+            showOpenButtonTitle={showOpenButtonTitle}
+            openButtonIcon={openButtonIcon}
+            showOpenButtonIcon={showOpenButtonIcon}
             showSearchButtonTitle={showSearchButtonTitle}
             searchButtonIcon={searchButtonIcon}
             showSearchButtonIcon={showSearchButtonIcon}

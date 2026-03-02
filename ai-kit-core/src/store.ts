@@ -1,5 +1,6 @@
 import {
   getConfig,
+  getWpSuite,
   SiteSettings,
   type SubscriptionType,
 } from "@smart-cloud/wpsuite-core";
@@ -139,6 +140,11 @@ const actions = {
       direction,
     };
   },
+
+  setConfig: (config: AiKitConfig) => ({
+    type: "SET_CONFIG" as const,
+    config,
+  }),
 };
 
 const selectors = {
@@ -186,13 +192,27 @@ export type StoreSelectors = {
   getDirection(): "ltr" | "rtl" | "auto" | undefined | null;
   getState(): State;
 };
-export type StoreActions = typeof actions;
+export type StoreActions = Omit<typeof actions, "setConfig"> & {
+  setConfig?: typeof actions.setConfig;
+};
 
-export const getStoreDispatch = (store: Store): StoreActions =>
-  dispatch(store) as unknown as StoreActions;
+export const getStoreDispatch = (
+  store: Store,
+): Omit<StoreActions, "setConfig"> => {
+  const d = dispatch(store) as unknown as StoreActions;
+  delete d.setConfig;
+  return d;
+};
 
 export const getStoreSelect = (store: Store): StoreSelectors =>
   select(store) as unknown as StoreSelectors;
+
+export const reloadConfig = async (store: Store) => {
+  getWpSuite()!.siteSettings.lastUpdate = Date.now();
+  const cfg = await getConfig("aiKit");
+  const sanitized = sanitizeAiKitConfig(cfg);
+  (dispatch(store) as unknown as StoreActions).setConfig!(sanitized);
+};
 
 export const createStore = async (): Promise<Store> => {
   const DEFAULT_STATE = await getDefaultState();
@@ -215,6 +235,12 @@ export const createStore = async (): Promise<Store> => {
           return {
             ...state,
             showChatbotPreview: action.showChatbotPreview,
+          };
+
+        case "SET_CONFIG":
+          return {
+            ...state,
+            config: action.config,
           };
       }
       return state;

@@ -8,6 +8,8 @@
 
 namespace SmartCloud\WPSuite\AiKit\KnowledgeBase;
 
+use SmartCloud\WPSuite\AiKit\Logger;
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -16,6 +18,12 @@ class Parser
 {
     private Converter $converter;
     private ?\WP_Post $current_post = null;
+
+    /**
+     * Tracks post IDs referenced during parsing (for dependency tracking)
+     * @var array<int>
+     */
+    private array $referenced_post_ids = [];
 
     public function __construct()
     {
@@ -30,6 +38,7 @@ class Parser
     public function parsePost(\WP_Post $post): array
     {
         $this->current_post = $post;
+        $this->referenced_post_ids = []; // Reset for each parse
 
         // Detect content type
         if ($this->isElementorPost($post)) {
@@ -38,6 +47,28 @@ class Parser
             return $this->parseGutenbergPost($post);
         } else {
             return $this->parseClassicPost($post);
+        }
+    }
+
+    /**
+     * Get all post IDs that were referenced during the last parse
+     * 
+     * @return array<int> Array of referenced post IDs
+     */
+    public function getReferencedPostIds(): array
+    {
+        return array_unique(array_filter($this->referenced_post_ids));
+    }
+
+    /**
+     * Track a referenced post ID
+     * 
+     * @param int $post_id The referenced post ID
+     */
+    private function trackReferencedPost(int $post_id): void
+    {
+        if ($post_id > 0 && $post_id !== $this->current_post->ID) {
+            $this->referenced_post_ids[] = $post_id;
         }
     }
 
@@ -65,6 +96,9 @@ class Parser
     private function parseGutenbergPost(\WP_Post $post): array
     {
         $blocks = parse_blocks($post->post_content);
+
+        // Extract post references from blocks for dependency tracking
+        $this->extractPostReferences($blocks);
 
         // Check if there are any smartcloud-ai-kit/kb-section blocks
         $has_kb_sections = $this->hasKbSectionBlocks($blocks);
@@ -94,6 +128,117 @@ class Parser
         }
 
         return false;
+    }
+
+    /**
+     * Extract post references from blocks (recursively) for dependency tracking
+     * Detects common Gutenberg blocks that reference other posts
+     * 
+     * @param array $blocks Array of Gutenberg blocks
+     */
+    private function extractPostReferences(array $blocks): void
+    {
+        foreach ($blocks as $block) {
+            $block_name = $block['blockName'] ?? '';
+            $attrs = $block['attrs'] ?? [];
+
+            // Detect post references based on block type
+            switch ($block_name) {
+                case 'core/post-content':
+                case 'core/post-featured-image':
+                case 'core/post-title':
+                    // These blocks reference a specific post via postId attribute
+                    if (!empty($attrs['postId'])) {
+                        $this->trackReferencedPost((int) $attrs['postId']);
+                    }
+                    break;
+
+                case 'core/latest-posts':
+                    // Latest posts block - track specific posts if available
+                    if (!empty($attrs['selectedPosts'])) {
+                        foreach ($attrs['selectedPosts'] as $post_id) {
+                            $this->trackReferencedPost((int) $post_id);
+                        }
+                    }
+                    break;
+
+                case 'core/query':
+                    // Query loop - track specific posts if available
+                    if (!empty($attrs['query']['include'])) {
+                        $include = is_string($attrs['query']['include'])
+                            ? explode(',', $attrs['query']['include'])
+                            : $attrs['query']['include'];
+                        foreach ($include as $post_id) {
+                            $this->trackReferencedPost((int) $post_id);
+                        }
+                    }
+                    break;
+
+                case 'core/embed':
+                    // Embedded WordPress posts - extract post ID from URL
+                    $url = $attrs['url'] ?? '';
+                    if (!empty($url) && preg_match('/[?&]p=(\d+)/', $url, $matches)) {
+                        $this->trackReferencedPost((int) $matches[1]);
+                    }
+                    break;
+            }
+
+            // Also check innerHTML for shortcodes that reference posts
+            $inner_html = $block['innerHTML'] ?? '';
+            if (!empty($inner_html)) {
+                // Detect common shortcodes with post ID parameters
+                // Examples: [post id="123"], [display-posts id="123"], etc.
+                if (preg_match_all('/\[\w+[^\]]*\bid\s*=\s*["\']?(\d+)["\']?[^\]]*\]/', $inner_html, $matches)) {
+                    foreach ($matches[1] as $post_id) {
+                        $this->trackReferencedPost((int) $post_id);
+                    }
+                }
+            }
+
+            // Recursively process inner blocks
+            if (!empty($block['innerBlocks'])) {
+                $this->extractPostReferences($block['innerBlocks']);
+            }
+        }
+    }
+
+    /**
+     * Extract post references from shortcodes in content (for Classic Editor)
+     * 
+     * @param string $content The post content to scan
+     */
+    private function extractShortcodeReferences(string $content): void
+    {
+        if (empty($content)) {
+            return;
+        }
+
+        // Detect common shortcodes with post ID parameters
+        // Examples: [post id="123"], [display-posts id="123"], [embed post="456"], etc.
+
+        // Pattern 1: id="123" or id='123' or id=123
+        if (preg_match_all('/\[\w+[^\]]*\bid\s*=\s*["\']?(\d+)["\']?[^\]]*\]/', $content, $matches)) {
+            foreach ($matches[1] as $post_id) {
+                $this->trackReferencedPost((int) $post_id);
+            }
+        }
+
+        // Pattern 2: post="123" or posts="123,456"
+        if (preg_match_all('/\[\w+[^\]]*\bposts?\s*=\s*["\']?([0-9,\s]+)["\']?[^\]]*\]/', $content, $matches)) {
+            foreach ($matches[1] as $id_list) {
+                $ids = preg_split('/[,\s]+/', trim($id_list), -1, PREG_SPLIT_NO_EMPTY);
+                foreach ($ids as $post_id) {
+                    $this->trackReferencedPost((int) $post_id);
+                }
+            }
+        }
+
+        // Pattern 3: href or src containing ?p=123 or &p=123 (embedded post links)
+        if (preg_match_all('/(?:href|src)\s*=\s*["\'][^"\']*[?&]p=(\d+)[^"\']*["\']/', $content, $matches)) {
+            foreach ($matches[1] as $post_id) {
+                $this->trackReferencedPost((int) $post_id);
+            }
+        }
     }
 
     /**
@@ -267,6 +412,9 @@ class Parser
             return $this->parseClassicPost($post);
         }
 
+        // Extract post references from Elementor widgets for dependency tracking
+        $this->extractElementorReferences($elements);
+
         // Check for KB section widgets
         $has_kb_widgets = $this->hasKbSectionWidgets($elements);
 
@@ -277,8 +425,60 @@ class Parser
         }
     }
 
-    /**
-     * Check if Elementor data contains KB section widgets or KB-enabled containers
+    /**     * Extract post references from Elementor widgets (recursively)
+     * 
+     * @param array $elements Array of Elementor elements/widgets
+     */
+    private function extractElementorReferences(array $elements): void
+    {
+        foreach ($elements as $element) {
+            $widget_type = $element['widgetType'] ?? $element['elType'] ?? '';
+            $settings = $element['settings'] ?? [];
+
+            // Detect post references based on Elementor widget type
+            switch ($widget_type) {
+                case 'posts':
+                case 'archive-posts':
+                case 'loop-grid':
+                    // Posts widget - check for specific posts
+                    if (!empty($settings['posts_post_id'])) {
+                        $post_ids = is_string($settings['posts_post_id'])
+                            ? explode(',', $settings['posts_post_id'])
+                            : (array) $settings['posts_post_id'];
+                        foreach ($post_ids as $post_id) {
+                            $this->trackReferencedPost((int) $post_id);
+                        }
+                    }
+                    break;
+
+                case 'single-post':
+                    // Single post widget
+                    if (!empty($settings['post_id'])) {
+                        $this->trackReferencedPost((int) $settings['post_id']);
+                    }
+                    break;
+
+                case 'wordpress-widget-recent-posts':
+                    // Recent posts widget - no specific IDs, skip
+                    break;
+            }
+
+            // Also check for shortcodes in text/HTML widgets
+            if (in_array($widget_type, ['text-editor', 'html', 'shortcode'], true)) {
+                $content = $settings['editor'] ?? $settings['html'] ?? $settings['shortcode'] ?? '';
+                if (!empty($content)) {
+                    $this->extractShortcodeReferences($content);
+                }
+            }
+
+            // Recursively process child elements
+            if (!empty($element['elements'])) {
+                $this->extractElementorReferences($element['elements']);
+            }
+        }
+    }
+
+    /**     * Check if Elementor data contains KB section widgets or KB-enabled containers
      */
     private function hasKbSectionWidgets(array $elements): bool
     {
@@ -525,7 +725,9 @@ class Parser
 
             return $html;
         } catch (\Exception $e) {
-            //error_log('KB Parser: Failed to render Elementor elements: ' . $e->getMessage());
+            Logger::warning('Failed to render Elementor elements: ' . $e->getMessage(), [
+                'exception' => get_class($e)
+            ]);
             return '';
         }
     }
@@ -560,7 +762,9 @@ class Parser
 
             return $html;
         } catch (\Exception $e) {
-            //error_log('KB Parser: Failed to render single Elementor element: ' . $e->getMessage());
+            Logger::warning('Failed to render single Elementor element: ' . $e->getMessage(), [
+                'exception' => get_class($e)
+            ]);
             return '';
         }
     }
@@ -620,6 +824,9 @@ class Parser
     private function parseClassicPost(\WP_Post $post): array
     {
         $doc_id = "post-{$post->ID}/base";
+
+        // Extract post references from shortcodes
+        $this->extractShortcodeReferences($post->post_content);
 
         // Apply WordPress content filters (using core WP filter)
         // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound

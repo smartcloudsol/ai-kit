@@ -24,6 +24,7 @@ import {
   AiKitLanguageCode,
   getAiKitPlugin,
   LANGUAGE_OPTIONS,
+  reloadConfig,
   sanitizeAiKitConfig,
   TEXT_DOMAIN,
   type AiKitSettings,
@@ -39,7 +40,7 @@ import {
   IconInfoCircle,
   IconSettings,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { lazy } from "react";
 
 import { __experimentalHeading as Heading } from "@wordpress/components";
@@ -206,7 +207,7 @@ interface NavigationOption {
 
 interface MainProps {
   nonce: string;
-  settings: AiKitSettings & { reCaptchaChatTtlSeconds?: number };
+  settings: AiKitSettings;
   store: Store;
 }
 
@@ -239,9 +240,7 @@ const Main = (props: MainProps) => {
 
   const [site, setSite] = useState<Site | null>();
 
-  const [settingsFormData, setSettingsFormData] = useState<
-    AiKitSettings & { reCaptchaChatTtlSeconds?: number }
-  >({
+  const [settingsFormData, setSettingsFormData] = useState<AiKitSettings>({
     sharedContext: settings?.sharedContext || "",
     defaultOutputLanguage: settings?.defaultOutputLanguage || "en",
     reCaptchaSiteKey: settings?.reCaptchaSiteKey || "",
@@ -249,6 +248,7 @@ const Main = (props: MainProps) => {
     useRecaptchaNet: settings?.useRecaptchaNet || false,
     reCaptchaChatTtlSeconds: settings?.reCaptchaChatTtlSeconds ?? 120,
     enablePoweredBy: settings?.enablePoweredBy || false,
+    debugLoggingEnabled: settings?.debugLoggingEnabled || false,
   });
 
   const [resolvedConfig, setResolvedConfig] = useState<
@@ -266,6 +266,8 @@ const Main = (props: MainProps) => {
   const isMobile = useMediaQuery(
     `(max-width: ${DEFAULT_THEME.breakpoints.sm})`,
   );
+
+  const queryClient = useQueryClient();
 
   const decryptedConfig: AiKitConfig | null = useSelect(
     () => wp.data.select(store)?.getConfig(),
@@ -330,9 +332,9 @@ const Main = (props: MainProps) => {
   });
 
   const clearCache = useCallback(
-    (subscriber: boolean) => {
+    async (subscriber: boolean) => {
       if (wpSuiteInstalled && wpRestUrl && accountId && siteId && siteKey) {
-        fetch(wpRestUrl + "/update-site-settings", {
+        await fetch(wpRestUrl + "/update-site-settings", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -432,14 +434,16 @@ const Main = (props: MainProps) => {
   );
 
   const handleConfigSave = useCallback(
-    (config: AiKitConfig) => {
-      setFormConfig({
+    async (config: AiKitConfig) => {
+      setResolvedConfig({
         ...sanitizeAiKitConfig(config),
         subscriptionType: formConfig?.subscriptionType,
       });
-      clearCache(!!formConfig?.subscriptionType);
+      await clearCache(!!formConfig?.subscriptionType);
+      await reloadConfig(store);
+      queryClient.invalidateQueries();
     },
-    [clearCache, formConfig?.subscriptionType],
+    [clearCache, formConfig?.subscriptionType, store, queryClient],
   );
 
   useEffect(() => {
@@ -447,6 +451,31 @@ const Main = (props: MainProps) => {
       setSite(isSiteError ? null : siteRecord ?? null);
     }
   }, [siteRecord, loadSiteEnabled, isSitePending, isSiteError]);
+
+  // Load debug logging setting
+  useEffect(() => {
+    const loadDebugLogging = async () => {
+      try {
+        const response = await fetch(aiKit.restUrl + "/debug-logging", {
+          method: "GET",
+          headers: {
+            "X-WP-Nonce": nonce,
+          },
+          credentials: "same-origin",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSettingsFormData((prev) => ({
+            ...prev,
+            debugLoggingEnabled: data.debug_logging_enabled ?? false,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load debug logging setting", error);
+      }
+    };
+    loadDebugLogging();
+  }, [nonce]);
 
   useEffect(() => {
     if (site) {
@@ -900,6 +929,35 @@ const Main = (props: MainProps) => {
                   }
                 >
                   <Switch label="Hide" value="hide" mt="xs" />
+                </Switch.Group>
+
+                <Switch.Group
+                  defaultValue={
+                    settingsFormData.debugLoggingEnabled ? ["enable"] : []
+                  }
+                  label={
+                    <InfoLabelComponent
+                      text={__("Enable Debug Logging", TEXT_DOMAIN)}
+                      scrollToId="enable-debug-logging"
+                    />
+                  }
+                  description={__(
+                    "Enable detailed debug logging for AI-Kit operations. Note: This requires WP_DEBUG and WP_DEBUG_LOG to be enabled in wp-config.php. Logs will appear in wp-content/debug.log.",
+                    TEXT_DOMAIN,
+                  )}
+                  onChange={(values: string[]) =>
+                    setSettingsFormData({
+                      ...settingsFormData,
+                      debugLoggingEnabled: values.includes("enable"),
+                    })
+                  }
+                >
+                  <Switch
+                    label={__("Enable", TEXT_DOMAIN)}
+                    value="enable"
+                    mt="xs"
+                    disabled={savingSettings}
+                  />
                 </Switch.Group>
               </Stack>
 

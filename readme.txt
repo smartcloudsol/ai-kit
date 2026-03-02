@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,11 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.1.1 =
+DocSearch: showOpenButton support across Gutenberg block, shortcode, and Elementor widget.
+Admin: Toggleable debug logging (writes to wp-content/debug.log when WP_DEBUG + WP_DEBUG_LOG are enabled).
+KB Admin: Embedded post updates now trigger KB source regeneration / “needs review” when published as KB content.
+
 = 1.1.0 =
 Feature: Knowledge Base Admin — manage KB sources directly from WordPress (enable posts/pages as KB sources, generate markdown, and publish documents to your backend).
 Feature: New “KB Source” bulk actions in the Posts list to quickly enable/disable items as knowledge base sources.
@@ -235,6 +240,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.1.1 =
+Improves DocSearch open-button behavior across all integrations, adds an admin debug logging toggle, and fixes KB updates for embedded content.
 
 = 1.1.0 =
 Recommended update if you use the AI-Kit backend Knowledge Base: this release adds WordPress-native KB source management and introduces KB Section controls (exclude/split/overrideable content). Also includes full Elementor widgets for AI Feature, DocSearch, and KB Section.
