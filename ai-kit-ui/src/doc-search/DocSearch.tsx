@@ -2,10 +2,13 @@ import {
   Alert,
   Anchor,
   Button,
+  Checkbox,
+  Collapse,
   Divider,
   Group,
   Loader,
   Modal,
+  MultiSelect,
   Paper,
   Progress,
   Stack,
@@ -15,6 +18,9 @@ import {
 } from "@mantine/core";
 import {
   AiKitDocSearchIcon,
+  CapabilityDecision,
+  dispatchBackend,
+  resolveBackend,
   sendSearchMessage,
   type AiKitStatusEvent,
   type DocSearchProps,
@@ -26,14 +32,20 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 
-import { IconSearch, IconX } from "@tabler/icons-react";
-import { IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconSearch,
+  IconX,
+} from "@tabler/icons-react";
 
 import { AiFeatureBorder } from "../ai-feature/AiFeatureBorder";
 import { translations } from "../i18n";
+import { PoweredBy } from "../poweredBy";
 import { useAiRun } from "../useAiRun";
 import { AiKitShellInjectedProps, withAiKitShell } from "../withAiKitShell";
-import { PoweredBy } from "../poweredBy";
 
 I18n.putVocabularies(translations);
 
@@ -80,6 +92,9 @@ const DocSearchBase: FC<Props> = (props) => {
     showSources = true,
     topK = 10,
     getSearchText,
+    enableUserFilters = false,
+    availableCategories,
+    availableTags,
 
     variation,
     rootElement,
@@ -98,6 +113,20 @@ const DocSearchBase: FC<Props> = (props) => {
   const audioChunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+
+  // User filter states
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
+    [],
+  );
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagSearchValue, setTagSearchValue] = useState<string>("");
+  const [metadataOptions, setMetadataOptions] = useState<{
+    allowedCategories: Record<string, string[]>;
+    allowedTags: string[];
+  } | null>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
 
   // Audio cache: store uploaded audio to avoid re-uploading within session
@@ -265,6 +294,68 @@ const DocSearchBase: FC<Props> = (props) => {
     };
   }, []);
 
+  // Load metadata options when user filters are enabled
+  useEffect(() => {
+    if (!enableUserFilters) return;
+
+    // Use provided options if available
+    if (availableCategories || availableTags) {
+      setMetadataOptions({
+        allowedCategories: availableCategories || {},
+        allowedTags: availableTags || [],
+      });
+      return;
+    }
+
+    // Otherwise fetch from backend
+    const loadMetadata = async () => {
+      setLoadingMetadata(true);
+      try {
+        const backend = await resolveBackend();
+
+        if (!backend.available) {
+          console.error("Backend not available for metadata options");
+          return;
+        }
+
+        const decision: CapabilityDecision = {
+          feature: "prompt",
+          source: "backend",
+          mode: "backend-only",
+          onDeviceAvailable: false,
+          backendAvailable: backend.available,
+          backendTransport: backend.transport,
+          backendApiName: backend.apiName,
+          backendBaseUrl: backend.baseUrl,
+          reason: backend.reason ?? "",
+        };
+
+        const data = (await dispatchBackend(
+          decision,
+          context ?? "frontend",
+          "/kb/metadata-options",
+          "GET",
+          null,
+          {},
+        )) as {
+          allowedCategories: Record<string, string[]>;
+          allowedTags: string[];
+        };
+
+        setMetadataOptions({
+          allowedCategories: data.allowedCategories || {},
+          allowedTags: data.allowedTags || [],
+        });
+      } catch (error) {
+        console.error("Failed to load metadata options:", error);
+      } finally {
+        setLoadingMetadata(false);
+      }
+    };
+
+    void loadMetadata();
+  }, [enableUserFilters, availableCategories, availableTags, context]);
+
   const onSearch = useCallback(async () => {
     let q: string | undefined;
 
@@ -313,16 +404,39 @@ const DocSearchBase: FC<Props> = (props) => {
           ...(q && { query: q }),
           ...(audioBlob && { audio: audioBlob }), // Pass Blob directly
           topK,
+          // Include user-selected filters if enabled
+          ...(enableUserFilters &&
+            selectedCategories.length > 0 && {
+              userSelectedCategories: selectedCategories,
+            }),
+          ...(enableUserFilters &&
+            selectedSubcategories.length > 0 && {
+              userSelectedSubcategories: selectedSubcategories,
+            }),
+          ...(enableUserFilters &&
+            selectedTags.length > 0 && { userSelectedTags: selectedTags }),
         },
         { signal, onStatus, context },
       );
     });
-  }, [context, inputText, audioBlob, run, reset, topK, sessionId]);
+  }, [
+    context,
+    inputText,
+    audioBlob,
+    run,
+    reset,
+    topK,
+    sessionId,
+    enableUserFilters,
+    selectedCategories,
+    selectedSubcategories,
+    selectedTags,
+  ]);
 
   const close = useCallback(async () => {
     setFeatureOpen(false);
     reset();
-    autoRunOnceRef.current = false;
+    //autoRunOnceRef.current = false;
     if (!showOpenButton) {
       onClose();
     }
@@ -423,7 +537,7 @@ const DocSearchBase: FC<Props> = (props) => {
     variation === "modal" ? Modal.Body : Group;
 
   useEffect(() => {
-    if (variation !== "modal") {
+    if (variation !== "modal" || !featureOpen) {
       return;
     }
     document.body.style.overflow = "hidden";
@@ -438,7 +552,7 @@ const DocSearchBase: FC<Props> = (props) => {
       document.body.style.overflow = "";
       document.body.onkeydown = null;
     };
-  }, [close, variation]);
+  }, [close, variation, featureOpen]);
 
   return (
     <>
@@ -487,6 +601,8 @@ const DocSearchBase: FC<Props> = (props) => {
             w="100%"
             style={{
               left: 0,
+              ...(variation === "modal" &&
+                !result?.result && { overflow: "visible" }),
             }}
           >
             {variation === "modal" && (
@@ -496,7 +612,14 @@ const DocSearchBase: FC<Props> = (props) => {
                 <Modal.CloseButton />
               </Modal.Header>
             )}
-            <BodyComponent w="100%" style={{ zIndex: 1001 }}>
+            <BodyComponent
+              w="100%"
+              style={{
+                zIndex: 1001,
+                ...(variation === "modal" &&
+                  !result?.result && { overflow: "visible" }),
+              }}
+            >
               <AiFeatureBorder
                 enabled={variation !== "modal"}
                 working={busy}
@@ -628,6 +751,151 @@ const DocSearchBase: FC<Props> = (props) => {
                         </Button>
                       ) : null}
                     </Group>
+
+                    {/* Empty state */}
+                    {!busy && !error && !result?.result ? (
+                      <Text size="sm" c="dimmed" data-doc-search-no-results>
+                        {I18n.get("Enter a search query to start.")}
+                      </Text>
+                    ) : null}
+
+                    {/* User filter collapse */}
+                    {enableUserFilters && metadataOptions && (
+                      <Stack gap="xs">
+                        <Button
+                          variant="subtle"
+                          size="xs"
+                          onClick={() => setFiltersOpen(!filtersOpen)}
+                          leftSection={
+                            filtersOpen ? (
+                              <IconChevronDown size={14} />
+                            ) : (
+                              <IconChevronRight size={14} />
+                            )
+                          }
+                          style={{ alignSelf: "flex-start" }}
+                        >
+                          {I18n.get("Filters")}
+                        </Button>
+
+                        <Collapse in={filtersOpen}>
+                          <Stack gap="md">
+                            {/* Main categories as checkboxes */}
+                            {Object.keys(metadataOptions.allowedCategories)
+                              .length > 0 && (
+                              <div>
+                                <Text size="sm" fw={500} mb="xs">
+                                  {I18n.get("Categories")}
+                                </Text>
+                                <Group gap="md">
+                                  {Object.keys(
+                                    metadataOptions.allowedCategories,
+                                  ).map((category) => (
+                                    <Checkbox
+                                      key={category}
+                                      label={category}
+                                      checked={selectedCategories.includes(
+                                        category,
+                                      )}
+                                      onChange={(e) => {
+                                        if (e.currentTarget.checked) {
+                                          setSelectedCategories([
+                                            ...selectedCategories,
+                                            category,
+                                          ]);
+                                        } else {
+                                          setSelectedCategories(
+                                            selectedCategories.filter(
+                                              (c) => c !== category,
+                                            ),
+                                          );
+                                          // Remove subcategories of unchecked category
+                                          const subcatsToRemove =
+                                            metadataOptions.allowedCategories[
+                                              category
+                                            ] || [];
+                                          setSelectedSubcategories(
+                                            selectedSubcategories.filter(
+                                              (sc) =>
+                                                !subcatsToRemove.includes(sc),
+                                            ),
+                                          );
+                                        }
+                                      }}
+                                      disabled={busy || loadingMetadata}
+                                    />
+                                  ))}
+                                </Group>
+                              </div>
+                            )}
+
+                            {/* Subcategories for selected categories */}
+                            {selectedCategories.length > 0 && (
+                              <div>
+                                <Text size="sm" fw={500} mb="xs">
+                                  {I18n.get("Subcategories")}
+                                </Text>
+                                <Group gap="md">
+                                  {selectedCategories
+                                    .flatMap(
+                                      (cat) =>
+                                        metadataOptions.allowedCategories[
+                                          cat
+                                        ] || [],
+                                    )
+                                    .filter(
+                                      (subcat, index, self) =>
+                                        self.indexOf(subcat) === index,
+                                    )
+                                    .map((subcat) => (
+                                      <Checkbox
+                                        key={subcat}
+                                        label={subcat}
+                                        checked={selectedSubcategories.includes(
+                                          subcat,
+                                        )}
+                                        onChange={(e) => {
+                                          if (e.currentTarget.checked) {
+                                            setSelectedSubcategories([
+                                              ...selectedSubcategories,
+                                              subcat,
+                                            ]);
+                                          } else {
+                                            setSelectedSubcategories(
+                                              selectedSubcategories.filter(
+                                                (sc) => sc !== subcat,
+                                              ),
+                                            );
+                                          }
+                                        }}
+                                        disabled={busy || loadingMetadata}
+                                      />
+                                    ))}
+                                </Group>
+                              </div>
+                            )}
+
+                            {/* Tags input */}
+                            {metadataOptions.allowedTags.length > 0 && (
+                              <MultiSelect
+                                label={I18n.get("Tags")}
+                                placeholder={I18n.get("Select or type tags...")}
+                                data={metadataOptions.allowedTags}
+                                value={selectedTags}
+                                onChange={setSelectedTags}
+                                searchValue={tagSearchValue}
+                                onSearchChange={setTagSearchValue}
+                                disabled={busy || loadingMetadata}
+                                searchable
+                                clearable
+                                maxDropdownHeight={200}
+                                limit={20}
+                              />
+                            )}
+                          </Stack>
+                        </Collapse>
+                      </Stack>
+                    )}
 
                     {
                       /* Audio level indicator when recording */ USE_AUDIO && (
@@ -815,11 +1083,6 @@ const DocSearchBase: FC<Props> = (props) => {
                           })}
                         </Stack>
                       </>
-                    ) : null}
-                    {!busy && !error && !result?.result ? (
-                      <Text size="sm" c="dimmed" data-doc-search-no-results>
-                        {I18n.get("Enter a search query to start.")}
-                      </Text>
                     ) : null}
                     <PoweredBy variation={variation} />
                   </Stack>

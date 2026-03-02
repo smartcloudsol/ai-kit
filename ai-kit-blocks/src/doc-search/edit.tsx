@@ -50,6 +50,7 @@ export interface EditorBlockProps {
   inputSelector?: string;
   variation?: DocSearchArgs["variation"];
   autoRun?: boolean;
+  enableUserFilters?: boolean;
   language?: DocSearchArgs["language"];
   direction?: DocSearchArgs["direction"];
   title?: string;
@@ -87,6 +88,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
     inputSelector,
     variation,
     autoRun,
+    enableUserFilters,
     language,
     direction,
     title,
@@ -172,6 +174,20 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
                 });
               }}
               help={__("Toggle to enable or disable auto run.", TEXT_DOMAIN)}
+            />
+            <CheckboxControl
+              label={__("Enable User Filters", TEXT_DOMAIN)}
+              checked={enableUserFilters === undefined || enableUserFilters}
+              onChange={(value) => {
+                setAttributes({
+                  enableUserFilters:
+                    value !== undefined ? value : enableUserFilters,
+                });
+              }}
+              help={__(
+                "Toggle to enable or disable user filters.",
+                TEXT_DOMAIN,
+              )}
             />
             <Divider />
             <TextControl
@@ -658,6 +674,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
             inputSelector={inputSelector}
             variation={variation || "default"}
             autoRun={autoRun}
+            enableUserFilters={enableUserFilters}
             language={language || "en"}
             direction={themeDirection || "auto"}
             title={title}

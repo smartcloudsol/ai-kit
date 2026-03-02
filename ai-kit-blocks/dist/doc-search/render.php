@@ -8,6 +8,7 @@ $smartcloud_ai_kit_doc_search_bid = 'smartcloud_ai_kit_doc_search_' . $smartclou
 $smartcloud_ai_kit_attribute_map = [
   'title' => null,
   'autoRun' => null,
+  'enableUserFilters' => null,
   'topK' => null,
   'snippetMaxChars' => null,
   'showOpenButton' => null,

@@ -785,6 +785,13 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'return_value' => 'true',
         ]);
 
+        $this->add_control('enableUserFilters', [
+            'label' => __('Enable User Filters', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::SWITCHER,
+            'return_value' => 'true',
+            'default' => 'false',
+        ]);
+
         $this->add_control('title', [
             'label' => __('Title', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::TEXT,
@@ -879,6 +886,27 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'type' => \Elementor\Controls_Manager::SWITCHER,
             'return_value' => 'true',
             'default' => 'true',
+        ]);
+
+        $this->end_controls_section();
+
+        // User Filters (PRO feature)
+        $this->start_controls_section('user_filters_section', [
+            'label' => __('User Filters', 'smartcloud-ai-kit'),
+        ]);
+
+        $this->add_control('enableUserFilters', [
+            'label' => __('Enable Category/Tag Filters', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::SWITCHER,
+            'return_value' => 'true',
+            'default' => '',
+            'description' => __('Allow users to select categories and tags for filtering results', 'smartcloud-ai-kit'),
+        ]);
+
+        $this->add_control('user_filters_note', [
+            'type' => \Elementor\Controls_Manager::RAW_HTML,
+            'raw' => __('<p>When enabled, filter options are loaded from your backend metadata-config.yaml. Users can select categories, subcategories, and tags to narrow search results.</p>', 'smartcloud-ai-kit'),
+            'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
         ]);
 
         $this->end_controls_section();
@@ -997,6 +1025,7 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
         $simple_attrs = [
             'variation',
             'autoRun',
+            'enableUserFilters',
             'title',
             'inputSelector',
             'showOpenButton',
@@ -1012,11 +1041,12 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'colorMode',
             'primaryColor',
             'topK',
-            'snippetMaxChars'
+            'snippetMaxChars',
+            'enableUserFilters'
         ];
 
         // SWITCHER fields that need explicit boolean values
-        $switcher_fields = ['autoRun', 'showOpenButton', 'showOpenButtonTitle', 'showOpenButtonIcon', 'showSearchButtonTitle', 'showSearchButtonIcon'];
+        $switcher_fields = ['autoRun', 'enableUserFilters', 'showOpenButton', 'showOpenButtonTitle', 'showOpenButtonIcon', 'showSearchButtonTitle', 'showSearchButtonIcon'];
 
         // Filter settings to only include allowed attributes with non-empty values
         $atts = array_intersect_key($all, array_flip($simple_attrs));

@@ -179,6 +179,40 @@ export function withAiKitShell<P extends object>(
             },
           },
         },
+        MultiSelect: {
+          defaultProps: {
+            comboboxProps: {
+              withinPortal: false,
+              floatingStrategy: "fixed",
+              positionDependencies: [],
+              position: "bottom",
+              middlewares: {
+                flip: false,
+                shift: {
+                  padding: 10,
+                  boundary: "clippingAncestors",
+                },
+              },
+            },
+          },
+        },
+        TagsInput: {
+          defaultProps: {
+            comboboxProps: {
+              withinPortal: false,
+              floatingStrategy: "fixed",
+              positionDependencies: [],
+              position: "bottom",
+              middlewares: {
+                flip: false,
+                shift: {
+                  padding: 10,
+                  boundary: "clippingAncestors",
+                },
+              },
+            },
+          },
+        },
       },
     });
 

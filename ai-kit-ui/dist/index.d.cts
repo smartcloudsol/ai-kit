@@ -58,6 +58,9 @@ declare const DocSearch: FC<_smart_cloud_ai_kit_core.AiWorkerProps & {
     topK?: number;
     snippetMaxChars?: number;
     onClickDoc?: (doc: _smart_cloud_ai_kit_core.RetrievedDoc) => void;
+    enableUserFilters?: boolean;
+    availableCategories?: Record<string, string[]>;
+    availableTags?: string[];
 } & Partial<_smart_cloud_ai_kit_core.AiWorkerProps>>;
 
 type AiRunState<T> = {

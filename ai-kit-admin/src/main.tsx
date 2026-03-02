@@ -34,10 +34,10 @@ import {
   IconAlertCircle,
   IconApi,
   IconBook,
-  IconMessage,
   IconCheck,
   IconExclamationCircle,
   IconInfoCircle,
+  IconMessage,
   IconSettings,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -451,31 +451,6 @@ const Main = (props: MainProps) => {
       setSite(isSiteError ? null : siteRecord ?? null);
     }
   }, [siteRecord, loadSiteEnabled, isSitePending, isSiteError]);
-
-  // Load debug logging setting
-  useEffect(() => {
-    const loadDebugLogging = async () => {
-      try {
-        const response = await fetch(aiKit.restUrl + "/debug-logging", {
-          method: "GET",
-          headers: {
-            "X-WP-Nonce": nonce,
-          },
-          credentials: "same-origin",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setSettingsFormData((prev) => ({
-            ...prev,
-            debugLoggingEnabled: data.debug_logging_enabled ?? false,
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to load debug logging setting", error);
-      }
-    };
-    loadDebugLogging();
-  }, [nonce]);
 
   useEffect(() => {
     if (site) {

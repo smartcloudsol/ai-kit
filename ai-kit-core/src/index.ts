@@ -89,15 +89,21 @@ export const checkOnDeviceAvailability = async (
   const module = await capabilities;
   return module.checkOnDeviceAvailability(...args);
 };
+export const resolveBackend = async (
+  ...args: Parameters<Capabilities["resolveBackend"]>
+) => {
+  const module = await capabilities;
+  return module.resolveBackend(...args);
+};
 
 const backend: Promise<Backend<unknown>> = import(
   __WPSUITE_PREMIUM__ ? "./protected/backend" : "./public/backend"
 );
 export const dispatchBackend = async (
-  ...args: Parameters<Backend<unknown>["dispatchBackend"]>
+  ...args: Parameters<Backend<unknown>["dispatchCustomBackend"]>
 ) => {
   const module = await backend;
-  return module.dispatchBackend(...args);
+  return module.dispatchCustomBackend(...args);
 };
 
 const features: Promise<Features> = import(

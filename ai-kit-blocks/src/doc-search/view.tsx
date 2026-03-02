@@ -98,6 +98,15 @@ try {
           ? el.getAttribute("data-auto-run") === "true"
           : undefined;
 
+      const yamlEnableUserFilters = fromYaml<
+        DocSearchArgs["enableUserFilters"]
+      >(yamlConfig, "enableUserFilters");
+      const enableUserFilters =
+        yamlEnableUserFilters ??
+        el.getAttribute("data-enable-user-filters") !== undefined
+          ? el.getAttribute("data-enable-user-filters") === "true"
+          : undefined;
+
       const yamlVariation = fromYaml<DocSearchArgs["variation"]>(
         yamlConfig,
         "variation",
@@ -313,6 +322,7 @@ try {
             store={store}
             variation={variation}
             autoRun={autoRun}
+            enableUserFilters={enableUserFilters}
             language={language}
             direction={direction}
             title={title}

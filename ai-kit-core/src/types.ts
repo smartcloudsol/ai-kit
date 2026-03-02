@@ -597,6 +597,12 @@ export interface SearchMessageArgs {
    */
   topK?: number;
   temperature?: number;
+  /** User-selected category filters (when provided, skips model-based filter selection) */
+  userSelectedCategories?: string[];
+  /** User-selected subcategory filters */
+  userSelectedSubcategories?: string[];
+  /** User-selected tag filters */
+  userSelectedTags?: string[];
 }
 
 export interface ChatMessageArgs {
@@ -645,6 +651,15 @@ export type DocSearchProps = AiWorkerProps & {
 
   /** Optional callback when clicking on a document card. */
   onClickDoc?: (doc: RetrievedDoc) => void;
+
+  /** Enable user-selectable category and tag filters */
+  enableUserFilters?: boolean;
+
+  /** Available categories (category -> subcategories map) for user selection */
+  availableCategories?: Record<string, string[]>;
+
+  /** Available tags for user selection */
+  availableTags?: string[];
 };
 
 export type DocSearchArgs = DocSearchProps & {
@@ -698,10 +713,18 @@ export interface Capabilities {
 }
 
 export interface Backend<TResponse> {
-  dispatchBackend: (
+  dispatchFeatureBackend: (
     decision: CapabilityDecision,
     context: ContextKind,
     feature: BuiltInAiFeature,
+    requestBody: unknown,
+    options: BackendCallOptions,
+  ) => Promise<TResponse>;
+  dispatchCustomBackend: (
+    decision: CapabilityDecision,
+    context: ContextKind,
+    customPath: string,
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     requestBody: unknown,
     options: BackendCallOptions,
   ) => Promise<TResponse>;

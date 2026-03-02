@@ -52,6 +52,7 @@ export const App: FunctionComponent<
   const {
     isPreview,
     inputSelector,
+    enableUserFilters,
     autoRun,
     store,
     showOpenButton,
@@ -108,6 +109,7 @@ export const App: FunctionComponent<
             }
             return el ? getValueFromElement(el) : "";
           },
+          enableUserFilters: enableUserFilters ?? false,
           autoRun: autoRun ?? false,
           title,
           store: store!,
@@ -174,6 +176,7 @@ export const App: FunctionComponent<
     topK,
     snippetMaxChars,
     autoRun,
+    enableUserFilters,
   ]);
 
   return (
