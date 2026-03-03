@@ -140,6 +140,7 @@ const DocSearchBase: FC<Props> = (props) => {
     useAiRun<SearchResult>();
 
   const autoRunOnceRef = useRef(false);
+  const prevSelectedCategoriesRef = useRef<string[]>([]);
 
   const sessionId = result?.sessionId;
   const citationDocs = result?.citations?.docs ?? [];
@@ -187,6 +188,14 @@ const DocSearchBase: FC<Props> = (props) => {
     const text = typeof inputText === "function" ? inputText() : inputText;
     return Boolean((text && text.trim().length > 0) || audioBlob);
   }, [inputText, busy, audioBlob, featureOpen]);
+
+  const hasValidFilterOptions = useMemo(() => {
+    if (!metadataOptions) return false;
+    const hasCategories =
+      Object.keys(metadataOptions.allowedCategories).length > 0;
+    const hasTags = metadataOptions.allowedTags.length > 0;
+    return hasCategories || hasTags;
+  }, [metadataOptions]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -405,10 +414,11 @@ const DocSearchBase: FC<Props> = (props) => {
           ...(audioBlob && { audio: audioBlob }), // Pass Blob directly
           topK,
           // Include user-selected filters if enabled
-          ...(enableUserFilters &&
-            selectedCategories.length > 0 && {
-              userSelectedCategories: selectedCategories,
-            }),
+          // Always send userSelectedCategories array when enableUserFilters is true (even if empty)
+          // to prevent backend from applying its own kb-filter
+          ...(enableUserFilters && {
+            userSelectedCategories: selectedCategories,
+          }),
           ...(enableUserFilters &&
             selectedSubcategories.length > 0 && {
               userSelectedSubcategories: selectedSubcategories,
@@ -457,6 +467,24 @@ const DocSearchBase: FC<Props> = (props) => {
       autoRunOnceRef.current = true;
     }
   }, [canSearch]);
+
+  // Reset session when main categories change
+  useEffect(() => {
+    const prev = prevSelectedCategoriesRef.current;
+    const current = selectedCategories;
+
+    // Check if categories changed (different length or different items)
+    const categoriesChanged =
+      prev.length !== current.length ||
+      !current.every((cat) => prev.includes(cat));
+
+    if (categoriesChanged && prev.length > 0) {
+      // Reset session only if we had categories before (not on initial mount)
+      reset();
+    }
+
+    prevSelectedCategoriesRef.current = [...current];
+  }, [selectedCategories, reset]);
 
   const grouped = useMemo(() => groupChunksByDoc(result), [result]);
 
@@ -760,110 +788,66 @@ const DocSearchBase: FC<Props> = (props) => {
                     ) : null}
 
                     {/* User filter collapse */}
-                    {enableUserFilters && metadataOptions && (
-                      <Stack gap="xs">
-                        <Button
-                          variant="subtle"
-                          size="xs"
-                          onClick={() => setFiltersOpen(!filtersOpen)}
-                          leftSection={
-                            filtersOpen ? (
-                              <IconChevronDown size={14} />
-                            ) : (
-                              <IconChevronRight size={14} />
-                            )
-                          }
-                          style={{ alignSelf: "flex-start" }}
-                        >
-                          {I18n.get("Filters")}
-                        </Button>
+                    {enableUserFilters &&
+                      metadataOptions &&
+                      hasValidFilterOptions && (
+                        <Stack gap="xs">
+                          <Button
+                            variant="subtle"
+                            size="xs"
+                            onClick={() => setFiltersOpen(!filtersOpen)}
+                            leftSection={
+                              filtersOpen ? (
+                                <IconChevronDown size={14} />
+                              ) : (
+                                <IconChevronRight size={14} />
+                              )
+                            }
+                            style={{ alignSelf: "flex-start" }}
+                          >
+                            {I18n.get("Filters")}
+                          </Button>
 
-                        <Collapse in={filtersOpen}>
-                          <Stack gap="md">
-                            {/* Main categories as checkboxes */}
-                            {Object.keys(metadataOptions.allowedCategories)
-                              .length > 0 && (
-                              <div>
-                                <Text size="sm" fw={500} mb="xs">
-                                  {I18n.get("Categories")}
-                                </Text>
-                                <Group gap="md">
-                                  {Object.keys(
-                                    metadataOptions.allowedCategories,
-                                  ).map((category) => (
-                                    <Checkbox
-                                      key={category}
-                                      label={category}
-                                      checked={selectedCategories.includes(
-                                        category,
-                                      )}
-                                      onChange={(e) => {
-                                        if (e.currentTarget.checked) {
-                                          setSelectedCategories([
-                                            ...selectedCategories,
-                                            category,
-                                          ]);
-                                        } else {
-                                          setSelectedCategories(
-                                            selectedCategories.filter(
-                                              (c) => c !== category,
-                                            ),
-                                          );
-                                          // Remove subcategories of unchecked category
-                                          const subcatsToRemove =
-                                            metadataOptions.allowedCategories[
-                                              category
-                                            ] || [];
-                                          setSelectedSubcategories(
-                                            selectedSubcategories.filter(
-                                              (sc) =>
-                                                !subcatsToRemove.includes(sc),
-                                            ),
-                                          );
-                                        }
-                                      }}
-                                      disabled={busy || loadingMetadata}
-                                    />
-                                  ))}
-                                </Group>
-                              </div>
-                            )}
-
-                            {/* Subcategories for selected categories */}
-                            {selectedCategories.length > 0 && (
-                              <div>
-                                <Text size="sm" fw={500} mb="xs">
-                                  {I18n.get("Subcategories")}
-                                </Text>
-                                <Group gap="md">
-                                  {selectedCategories
-                                    .flatMap(
-                                      (cat) =>
-                                        metadataOptions.allowedCategories[
-                                          cat
-                                        ] || [],
-                                    )
-                                    .filter(
-                                      (subcat, index, self) =>
-                                        self.indexOf(subcat) === index,
-                                    )
-                                    .map((subcat) => (
+                          <Collapse in={filtersOpen}>
+                            <Stack gap="md">
+                              {/* Main categories as checkboxes */}
+                              {Object.keys(metadataOptions.allowedCategories)
+                                .length > 0 && (
+                                <div>
+                                  <Text size="sm" fw={500} mb="xs">
+                                    {I18n.get("Categories")}
+                                  </Text>
+                                  <Group gap="md">
+                                    {Object.keys(
+                                      metadataOptions.allowedCategories,
+                                    ).map((category) => (
                                       <Checkbox
-                                        key={subcat}
-                                        label={subcat}
-                                        checked={selectedSubcategories.includes(
-                                          subcat,
+                                        key={category}
+                                        label={I18n.get(category)}
+                                        checked={selectedCategories.includes(
+                                          category,
                                         )}
                                         onChange={(e) => {
                                           if (e.currentTarget.checked) {
-                                            setSelectedSubcategories([
-                                              ...selectedSubcategories,
-                                              subcat,
+                                            setSelectedCategories([
+                                              ...selectedCategories,
+                                              category,
                                             ]);
                                           } else {
+                                            setSelectedCategories(
+                                              selectedCategories.filter(
+                                                (c) => c !== category,
+                                              ),
+                                            );
+                                            // Remove subcategories of unchecked category
+                                            const subcatsToRemove =
+                                              metadataOptions.allowedCategories[
+                                                category
+                                              ] || [];
                                             setSelectedSubcategories(
                                               selectedSubcategories.filter(
-                                                (sc) => sc !== subcat,
+                                                (sc) =>
+                                                  !subcatsToRemove.includes(sc),
                                               ),
                                             );
                                           }
@@ -871,31 +855,84 @@ const DocSearchBase: FC<Props> = (props) => {
                                         disabled={busy || loadingMetadata}
                                       />
                                     ))}
-                                </Group>
-                              </div>
-                            )}
+                                  </Group>
+                                </div>
+                              )}
 
-                            {/* Tags input */}
-                            {metadataOptions.allowedTags.length > 0 && (
-                              <MultiSelect
-                                label={I18n.get("Tags")}
-                                placeholder={I18n.get("Select or type tags...")}
-                                data={metadataOptions.allowedTags}
-                                value={selectedTags}
-                                onChange={setSelectedTags}
-                                searchValue={tagSearchValue}
-                                onSearchChange={setTagSearchValue}
-                                disabled={busy || loadingMetadata}
-                                searchable
-                                clearable
-                                maxDropdownHeight={200}
-                                limit={20}
-                              />
-                            )}
-                          </Stack>
-                        </Collapse>
-                      </Stack>
-                    )}
+                              {/* Subcategories for selected categories */}
+                              {selectedCategories.length > 0 && (
+                                <div>
+                                  <Text size="sm" fw={500} mb="xs">
+                                    {I18n.get("Subcategories")}
+                                  </Text>
+                                  <Group gap="md">
+                                    {selectedCategories
+                                      .flatMap(
+                                        (cat) =>
+                                          metadataOptions.allowedCategories[
+                                            cat
+                                          ] || [],
+                                      )
+                                      .filter(
+                                        (subcat, index, self) =>
+                                          self.indexOf(subcat) === index,
+                                      )
+                                      .map((subcat) => (
+                                        <Checkbox
+                                          key={subcat}
+                                          label={I18n.get(subcat)}
+                                          checked={selectedSubcategories.includes(
+                                            subcat,
+                                          )}
+                                          onChange={(e) => {
+                                            if (e.currentTarget.checked) {
+                                              setSelectedSubcategories([
+                                                ...selectedSubcategories,
+                                                subcat,
+                                              ]);
+                                            } else {
+                                              setSelectedSubcategories(
+                                                selectedSubcategories.filter(
+                                                  (sc) => sc !== subcat,
+                                                ),
+                                              );
+                                            }
+                                          }}
+                                          disabled={busy || loadingMetadata}
+                                        />
+                                      ))}
+                                  </Group>
+                                </div>
+                              )}
+
+                              {/* Tags input */}
+                              {metadataOptions.allowedTags.length > 0 && (
+                                <MultiSelect
+                                  label={I18n.get("Tags")}
+                                  placeholder={I18n.get(
+                                    "Select or type tags...",
+                                  )}
+                                  data={metadataOptions.allowedTags.map(
+                                    (tag) => ({
+                                      value: tag,
+                                      label: I18n.get(tag),
+                                    }),
+                                  )}
+                                  value={selectedTags}
+                                  onChange={setSelectedTags}
+                                  searchValue={tagSearchValue}
+                                  onSearchChange={setTagSearchValue}
+                                  disabled={busy || loadingMetadata}
+                                  searchable
+                                  clearable
+                                  maxDropdownHeight={200}
+                                  limit={20}
+                                />
+                              )}
+                            </Stack>
+                          </Collapse>
+                        </Stack>
+                      )}
 
                     {
                       /* Audio level indicator when recording */ USE_AUDIO && (
