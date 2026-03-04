@@ -76,6 +76,41 @@ function groupChunksByDoc(result: SearchResult | null) {
   return Array.from(byDoc.values());
 }
 
+function isWordChar(ch: string) {
+  // Unicode letter/number + underscore; good for Cyrillic too
+  return Boolean(ch) && /[\p{L}\p{N}_]/u.test(ch);
+}
+
+/**
+ * Backend sometimes returns anchor `end` that lands inside a word.
+ * Snap the insertion point to a word boundary (end of current word).
+ */
+function snapEndToBoundary(text: string, end: number) {
+  const len = text.length;
+  if (end <= 0) return 0;
+  if (end >= len) return len;
+
+  const prev = text[end - 1] ?? "";
+  const cur = text[end] ?? "";
+
+  // If we're inside a word, walk forward until word ends.
+  if (isWordChar(prev) && isWordChar(cur)) {
+    let i = end;
+    while (i < len && isWordChar(text[i] ?? "")) i++;
+    return i;
+  }
+
+  return end;
+}
+
+function escapeCssId(id: string) {
+  // Prefer native CSS.escape, fallback to a minimal safe escape.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const esc = (globalThis as any)?.CSS?.escape;
+  if (typeof esc === "function") return esc(id);
+  return id.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+}
+
 const DocSearchBase: FC<Props> = (props) => {
   const {
     autoRun = true,
@@ -202,16 +237,8 @@ const DocSearchBase: FC<Props> = (props) => {
       return [];
     }
     return selectedCategories
-      .flatMap(
-        (cat) =>
-          metadataOptions.allowedCategories[
-          cat
-          ] || [],
-      )
-      .filter(
-        (subcat, index, self) =>
-          self.indexOf(subcat) === index,
-      )
+      .flatMap((cat) => metadataOptions.allowedCategories[cat] || [])
+      .filter((subcat, index, self) => self.indexOf(subcat) === index);
   }, [selectedCategories, metadataOptions]);
 
   const startRecording = useCallback(async () => {
@@ -395,8 +422,6 @@ const DocSearchBase: FC<Props> = (props) => {
       setQuery(q);
     }
 
-    console.log("Starting search with query:", q, "and audio:", audioBlob);
-
     // Check if we can reuse cached audio (same blob within TTL)
     const now = Date.now();
     const isSameAudio =
@@ -410,16 +435,6 @@ const DocSearchBase: FC<Props> = (props) => {
         blob: audioBlob,
         uploadTimestamp: now,
       };
-      console.log("Audio cache updated for new recording");
-    } else if (isSameAudio) {
-      console.log(
-        "Reusing cached audio (no re-upload needed within",
-        Math.round(
-          (AUDIO_CACHE_TTL - (now - audioCacheRef.current!.uploadTimestamp)) /
-          1000,
-        ),
-        "seconds)",
-      );
     }
 
     reset();
@@ -438,8 +453,8 @@ const DocSearchBase: FC<Props> = (props) => {
           }),
           ...(enableUserFilters &&
             selectedSubcategories.length > 0 && {
-            userSelectedSubcategories: selectedSubcategories,
-          }),
+              userSelectedSubcategories: selectedSubcategories,
+            }),
           ...(enableUserFilters &&
             selectedTags.length > 0 && { userSelectedTags: selectedTags }),
         },
@@ -565,14 +580,24 @@ const DocSearchBase: FC<Props> = (props) => {
       }
 
       const safeEnd = Math.min(end, summaryText.length);
-      segments.push(summaryText.slice(cursor, safeEnd));
-      segments.push(`<sup>${refs.join(",")}</sup>`);
-      cursor = safeEnd;
+      const snappedEnd = snapEndToBoundary(summaryText, safeEnd);
+
+      segments.push(summaryText.slice(cursor, snappedEnd));
+
+      const supHtml = refs
+        .map(
+          (n) =>
+            `<a href="#docsearch-source-${n}" data-docsearch-cite="${n}" style="color: inherit; text-decoration: none;">${n}</a>`,
+        )
+        .join(",");
+
+      segments.push(`<sup>${supHtml}</sup>`);
+      cursor = snappedEnd;
     }
 
     segments.push(summaryText.slice(cursor));
     return segments.join("");
-  }, [citationAnchors, summaryText]);
+  }, [citationAnchors, summaryText, docNumberMap, chunkDocMap]);
 
   const RootComponent: typeof Modal.Root | typeof Group =
     variation === "modal" ? Modal.Root : Group;
@@ -731,49 +756,48 @@ const DocSearchBase: FC<Props> = (props) => {
                         }}
                       />
 
-                      {
-                        /* Microphone button */ USE_AUDIO && (
-                          <>
-                            {audioBlob ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                color="red"
-                                onClick={clearAudio}
-                                disabled={busy}
-                                title={I18n.get("Clear audio")}
-                              >
-                                <IconMicrophoneOff size={18} />
-                              </Button>
-                            ) : (
-                              <Button
-                                variant={recording ? "filled" : "outline"}
-                                size="sm"
-                                color={recording ? "red" : "gray"}
-                                onClick={
-                                  recording ? stopRecording : startRecording
-                                }
-                                disabled={busy}
-                                title={
-                                  recording
-                                    ? I18n.get("Stop recording")
-                                    : I18n.get("Record audio")
-                                }
-                                style={
-                                  recording
-                                    ? {
+                      {/* Microphone button */}
+                      {USE_AUDIO && (
+                        <>
+                          {audioBlob ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              color="red"
+                              onClick={clearAudio}
+                              disabled={busy}
+                              title={I18n.get("Clear audio")}
+                            >
+                              <IconMicrophoneOff size={18} />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant={recording ? "filled" : "outline"}
+                              size="sm"
+                              color={recording ? "red" : "gray"}
+                              onClick={
+                                recording ? stopRecording : startRecording
+                              }
+                              disabled={busy}
+                              title={
+                                recording
+                                  ? I18n.get("Stop recording")
+                                  : I18n.get("Record audio")
+                              }
+                              style={
+                                recording
+                                  ? {
                                       transform: `scale(${1 + audioLevel / 300})`,
                                       transition: "transform 0.1s ease-out",
                                     }
-                                    : undefined
-                                }
-                              >
-                                <IconMicrophone size={18} />
-                              </Button>
-                            )}
-                          </>
-                        )
-                      }
+                                  : undefined
+                              }
+                            >
+                              <IconMicrophone size={18} />
+                            </Button>
+                          )}
+                        </>
+                      )}
 
                       <Button
                         variant="filled"
@@ -830,51 +854,51 @@ const DocSearchBase: FC<Props> = (props) => {
                               {/* Main categories as checkboxes */}
                               {Object.keys(metadataOptions.allowedCategories)
                                 .length > 0 && (
-                                  <div>
-                                    <Text size="sm" fw={500} mb="xs">
-                                      {I18n.get("Categories")}
-                                    </Text>
-                                    <Group gap="md">
-                                      {Object.keys(
-                                        metadataOptions.allowedCategories,
-                                      ).map((category) => (
-                                        <Checkbox
-                                          key={category}
-                                          label={I18n.get(category)}
-                                          checked={selectedCategories.includes(
-                                            category,
-                                          )}
-                                          onChange={(e) => {
-                                            if (e.currentTarget.checked) {
-                                              setSelectedCategories([
-                                                ...selectedCategories,
-                                                category,
-                                              ]);
-                                            } else {
-                                              setSelectedCategories(
-                                                selectedCategories.filter(
-                                                  (c) => c !== category,
-                                                ),
-                                              );
-                                              // Remove subcategories of unchecked category
-                                              const subcatsToRemove =
-                                                metadataOptions.allowedCategories[
+                                <div>
+                                  <Text size="sm" fw={500} mb="xs">
+                                    {I18n.get("Categories")}
+                                  </Text>
+                                  <Group gap="md">
+                                    {Object.keys(
+                                      metadataOptions.allowedCategories,
+                                    ).map((category) => (
+                                      <Checkbox
+                                        key={category}
+                                        label={I18n.get(category)}
+                                        checked={selectedCategories.includes(
+                                          category,
+                                        )}
+                                        onChange={(e) => {
+                                          if (e.currentTarget.checked) {
+                                            setSelectedCategories([
+                                              ...selectedCategories,
+                                              category,
+                                            ]);
+                                          } else {
+                                            setSelectedCategories(
+                                              selectedCategories.filter(
+                                                (c) => c !== category,
+                                              ),
+                                            );
+                                            // Remove subcategories of unchecked category
+                                            const subcatsToRemove =
+                                              metadataOptions.allowedCategories[
                                                 category
-                                                ] || [];
-                                              setSelectedSubcategories(
-                                                selectedSubcategories.filter(
-                                                  (sc) =>
-                                                    !subcatsToRemove.includes(sc),
-                                                ),
-                                              );
-                                            }
-                                          }}
-                                          disabled={busy || loadingMetadata}
-                                        />
-                                      ))}
-                                    </Group>
-                                  </div>
-                                )}
+                                              ] || [];
+                                            setSelectedSubcategories(
+                                              selectedSubcategories.filter(
+                                                (sc) =>
+                                                  !subcatsToRemove.includes(sc),
+                                              ),
+                                            );
+                                          }
+                                        }}
+                                        disabled={busy || loadingMetadata}
+                                      />
+                                    ))}
+                                  </Group>
+                                </div>
+                              )}
 
                               {/* Subcategories for selected categories */}
                               {subcategories.length > 0 && (
@@ -883,31 +907,30 @@ const DocSearchBase: FC<Props> = (props) => {
                                     {I18n.get("Subcategories")}
                                   </Text>
                                   <Group gap="md">
-                                    {subcategories
-                                      .map((subcat) => (
-                                        <Checkbox
-                                          key={subcat}
-                                          label={I18n.get(subcat)}
-                                          checked={selectedSubcategories.includes(
-                                            subcat,
-                                          )}
-                                          onChange={(e) => {
-                                            if (e.currentTarget.checked) {
-                                              setSelectedSubcategories([
-                                                ...selectedSubcategories,
-                                                subcat,
-                                              ]);
-                                            } else {
-                                              setSelectedSubcategories(
-                                                selectedSubcategories.filter(
-                                                  (sc) => sc !== subcat,
-                                                ),
-                                              );
-                                            }
-                                          }}
-                                          disabled={busy || loadingMetadata}
-                                        />
-                                      ))}
+                                    {subcategories.map((subcat) => (
+                                      <Checkbox
+                                        key={subcat}
+                                        label={I18n.get(subcat)}
+                                        checked={selectedSubcategories.includes(
+                                          subcat,
+                                        )}
+                                        onChange={(e) => {
+                                          if (e.currentTarget.checked) {
+                                            setSelectedSubcategories([
+                                              ...selectedSubcategories,
+                                              subcat,
+                                            ]);
+                                          } else {
+                                            setSelectedSubcategories(
+                                              selectedSubcategories.filter(
+                                                (sc) => sc !== subcat,
+                                              ),
+                                            );
+                                          }
+                                        }}
+                                        disabled={busy || loadingMetadata}
+                                      />
+                                    ))}
                                   </Group>
                                 </div>
                               )}
@@ -941,40 +964,39 @@ const DocSearchBase: FC<Props> = (props) => {
                         </Stack>
                       )}
 
-                    {
-                      /* Audio level indicator when recording */ USE_AUDIO && (
-                        <>
-                          {recording && (
-                            <Stack gap="xs">
-                              <Text size="xs" c="dimmed">
-                                {I18n.get("Recording...")} 🎤
-                              </Text>
-                              <Progress
-                                value={audioLevel}
-                                size="sm"
-                                color="red"
-                                animated
-                                striped
-                              />
-                            </Stack>
-                          )}
+                    {/* Audio level indicator when recording */}
+                    {USE_AUDIO && (
+                      <>
+                        {recording && (
+                          <Stack gap="xs">
+                            <Text size="xs" c="dimmed">
+                              {I18n.get("Recording...")} 🎤
+                            </Text>
+                            <Progress
+                              value={audioLevel}
+                              size="sm"
+                              color="red"
+                              animated
+                              striped
+                            />
+                          </Stack>
+                        )}
 
-                          {/* Audio playback when recorded */}
-                          {audioBlob && !recording && (
-                            <Stack gap="xs">
-                              <Text size="xs" c="dimmed">
-                                {I18n.get("Recorded audio:")}
-                              </Text>
-                              <audio
-                                controls
-                                src={URL.createObjectURL(audioBlob)}
-                                className="ai-kit-audio-player"
-                              />
-                            </Stack>
-                          )}
-                        </>
-                      )
-                    }
+                        {/* Audio playback when recorded */}
+                        {audioBlob && !recording && (
+                          <Stack gap="xs">
+                            <Text size="xs" c="dimmed">
+                              {I18n.get("Recorded audio:")}
+                            </Text>
+                            <audio
+                              controls
+                              src={URL.createObjectURL(audioBlob)}
+                              className="ai-kit-audio-player"
+                            />
+                          </Stack>
+                        )}
+                      </>
+                    )}
 
                     {error ? (
                       <Alert color="red" title={I18n.get("Error")}>
@@ -1017,6 +1039,44 @@ const DocSearchBase: FC<Props> = (props) => {
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             rehypePlugins={[rehypeRaw]}
+                            components={{
+                              a: ({ href, children, ...rest }) => {
+                                const isCite =
+                                  typeof href === "string" &&
+                                  href.startsWith("#docsearch-source-");
+
+                                return (
+                                  <a
+                                    href={href}
+                                    {...rest}
+                                    onClick={(e) => {
+                                      if (!isCite) return;
+                                      e.preventDefault();
+
+                                      const id = href!.slice(1);
+                                      const selector = `#${escapeCssId(id)}`;
+
+                                      const scope: ParentNode =
+                                        (rootElement as unknown as ParentNode) ??
+                                        document;
+
+                                      const el = (
+                                        scope as Document | Element
+                                      ).querySelector?.(
+                                        selector,
+                                      ) as HTMLElement | null;
+
+                                      el?.scrollIntoView({
+                                        block: "start",
+                                        behavior: "smooth",
+                                      });
+                                    }}
+                                  >
+                                    {children}
+                                  </a>
+                                );
+                              },
+                            }}
                             data-doc-search-result-content
                           >
                             {annotatedSummary || summaryText}
@@ -1026,8 +1086,8 @@ const DocSearchBase: FC<Props> = (props) => {
                     ) : null}
 
                     {showSources &&
-                      (result?.citations?.docs?.length ||
-                        result?.citations?.chunks?.length) ? (
+                    (result?.citations?.docs?.length ||
+                      result?.citations?.chunks?.length) ? (
                       <>
                         <Divider />
                         <Stack gap="sm" data-doc-search-sources>
@@ -1051,12 +1111,18 @@ const DocSearchBase: FC<Props> = (props) => {
                                 {titleText}
                               </Text>
                             );
+
                             return (
                               <Paper
                                 key={doc.docId}
                                 withBorder
                                 radius="md"
                                 p="sm"
+                                id={
+                                  docNumber
+                                    ? `docsearch-source-${docNumber}`
+                                    : undefined
+                                }
                               >
                                 <Stack gap="xs">
                                   <Group
@@ -1086,6 +1152,7 @@ const DocSearchBase: FC<Props> = (props) => {
                                       ) : (
                                         titleNode
                                       )}
+
                                       <Anchor
                                         href={href}
                                         target="_blank"
@@ -1100,6 +1167,7 @@ const DocSearchBase: FC<Props> = (props) => {
                                       >
                                         {doc.sourceUrl}
                                       </Anchor>
+
                                       {doc.author ? (
                                         <Text
                                           size="xs"
@@ -1109,6 +1177,7 @@ const DocSearchBase: FC<Props> = (props) => {
                                           {doc.author}
                                         </Text>
                                       ) : null}
+
                                       {doc.description ? (
                                         <Text
                                           size="sm"
@@ -1128,6 +1197,7 @@ const DocSearchBase: FC<Props> = (props) => {
                         </Stack>
                       </>
                     ) : null}
+
                     <PoweredBy variation={variation} />
                   </Stack>
                 </Paper>

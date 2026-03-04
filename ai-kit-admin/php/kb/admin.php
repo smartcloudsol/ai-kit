@@ -679,35 +679,57 @@ class Admin
 
         $where_sql = implode(' AND ', $where_clauses);
 
-        // Count total (use %i for table names - WordPress 6.2+)
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql contains safe placeholders
-        $count_sql_template = "SELECT COUNT(*) 
-                               FROM %i s
-                               INNER JOIN %i p ON s.post_id = p.ID
-                               WHERE {$where_sql}";
+        // If we have a KB status filter, we need to fetch ALL results first, then filter in PHP
+        // because kb_publish_status is calculated in PHP, not in SQL
+        $needs_kb_status_filtering = $kb_status_filter && $kb_status_filter !== 'all';
 
-        $count_params = array_merge([$sources_table, $posts_table], $where_values);
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Template contains interpolated WHERE clause with placeholders
-        $count_sql = $wpdb->prepare($count_sql_template, ...$count_params);
+        if ($needs_kb_status_filtering) {
+            // Get ALL results without pagination (we'll paginate in PHP after filtering)
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql contains safe placeholders
+            $results_sql_template = "SELECT s.*, p.post_title, p.post_status, p.post_type
+                                     FROM %i s
+                                     INNER JOIN %i p ON s.post_id = p.ID
+                                     WHERE {$where_sql}
+                                     ORDER BY s.updated_at DESC";
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
-        $total = (int) $wpdb->get_var($count_sql);
+            $query_params = array_merge([$sources_table, $posts_table], $where_values);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Template contains interpolated WHERE clause with placeholders
+            $results_sql = $wpdb->prepare($results_sql_template, ...$query_params);
 
-        // Get paginated results with KB publish status calculation
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql contains safe placeholders
-        $results_sql_template = "SELECT s.*, p.post_title, p.post_status, p.post_type
-                                 FROM %i s
-                                 INNER JOIN %i p ON s.post_id = p.ID
-                                 WHERE {$where_sql}
-                                 ORDER BY s.updated_at DESC
-                                 LIMIT %d OFFSET %d";
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+            $sources = $wpdb->get_results($results_sql);
+        } else {
+            // No KB status filter - use normal pagination in SQL
+            // Count total (use %i for table names - WordPress 6.2+)
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql contains safe placeholders
+            $count_sql_template = "SELECT COUNT(*) 
+                                   FROM %i s
+                                   INNER JOIN %i p ON s.post_id = p.ID
+                                   WHERE {$where_sql}";
 
-        $query_params = array_merge([$sources_table, $posts_table], $where_values, [$per_page, $offset]);
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Template contains interpolated WHERE clause with placeholders
-        $results_sql = $wpdb->prepare($results_sql_template, ...$query_params);
+            $count_params = array_merge([$sources_table, $posts_table], $where_values);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Template contains interpolated WHERE clause with placeholders
+            $count_sql = $wpdb->prepare($count_sql_template, ...$count_params);
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
-        $sources = $wpdb->get_results($results_sql);
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+            $total = (int) $wpdb->get_var($count_sql);
+
+            // Get paginated results with KB publish status calculation
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $where_sql contains safe placeholders
+            $results_sql_template = "SELECT s.*, p.post_title, p.post_status, p.post_type
+                                     FROM %i s
+                                     INNER JOIN %i p ON s.post_id = p.ID
+                                     WHERE {$where_sql}
+                                     ORDER BY s.updated_at DESC
+                                     LIMIT %d OFFSET %d";
+
+            $query_params = array_merge([$sources_table, $posts_table], $where_values, [$per_page, $offset]);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Template contains interpolated WHERE clause with placeholders
+            $results_sql = $wpdb->prepare($results_sql_template, ...$query_params);
+
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+            $sources = $wpdb->get_results($results_sql);
+        }
 
         $result = [];
         foreach ($sources as $source) {
@@ -734,8 +756,19 @@ class Admin
             ];
         }
 
-        // Sort by KB publish status if no KB status filter (needs_review first, then ready_to_publish, then published)
-        if (!$kb_status_filter || $kb_status_filter === 'all') {
+        // If we filtered by KB status, we need to:
+        // 1. Calculate total from filtered results
+        // 2. Paginate in PHP (not in SQL)
+        if ($needs_kb_status_filtering) {
+            $total = count($result);
+
+            // Sort by KB publish status if needed
+            // (for filtered results, sorting was already implicit in the filter)
+
+            // Paginate in PHP
+            $result = array_slice($result, $offset, $per_page);
+        } else {
+            // Sort by KB publish status if no KB status filter (needs_review first, then ready_to_publish, then published)
             usort($result, function ($a, $b) {
                 $statusOrder = ['needs_review' => 1, 'ready_to_publish' => 2, 'published' => 3];
                 $orderA = $statusOrder[$a['kb_publish_status']] ?? 4;
