@@ -197,6 +197,23 @@ const DocSearchBase: FC<Props> = (props) => {
     return hasCategories || hasTags;
   }, [metadataOptions]);
 
+  const subcategories = useMemo(() => {
+    if (selectedCategories.length === 0 || !metadataOptions) {
+      return [];
+    }
+    return selectedCategories
+      .flatMap(
+        (cat) =>
+          metadataOptions.allowedCategories[
+          cat
+          ] || [],
+      )
+      .filter(
+        (subcat, index, self) =>
+          self.indexOf(subcat) === index,
+      )
+  }, [selectedCategories, metadataOptions]);
+
   const startRecording = useCallback(async () => {
     try {
       // Clear query input when starting audio recording
@@ -399,7 +416,7 @@ const DocSearchBase: FC<Props> = (props) => {
         "Reusing cached audio (no re-upload needed within",
         Math.round(
           (AUDIO_CACHE_TTL - (now - audioCacheRef.current!.uploadTimestamp)) /
-            1000,
+          1000,
         ),
         "seconds)",
       );
@@ -421,8 +438,8 @@ const DocSearchBase: FC<Props> = (props) => {
           }),
           ...(enableUserFilters &&
             selectedSubcategories.length > 0 && {
-              userSelectedSubcategories: selectedSubcategories,
-            }),
+            userSelectedSubcategories: selectedSubcategories,
+          }),
           ...(enableUserFilters &&
             selectedTags.length > 0 && { userSelectedTags: selectedTags }),
         },
@@ -745,9 +762,9 @@ const DocSearchBase: FC<Props> = (props) => {
                                 style={
                                   recording
                                     ? {
-                                        transform: `scale(${1 + audioLevel / 300})`,
-                                        transition: "transform 0.1s ease-out",
-                                      }
+                                      transform: `scale(${1 + audioLevel / 300})`,
+                                      transition: "transform 0.1s ease-out",
+                                    }
                                     : undefined
                                 }
                               >
@@ -813,70 +830,60 @@ const DocSearchBase: FC<Props> = (props) => {
                               {/* Main categories as checkboxes */}
                               {Object.keys(metadataOptions.allowedCategories)
                                 .length > 0 && (
-                                <div>
-                                  <Text size="sm" fw={500} mb="xs">
-                                    {I18n.get("Categories")}
-                                  </Text>
-                                  <Group gap="md">
-                                    {Object.keys(
-                                      metadataOptions.allowedCategories,
-                                    ).map((category) => (
-                                      <Checkbox
-                                        key={category}
-                                        label={I18n.get(category)}
-                                        checked={selectedCategories.includes(
-                                          category,
-                                        )}
-                                        onChange={(e) => {
-                                          if (e.currentTarget.checked) {
-                                            setSelectedCategories([
-                                              ...selectedCategories,
-                                              category,
-                                            ]);
-                                          } else {
-                                            setSelectedCategories(
-                                              selectedCategories.filter(
-                                                (c) => c !== category,
-                                              ),
-                                            );
-                                            // Remove subcategories of unchecked category
-                                            const subcatsToRemove =
-                                              metadataOptions.allowedCategories[
+                                  <div>
+                                    <Text size="sm" fw={500} mb="xs">
+                                      {I18n.get("Categories")}
+                                    </Text>
+                                    <Group gap="md">
+                                      {Object.keys(
+                                        metadataOptions.allowedCategories,
+                                      ).map((category) => (
+                                        <Checkbox
+                                          key={category}
+                                          label={I18n.get(category)}
+                                          checked={selectedCategories.includes(
+                                            category,
+                                          )}
+                                          onChange={(e) => {
+                                            if (e.currentTarget.checked) {
+                                              setSelectedCategories([
+                                                ...selectedCategories,
+                                                category,
+                                              ]);
+                                            } else {
+                                              setSelectedCategories(
+                                                selectedCategories.filter(
+                                                  (c) => c !== category,
+                                                ),
+                                              );
+                                              // Remove subcategories of unchecked category
+                                              const subcatsToRemove =
+                                                metadataOptions.allowedCategories[
                                                 category
-                                              ] || [];
-                                            setSelectedSubcategories(
-                                              selectedSubcategories.filter(
-                                                (sc) =>
-                                                  !subcatsToRemove.includes(sc),
-                                              ),
-                                            );
-                                          }
-                                        }}
-                                        disabled={busy || loadingMetadata}
-                                      />
-                                    ))}
-                                  </Group>
-                                </div>
-                              )}
+                                                ] || [];
+                                              setSelectedSubcategories(
+                                                selectedSubcategories.filter(
+                                                  (sc) =>
+                                                    !subcatsToRemove.includes(sc),
+                                                ),
+                                              );
+                                            }
+                                          }}
+                                          disabled={busy || loadingMetadata}
+                                        />
+                                      ))}
+                                    </Group>
+                                  </div>
+                                )}
 
                               {/* Subcategories for selected categories */}
-                              {selectedCategories.length > 0 && (
+                              {subcategories.length > 0 && (
                                 <div>
                                   <Text size="sm" fw={500} mb="xs">
                                     {I18n.get("Subcategories")}
                                   </Text>
                                   <Group gap="md">
-                                    {selectedCategories
-                                      .flatMap(
-                                        (cat) =>
-                                          metadataOptions.allowedCategories[
-                                            cat
-                                          ] || [],
-                                      )
-                                      .filter(
-                                        (subcat, index, self) =>
-                                          self.indexOf(subcat) === index,
-                                      )
+                                    {subcategories
                                       .map((subcat) => (
                                         <Checkbox
                                           key={subcat}
@@ -1019,8 +1026,8 @@ const DocSearchBase: FC<Props> = (props) => {
                     ) : null}
 
                     {showSources &&
-                    (result?.citations?.docs?.length ||
-                      result?.citations?.chunks?.length) ? (
+                      (result?.citations?.docs?.length ||
+                        result?.citations?.chunks?.length) ? (
                       <>
                         <Divider />
                         <Stack gap="sm" data-doc-search-sources>

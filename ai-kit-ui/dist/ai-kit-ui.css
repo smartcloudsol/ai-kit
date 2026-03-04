@@ -175,6 +175,9 @@
   --ai-kit-chat-feedback-border: var(--ai-kit-color-border);
   --ai-kit-chat-feedback-active-bg: #ffd43b;
 
+  --mantine-cursor-type: pointer;
+  --switch-cursor: pointer;
+
   /* Typography apply */
   font-family: var(--ai-kit-font-family);
 }

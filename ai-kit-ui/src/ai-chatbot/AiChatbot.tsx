@@ -65,9 +65,8 @@ const USE_AUDIO = false; // Set to true to enable audio recording feature (requi
 // New: history storage support
 const DEFAULT_PRESERVATION_TIME_DAYS = 1;
 const DEFAULT_HISTORY_STORAGE: HistoryStorageMode = "localstorage";
-const HISTORY_STORAGE_KEY = `ai-kit-chatbot-history-v1:${
-  typeof window !== "undefined" ? window.location.hostname : "unknown"
-}`;
+const HISTORY_STORAGE_KEY = `ai-kit-chatbot-history-v1:${typeof window !== "undefined" ? window.location.hostname : "unknown"
+  }`;
 
 export const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels> = {
   modalTitle: "AI Assistant",
@@ -223,7 +222,7 @@ const formatStatusEvent = (
     case "backend:response":
       return I18n.get(
         labels.assistantThinkingLabel ??
-          DEFAULT_CHATBOT_LABELS.assistantThinkingLabel,
+        DEFAULT_CHATBOT_LABELS.assistantThinkingLabel,
       );
     case "done":
       return msg || I18n.get("Done.");
@@ -964,9 +963,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           blob instanceof File
             ? blob
             : new File([blob], attachment.name || "attachment", {
-                type:
-                  attachment.type || blob.type || "application/octet-stream",
-              });
+              type:
+                attachment.type || blob.type || "application/octet-stream",
+            });
 
         const objectUrl = createObjectUrl(file);
         if (!objectUrl) continue;
@@ -1055,7 +1054,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       try {
         const activeSessionId =
           sessionRef.current &&
-          Date.now() - sessionRef.current.storedAt <
+            Date.now() - sessionRef.current.storedAt <
             emptyHistoryAfterDays * TWENTY_FOUR_HOURS_MS
             ? sessionRef.current.id
             : undefined;
@@ -1149,7 +1148,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     try {
       const activeSessionId =
         sessionRef.current &&
-        Date.now() - sessionRef.current.storedAt <
+          Date.now() - sessionRef.current.storedAt <
           emptyHistoryAfterDays * TWENTY_FOUR_HOURS_MS
           ? sessionRef.current.id
           : undefined;
@@ -1777,53 +1776,53 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                               att.mediaType === "image" ||
                               (!att.mediaType && att.type.startsWith("image/")),
                           ).length > 0 && (
-                            <Group
-                              className="ai-thumbs ai-message-thumbs"
-                              gap="xs"
-                            >
-                              {msg.attachments
-                                .filter(
-                                  (att) =>
-                                    att.mediaType === "image" ||
-                                    (!att.mediaType &&
-                                      att.type.startsWith("image/")),
-                                )
-                                .map((attachment) => (
-                                  <button
-                                    key={attachment.id}
-                                    type="button"
-                                    className="thumb"
-                                    style={{
-                                      backgroundImage: attachment.objectUrl
-                                        ? `url(${attachment.objectUrl})`
-                                        : undefined,
-                                      backgroundSize: "cover",
-                                      backgroundPosition: "center",
-                                      backgroundRepeat: "no-repeat",
-                                    }}
-                                    onClick={() =>
-                                      openAttachmentPreview(
-                                        attachment.objectUrl,
-                                        attachment.name,
-                                      )
-                                    }
-                                    disabled={!attachment.objectUrl}
-                                    title={
-                                      attachment.name || I18n.get("View image")
-                                    }
-                                    aria-label={
-                                      attachment.name || I18n.get("View image")
-                                    }
-                                  >
-                                    {!attachment.objectUrl && (
-                                      <Text size="xs" c="dimmed">
-                                        {I18n.get("Image no longer available")}
-                                      </Text>
-                                    )}
-                                  </button>
-                                ))}
-                            </Group>
-                          )}
+                              <Group
+                                className="ai-thumbs ai-message-thumbs"
+                                gap="xs"
+                              >
+                                {msg.attachments
+                                  .filter(
+                                    (att) =>
+                                      att.mediaType === "image" ||
+                                      (!att.mediaType &&
+                                        att.type.startsWith("image/")),
+                                  )
+                                  .map((attachment) => (
+                                    <button
+                                      key={attachment.id}
+                                      type="button"
+                                      className="thumb"
+                                      style={{
+                                        backgroundImage: attachment.objectUrl
+                                          ? `url(${attachment.objectUrl})`
+                                          : undefined,
+                                        backgroundSize: "cover",
+                                        backgroundPosition: "center",
+                                        backgroundRepeat: "no-repeat",
+                                      }}
+                                      onClick={() =>
+                                        openAttachmentPreview(
+                                          attachment.objectUrl,
+                                          attachment.name,
+                                        )
+                                      }
+                                      disabled={!attachment.objectUrl}
+                                      title={
+                                        attachment.name || I18n.get("View image")
+                                      }
+                                      aria-label={
+                                        attachment.name || I18n.get("View image")
+                                      }
+                                    >
+                                      {!attachment.objectUrl && (
+                                        <Text size="xs" c="dimmed">
+                                          {I18n.get("Image no longer available")}
+                                        </Text>
+                                      )}
+                                    </button>
+                                  ))}
+                              </Group>
+                            )}
 
                           {/* Audio attachments */}
                           {msg.attachments
@@ -2000,7 +1999,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                 onClose={cancelReset}
                 centered
                 title={I18n.get("Reset conversation")}
-                style={{ position: "fixed" }}
+                style={{ zIndex: "var(--mb-z-index)", position: "fixed" }}
                 left={0}
               >
                 <Text size="sm">

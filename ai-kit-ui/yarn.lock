@@ -1278,7 +1278,7 @@
 
 "@smart-cloud/ai-kit-core@^1.3.6":
   version "1.3.6"
-  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-core/-/ai-kit-core-1.3.6.tgz#709a694bb5b71bc22102e14a50fda29eca7eab4f"
+  resolved "https://registry.yarnpkg.com/@smart-cloud/ai-kit-core/-/ai-kit-core-1.3.6.tgz#709a694bb5b71bc22102e14a50fda29eca7eab4f"
   integrity sha512-ut4zSJRQyh9WmBqK7rNYBNdTDd9eLviuAf6gfGtirCpFWU3L4kvcbSy9sEUf+3WVZcq4qJPgKstB098DFAH9bQ==
   dependencies:
     "@smart-cloud/gatey-core" "^2.1.9"

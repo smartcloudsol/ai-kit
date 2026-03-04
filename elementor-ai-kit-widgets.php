@@ -493,6 +493,18 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
             'type' => \Elementor\Controls_Manager::TEXT,
         ]);
 
+        $this->add_control('optionsDisplay', [
+            'label' => __('Options Display', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::SELECT,
+            'options' => [
+                'collapse' => __('Collapse', 'smartcloud-ai-kit'),
+                'vertical' => __('Vertical', 'smartcloud-ai-kit'),
+                'horizontal' => __('Horizontal', 'smartcloud-ai-kit'),
+            ],
+            'default' => 'collapse',
+            'description' => __('Choose how options are displayed: collapsed, vertical, or horizontal.', 'smartcloud-ai-kit'),
+        ]);
+
         $this->end_controls_section();
 
         // Appearance
@@ -606,8 +618,7 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
             'showOpenButtonTitle',
             'showOpenButtonIcon',
             'acceptButtonTitle',
-            'inputSelector',
-            'outputSelector',
+            'optionsDisplay',
             'colorMode',
             'language',
             'direction',
@@ -725,6 +736,14 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
             }
         }
 
+        // inputSelector and outputSelector should also be included in YAML if set
+        if (!empty($all['inputSelector'])) {
+            $yaml_parts[] = 'inputSelector: ' . $this->yaml_encode_value($all['inputSelector']);
+        }
+        if (!empty($all['outputSelector'])) {
+            $yaml_parts[] = 'outputSelector: ' . $this->yaml_encode_value($all['outputSelector']);
+        }
+
         $body = !empty($yaml_parts) ? implode("\n", $yaml_parts) : '';
         smartcloud_ai_kit_do_shortcode('smartcloud-ai-kit-feature', $atts, $body);
     }
@@ -783,13 +802,6 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'label' => __('Auto Run', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::SWITCHER,
             'return_value' => 'true',
-        ]);
-
-        $this->add_control('enableUserFilters', [
-            'label' => __('Enable User Filters', 'smartcloud-ai-kit'),
-            'type' => \Elementor\Controls_Manager::SWITCHER,
-            'return_value' => 'true',
-            'default' => 'false',
         ]);
 
         $this->add_control('title', [
@@ -1027,7 +1039,6 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'autoRun',
             'enableUserFilters',
             'title',
-            'inputSelector',
             'showOpenButton',
             'openButtonTitle',
             'showOpenButtonTitle',
@@ -1041,8 +1052,7 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'colorMode',
             'primaryColor',
             'topK',
-            'snippetMaxChars',
-            'enableUserFilters'
+            'snippetMaxChars'
         ];
 
         // SWITCHER fields that need explicit boolean values
@@ -1113,6 +1123,11 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             foreach (explode("\n", $theme_overrides) as $line) {
                 $yaml_parts[] = '  ' . $line;
             }
+        }
+
+        // inputSelector should also be included in YAML if set
+        if (!empty($all['inputSelector'])) {
+            $yaml_parts[] = 'inputSelector: ' . $this->yaml_encode_value($all['inputSelector']);
         }
 
         $body = !empty($yaml_parts) ? implode("\n", $yaml_parts) : '';

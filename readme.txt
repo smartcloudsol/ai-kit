@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.3
+Stable tag: 1.1.4
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,11 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.1.4 =
+DocSearch: Show the “Subcategories” label only when there are subcategory options for the selected categories.
+Chatbot: Reset confirmation is now a true modal and overlays the chat content properly.
+KB Admin: Fix missing WP Admin REST API changes from the previous release (restores full functionality).
+
 = 1.1.3 =
 DocSearch: Show the Filters section only when real categories or tags exist.
 DocSearch/Backend: When enableUserFilters is on, always send userSelectedCategories (even as an empty array) so backend filtering is disabled and search runs across all documents.
@@ -248,6 +253,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.1.4 =
+Recommended update if you use KB Admin: restores correct behavior by including the missing WP Admin REST API updates, plus small DocSearch/Chatbot UI fixes.
 
 = 1.1.3 =
 Improves DocSearch filter UX and makes category switching more reliable by resetting the KB session context.

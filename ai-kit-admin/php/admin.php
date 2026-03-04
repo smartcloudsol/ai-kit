@@ -34,8 +34,15 @@ class Admin
         );
 
         // WP can return array/object depending on previous versions / serialization.
-        $raw = get_option(SMARTCLOUD_AI_KIT_SLUG, $defaultSettings);
-        $this->settings = AiKitSettings::fromMixed($raw);
+        $raw = get_option(SMARTCLOUD_AI_KIT_SLUG);
+
+        // Merge missing properties from defaultSettings
+        $merged = array_merge(
+            (array) $defaultSettings,
+            is_object($raw) ? (array) $raw : (is_array($raw) ? $raw : [])
+        );
+
+        $this->settings = AiKitSettings::fromMixed($merged);
         $this->registerRestRoutes();
     }
     public function getSettings(): AiKitSettings
