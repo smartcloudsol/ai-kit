@@ -144,7 +144,8 @@ try {
       );
       const variation =
         yamlVariation ??
-        (el.getAttribute("data-variation") as AiFeatureArgs["variation"]);
+        (el.getAttribute("data-variation") as AiFeatureArgs["variation"]) ??
+        undefined;
 
       const yamlLanguage = fromYaml<AiFeatureArgs["language"]>(
         yamlConfig,
@@ -152,7 +153,8 @@ try {
       );
       const language =
         yamlLanguage ??
-        (el.getAttribute("data-language") as AiFeatureArgs["language"]);
+        (el.getAttribute("data-language") as AiFeatureArgs["language"]) ??
+        undefined;
 
       const yamlDirection = fromYaml<AiFeatureArgs["direction"]>(
         yamlConfig,
@@ -162,7 +164,8 @@ try {
         yamlDirection ??
         (el.getAttribute("data-direction") as
           | AiFeatureArgs["direction"]
-          | "auto");
+          | "auto") ??
+        undefined;
 
       const yamlTitle = fromYaml<AiFeatureArgs["title"]>(yamlConfig, "title");
       const title = yamlTitle ?? el.getAttribute("data-title") ?? undefined;
@@ -226,7 +229,8 @@ try {
       );
       const colorMode =
         yamlColorMode ??
-        (el.getAttribute("data-color-mode") as AiFeatureArgs["colorMode"]);
+        (el.getAttribute("data-color-mode") as AiFeatureArgs["colorMode"]) ??
+        undefined;
 
       const yamlPrimaryColor = fromYaml<AiFeatureArgs["primaryColor"]>(
         yamlConfig,
@@ -236,14 +240,16 @@ try {
         yamlPrimaryColor ??
         (el.getAttribute(
           "data-primary-color",
-        ) as AiFeatureArgs["primaryColor"]);
+        ) as AiFeatureArgs["primaryColor"]) ??
+        undefined;
 
       let primaryShade = fromYaml<AiFeatureArgs["primaryShade"]>(
         yamlConfig,
         "colors",
       );
       if (!primaryShade) {
-        const primaryShadeAttr = el.getAttribute("data-primary-shade");
+        const primaryShadeAttr =
+          el.getAttribute("data-primary-shade") ?? undefined;
         primaryShade = (() => {
           if (!primaryShadeAttr) {
             return undefined;
@@ -304,7 +310,8 @@ try {
         yamlOptionsDisplay ??
         (el.getAttribute(
           "data-options-display",
-        ) as AiFeatureArgs["optionsDisplay"]);
+        ) as AiFeatureArgs["optionsDisplay"]) ??
+        undefined;
 
       const yamlDefaults = fromYaml<
         Partial<NonNullable<AiFeatureArgs["default"]>>

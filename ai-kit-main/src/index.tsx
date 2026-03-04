@@ -85,7 +85,7 @@ async function renderFeature(args: AiFeatureArgs): Promise<AiWorkerHandle> {
   );
   if (!capability.onDeviceAvailable && !capability.backendAvailable) {
     throw new Error(
-      `AI feature "${feature}" is not available (reason: ${capability.reason})`,
+      `AI feature "${feature}" is not available, reason: ${capability.reason}`,
     );
   }
   const AiFeature = (

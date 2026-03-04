@@ -113,7 +113,8 @@ try {
       );
       const variation =
         yamlVariation ??
-        (el.getAttribute("data-variation") as DocSearchArgs["variation"]);
+        (el.getAttribute("data-variation") as DocSearchArgs["variation"]) ??
+        undefined;
 
       const yamlLanguage = fromYaml<DocSearchArgs["language"]>(
         yamlConfig,
@@ -121,7 +122,8 @@ try {
       );
       const language =
         yamlLanguage ??
-        (el.getAttribute("data-language") as DocSearchArgs["language"]);
+        (el.getAttribute("data-language") as DocSearchArgs["language"]) ??
+        undefined;
 
       const yamlDirection = fromYaml<DocSearchArgs["direction"]>(
         yamlConfig,
@@ -131,7 +133,8 @@ try {
         yamlDirection ??
         (el.getAttribute("data-direction") as
           | DocSearchArgs["direction"]
-          | "auto");
+          | "auto") ??
+        undefined;
 
       const yamlTitle = fromYaml<DocSearchArgs["title"]>(yamlConfig, "title");
       const title = yamlTitle ?? el.getAttribute("data-title") ?? undefined;
@@ -232,7 +235,8 @@ try {
       );
       const colorMode =
         yamlColorMode ??
-        (el.getAttribute("data-color-mode") as DocSearchArgs["colorMode"]);
+        (el.getAttribute("data-color-mode") as DocSearchArgs["colorMode"]) ??
+        undefined;
 
       const yamlPrimaryColor = fromYaml<DocSearchArgs["primaryColor"]>(
         yamlConfig,
@@ -242,14 +246,16 @@ try {
         yamlPrimaryColor ??
         (el.getAttribute(
           "data-primary-color",
-        ) as DocSearchArgs["primaryColor"]);
+        ) as DocSearchArgs["primaryColor"]) ??
+        undefined;
 
       let primaryShade = fromYaml<DocSearchArgs["primaryShade"]>(
         yamlConfig,
         "colors",
       );
       if (!primaryShade) {
-        const primaryShadeAttr = el.getAttribute("data-primary-shade");
+        const primaryShadeAttr =
+          el.getAttribute("data-primary-shade") ?? undefined;
         primaryShade = (() => {
           if (!primaryShadeAttr) {
             return undefined;

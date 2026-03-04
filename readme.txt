@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.5
+Stable tag: 1.1.6
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,9 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.1.6 =
+DocSearch & AI Feature: More accurate handling of property default values.
+
 = 1.1.5 =
 DocSearch: More accurate citation highlights. If a server-side span.end lands mid-word, it is adjusted to the start of the next word.
 Backend: Improved span correction logic for span.start / span.end to keep citation ranges aligned with the generated response text.
@@ -257,6 +260,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.1.6 =
+Improves default-value behavior for DocSearch and AI Feature settings.
 
 = 1.1.5 =
 Improves DocSearch citation rendering and fixes span alignment on the backend to prevent mid-word highlight breaks.
