@@ -2,12 +2,12 @@ import {
   AiChatbotProps,
   AiFeatureArgs,
   AiKitConfig,
-  DocSearchArgs,
   AiWorkerHandle,
   AiWorkerProps,
   AnyCreateCoreOptions,
   BuiltInAiFeature,
   decideCapability,
+  DocSearchArgs,
   getPromptOptions,
   getProofreadOptions,
   getRewriteOptions,
@@ -27,7 +27,6 @@ import {
 import { useSelect } from "@wordpress/data";
 import React, { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 
 import "jquery";
 
@@ -266,46 +265,9 @@ async function renderChatbot(args: AiWorkerProps): Promise<AiWorkerHandle> {
 }
 
 onDomReady(async () => {
-  const aiKit = initializeAiKit(renderFeature, renderSearchComponent);
+  initializeAiKit(renderFeature, renderSearchComponent);
   observe();
   getStore().then((store) => {
     renderChatbot({ store, onClose: () => void 0 });
   });
-
-  if (
-    aiKit.settings?.reCaptchaSiteKey &&
-    !document.querySelector(
-      `[smartcloud-wpsuite-recaptcha-provider-${aiKit.settings.reCaptchaSiteKey}]`,
-    )
-  ) {
-    const el = document.createElement("div");
-    el.id = "smartcloud-ai-kit-recaptcha-provider";
-    el.setAttribute(
-      `smartcloud-wpsuite-recaptcha-provider-${aiKit.settings.reCaptchaSiteKey}`,
-      "true",
-    );
-    document.body.appendChild(el);
-    const observer = new MutationObserver(() => {
-      const badge = document.querySelector(".grecaptcha-badge");
-      if (badge) {
-        (badge as HTMLElement).style.visibility = "hidden";
-        (badge as HTMLElement).style.display = "none";
-        //observer.disconnect();
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    createRoot(el).render(
-      <StrictMode>
-        <GoogleReCaptchaProvider
-          reCaptchaKey={aiKit.settings.reCaptchaSiteKey}
-          useEnterprise={aiKit.settings.useRecaptchaEnterprise}
-          useRecaptchaNet={aiKit.settings.useRecaptchaNet}
-          scriptProps={{ async: true, defer: true }}
-        >
-          <></>
-        </GoogleReCaptchaProvider>
-      </StrictMode>,
-    );
-  }
 });

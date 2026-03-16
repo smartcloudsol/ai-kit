@@ -40,14 +40,33 @@ class Parser
         $this->current_post = $post;
         $this->referenced_post_ids = []; // Reset for each parse
 
+        Logger::info('Parsing post for KB', [
+            'post_id' => $post->ID,
+            'post_type' => $post->post_type,
+            'post_title' => $post->post_title
+        ]);
+
         // Detect content type
         if ($this->isElementorPost($post)) {
-            return $this->parseElementorPost($post);
+            Logger::debug('Detected Elementor post', ['post_id' => $post->ID]);
+            $result = $this->parseElementorPost($post);
         } elseif ($this->isGutenbergPost($post)) {
-            return $this->parseGutenbergPost($post);
+            Logger::debug('Detected Gutenberg post', ['post_id' => $post->ID]);
+            $result = $this->parseGutenbergPost($post);
         } else {
-            return $this->parseClassicPost($post);
+            Logger::debug('Detected Classic post', ['post_id' => $post->ID]);
+            $result = $this->parseClassicPost($post);
         }
+
+        $total_sections = array_sum(array_map('count', $result));
+        Logger::info('Post parsing completed', [
+            'post_id' => $post->ID,
+            'doc_count' => count($result),
+            'total_sections' => $total_sections,
+            'referenced_posts' => count($this->referenced_post_ids)
+        ]);
+
+        return $result;
     }
 
     /**
@@ -96,6 +115,11 @@ class Parser
     private function parseGutenbergPost(\WP_Post $post): array
     {
         $blocks = parse_blocks($post->post_content);
+
+        Logger::debug('Parsing Gutenberg blocks', [
+            'post_id' => $post->ID,
+            'block_count' => count($blocks)
+        ]);
 
         // Extract post references from blocks for dependency tracking
         $this->extractPostReferences($blocks);
@@ -403,14 +427,25 @@ class Parser
         $elementor_data = get_post_meta($post->ID, '_elementor_data', true);
 
         if (empty($elementor_data)) {
+            Logger::warning('Elementor data empty, falling back to classic parser', [
+                'post_id' => $post->ID
+            ]);
             return $this->parseClassicPost($post);
         }
 
         $elements = json_decode($elementor_data, true);
 
         if (!is_array($elements)) {
+            Logger::warning('Elementor data invalid JSON, falling back to classic parser', [
+                'post_id' => $post->ID
+            ]);
             return $this->parseClassicPost($post);
         }
+
+        Logger::debug('Parsing Elementor elements', [
+            'post_id' => $post->ID,
+            'element_count' => count($elements)
+        ]);
 
         // Extract post references from Elementor widgets for dependency tracking
         $this->extractElementorReferences($elements);
@@ -824,6 +859,11 @@ class Parser
     private function parseClassicPost(\WP_Post $post): array
     {
         $doc_id = "post-{$post->ID}/base";
+
+        Logger::debug('Parsing classic post content', [
+            'post_id' => $post->ID,
+            'content_length' => strlen($post->post_content)
+        ]);
 
         // Extract post references from shortcodes
         $this->extractShortcodeReferences($post->post_content);

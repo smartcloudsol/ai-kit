@@ -1,4 +1,4 @@
-import { Anchor, Code, Drawer, List, Stack, Text, Title } from "@mantine/core";
+import { Code, Drawer, List, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useRef } from "react";
 import classes from "./main.module.css";
 
@@ -42,59 +42,7 @@ const pages = {
         you don’t change it, AI-Kit defaults to <strong>English</strong>. This
         is useful on multilingual sites, or when the browser/back-end can’t
         reliably infer what language the output should be.
-      </Text>{" "}
-      <Title order={3} mt="md" id="recaptcha-site-key">
-        <span className="highlightable">Google reCAPTCHA (v3) site key</span>
-      </Title>
-      <Text>
-        Optional. Adds bot protection for AI-triggered actions (for example
-        operations initiated from the editor UI). Create a v3 key in Google
-        reCAPTCHA or reCAPTCHA Enterprise and paste the <em>site key</em> here.
       </Text>
-      <Title order={3} mt="md" id="use-recaptcha-enterprise">
-        <span className="highlightable">Use reCAPTCHA Enterprise</span>
-      </Title>
-      <Text>
-        Enable this if your site key was generated in{" "}
-        <Anchor
-          href="https://console.cloud.google.com/security/recaptcha"
-          target="_blank"
-          rel="noreferrer"
-        >
-          reCAPTCHA Enterprise
-        </Anchor>
-        . Leave it off for classic reCAPTCHA v3.
-      </Text>
-      <Title order={3} mt="md" id="use-recaptcha-net">
-        <span className="highlightable">Use recaptcha.net</span>
-      </Title>
-      <Text>
-        When enabled, the reCAPTCHA script is loaded from{" "}
-        <Code>recaptcha.net</Code> instead of <Code>google.com</Code>. This is
-        useful in regions where <Code>google.com</Code> may be blocked.
-      </Text>
-      <Title order={3} mt="md" id="recaptcha-chat-ttl-seconds">
-        <span className="highlightable">
-          reCAPTCHA chat verification window (seconds)
-        </span>
-      </Title>
-      <Text>
-        Optimizes multi-turn chats (for example a chatbot conversation). After a
-        successful reCAPTCHA verification, AI-Kit will reuse that result for a
-        short time window and won’t request/verify new reCAPTCHA tokens on every
-        message.
-      </Text>
-      <List size="sm" spacing="xs" mt="xs" withPadding>
-        <List.Item>
-          Default: <Code>120</Code> seconds.
-        </List.Item>
-        <List.Item>
-          Set to <Code>0</Code> to disable the window (verify every message).
-        </List.Item>
-        <List.Item>
-          Range: <Code>0</Code>–<Code>3600</Code> seconds.
-        </List.Item>
-      </List>
       <Title order={3} mt="md" id="hide-powered-by-ai-kit">
         <span className="highlightable">Hide “Powered by AI-Kit”</span>
       </Title>

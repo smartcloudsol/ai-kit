@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.1.6
+ * Version:           1.2.0
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,8 +18,8 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.1.6';
-const DB_VERSION = '1.3.0';
+const VERSION = '1.2.0';
+const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
     exit;
@@ -98,7 +98,7 @@ final class AiKit
         add_action('enqueue_block_editor_assets', array($this, 'enqueueEditorAssets'), 20);
         add_action('admin_enqueue_scripts', array($this, 'enqueueAdminAssets'), 20);
         // Hooks.
-        add_action('admin_menu', array($this, 'createAdminMenu'), 20);
+        add_action('admin_menu', array($this, 'createAdminMenu'), 21);
 
         // KB Admin hooks
         if ($this->kbAdmin) {
@@ -220,27 +220,11 @@ final class AiKit
      */
     public function enqueueAssets(): void
     {
-        wp_register_script(
-            'smartcloud-wpsuite-webcrypto-vendor',
-            SMARTCLOUD_AI_KIT_URL . 'assets/js/webcrypto-vendor.min.js',
-            array(),
-            \SmartCloud\WPSuite\Hub\VERSION_WEBCRYPTO,
-            false
-        );
-
-        wp_register_script(
-            'smartcloud-wpsuite-mantine-vendor',
-            SMARTCLOUD_AI_KIT_URL . 'assets/js/mantine-vendor.min.js',
-            array("react", "react-dom"),
-            \SmartCloud\WPSuite\Hub\VERSION_MANTINE,
-            false
-        );
-
         $main_script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'main/index.asset.php')) {
             $main_script_asset = require(SMARTCLOUD_AI_KIT_PATH . 'main/index.asset.php');
         }
-        $main_script_asset['dependencies'] = array_merge($main_script_asset['dependencies'], array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-mantine-vendor'));
+        $main_script_asset['dependencies'] = array_merge($main_script_asset['dependencies'], array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-amplify-vendor', 'smartcloud-wpsuite-mantine-vendor'));
         wp_enqueue_script('smartcloud-ai-kit-main-script', SMARTCLOUD_AI_KIT_URL . 'main/index.js', $main_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, false);
         wp_enqueue_style('smartcloud-ai-kit-main-style', SMARTCLOUD_AI_KIT_URL . 'main/index.css', array(), SMARTCLOUD_AI_KIT_VERSION);
         add_editor_style(SMARTCLOUD_AI_KIT_URL . 'main/index.css');
@@ -270,7 +254,7 @@ __aikitGlobal.WpSuite.plugins.aiKit = {};
 Object.assign(__aikitGlobal.WpSuite.plugins.aiKit, ' . wp_json_encode($data) . ');
 __aikitGlobal.WpSuite.constants = __aikitGlobal.WpSuite.constants ?? {};
 __aikitGlobal.WpSuite.constants.aiKit = {
-    mantineCssHref: "' . SMARTCLOUD_AI_KIT_URL . 'assets/css/mantine-vendor.css",
+    mantineCssHref: "' . SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css",
     aiKitUiCssHref: "' . SMARTCLOUD_AI_KIT_URL . 'main/index.css"
 };
 ';
@@ -573,11 +557,6 @@ __aikitGlobal.WpSuite.constants.aiKit = {
 
         return $this->renderShortcodeBlock('smartcloud-ai-kit/doc-search', $attrs, $is_preview);
     }
-
-
-
-
-
 
     /**
      * Add settings page in wp-admin.

@@ -10,6 +10,7 @@ namespace SmartCloud\WPSuite\AiKit\KnowledgeBase;
 
 use League\HTMLToMarkdown\HtmlConverter;
 use League\HTMLToMarkdown\Environment;
+use SmartCloud\WPSuite\AiKit\Logger;
 
 if (!defined('ABSPATH')) {
     exit;
@@ -40,12 +41,22 @@ class Converter
         if (empty($html)) {
             return '';
         }
+
+        Logger::debug('Converting HTML to Markdown', [
+            'html_length' => strlen($html)
+        ]);
+
         // Pre-process: fix WordPress-specific HTML
         $html = $this->preprocessHtml($html);
         // Convert to markdown
         $markdown = $this->converter->convert($html);
         // Post-process: cleanup
         $markdown = $this->postprocessMarkdown($markdown);
+
+        Logger::debug('HTML to Markdown conversion completed', [
+            'markdown_length' => strlen($markdown)
+        ]);
+
         return $markdown;
     }
 
@@ -55,6 +66,12 @@ class Converter
      */
     public function blocksToMarkdown(array $blocks, int $depth = 0): string
     {
+        if ($depth === 0) {
+            Logger::debug('Converting Gutenberg blocks to Markdown', [
+                'block_count' => count($blocks)
+            ]);
+        }
+
         $markdown = '';
 
         foreach ($blocks as $block) {

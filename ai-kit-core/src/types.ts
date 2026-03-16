@@ -65,14 +65,6 @@ export interface AiKitSettings {
   /** Optional URL to custom translations JSON file. */
   customTranslationsUrl?: string;
 
-  /**
-   * Optional reCAPTCHA Enterprise configuration.
-   * Only applied for FRONTEND backend calls ("/frontend/*").
-   */
-  reCaptchaSiteKey?: string;
-  useRecaptchaNet?: boolean;
-  useRecaptchaEnterprise?: boolean;
-
   /** Chat optimization: number of seconds a successful reCAPTCHA assessment remains valid for the current chat session. */
   reCaptchaChatTtlSeconds?: number;
 
@@ -361,7 +353,7 @@ export type AiFeatureProps = AiWorkerProps & {
   showRegenerateOnBackendButton?: boolean;
   optionsDisplay?: "collapse" | "horizontal" | "vertical";
   default?: AiFeatureOptions & {
-    getText?: () => string;
+    getText?: Promise<string> | (() => Promise<string>);
     image?: Blob;
   };
   allowOverride?: {

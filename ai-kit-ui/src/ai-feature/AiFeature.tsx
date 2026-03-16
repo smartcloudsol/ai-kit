@@ -55,6 +55,12 @@ import {
 
 import { translations } from "../i18n";
 import { PoweredBy } from "../poweredBy";
+import { shouldChunkInput } from "./chunking-utils";
+import {
+  chunkedSummarize,
+  chunkedTranslate,
+  chunkedRewrite,
+} from "./chunked-features";
 import {
   isBackendConfigured,
   readDefaultOutputLanguage,
@@ -472,7 +478,31 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
   }, [text, defaults]);
 
   const canGenerate = useMemo(() => {
-    const text = typeof inputText === "function" ? inputText() : inputText;
+    // If inputText is a function (async or sync getText), we can't determine
+    // if it has content without calling it. Assume it's valid if provided.
+    const input = inputText;
+    if (typeof input === "function") {
+      switch (mode) {
+        case "generateImageMetadata":
+          return Boolean(image);
+        case "translate":
+          // For translate, we need outputLanguage check, but can't check text without calling getText
+          return Boolean(
+            !outputLanguage || detectedLanguage !== outputLanguage,
+          );
+        case "summarize":
+        case "proofread":
+        case "rewrite":
+        case "write":
+        case "generatePostMetadata":
+          return true; // Assume getText will provide valid content
+        default:
+          return false;
+      }
+    }
+
+    // If inputText is a string, check it directly
+    const text = input as string | undefined;
     switch (mode) {
       case "generateImageMetadata":
         return Boolean(image);
@@ -507,8 +537,11 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
       setError(null);
       setGenerated(null);
 
+      const input = await inputText;
       try {
-        const text = typeof inputText === "function" ? inputText() : inputText;
+        // Support both sync and async getText functions
+        const text =
+          typeof input === "function" ? await Promise.resolve(input()) : input;
         switch (mode) {
           case "summarize": {
             const res = await ai.run(async ({ signal, onStatus }) => {
@@ -524,13 +557,32 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 type: type as SummarizerType,
                 outputLanguage: outLang as SummarizeArgs["outputLanguage"],
               };
-              const out = await summarize(args, {
+
+              const featureOptions: FeatureOptions = {
                 signal,
                 onStatus,
                 context,
                 modeOverride,
                 onDeviceTimeoutOverride: onDeviceTimeout,
-              });
+              };
+
+              // Determine if we're using on-device mode
+              const isOnDevice =
+                modeOverride === "local-only" ||
+                (!modeOverride && context === "admin");
+
+              // Check if chunking is needed
+              if (shouldChunkInput(text!.trim(), "summarize", isOnDevice)) {
+                return await chunkedSummarize(
+                  text!.trim(),
+                  args,
+                  featureOptions,
+                  isOnDevice,
+                );
+              }
+
+              // Normal single-pass summarization
+              const out = await summarize(args, featureOptions);
               return out.result;
             });
             setGenerated((res as never) ?? "");
@@ -614,13 +666,32 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 sourceLanguage: inputLang!,
                 targetLanguage: outLang,
               };
-              const out = await translate(args, {
+
+              const featureOptions: FeatureOptions = {
                 signal,
                 onStatus,
                 context,
                 modeOverride,
                 onDeviceTimeoutOverride: onDeviceTimeout,
-              });
+              };
+
+              // Determine if we're using on-device mode
+              const isOnDevice =
+                modeOverride === "local-only" ||
+                (!modeOverride && context === "admin");
+
+              // Check if chunking is needed (both on-device quota and AWS Translate limit)
+              if (shouldChunkInput(text!.trim(), "translate", isOnDevice)) {
+                return await chunkedTranslate(
+                  text!.trim(),
+                  args,
+                  featureOptions,
+                  isOnDevice,
+                );
+              }
+
+              // Normal single-pass translation
+              const out = await translate(args, featureOptions);
               return out.result;
             });
             setGenerated((res as never) ?? "");
@@ -652,13 +723,32 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 length: length as RewriterLength,
                 outputLanguage: outLang as RewriteArgs["outputLanguage"],
               };
-              const out = await rewrite(args, {
+
+              const featureOptions: FeatureOptions = {
                 signal,
                 onStatus,
                 context,
                 modeOverride,
                 onDeviceTimeoutOverride: onDeviceTimeout,
-              });
+              };
+
+              // Determine if we're using on-device mode
+              const isOnDevice =
+                modeOverride === "local-only" ||
+                (!modeOverride && context === "admin");
+
+              // Check if chunking is needed
+              if (shouldChunkInput(text!.trim(), "rewrite", isOnDevice)) {
+                return await chunkedRewrite(
+                  text!.trim(),
+                  args,
+                  featureOptions,
+                  isOnDevice,
+                );
+              }
+
+              // Normal single-pass rewrite
+              const out = await rewrite(args, featureOptions);
               return out.result;
             });
             setGenerated((res as never) ?? "");

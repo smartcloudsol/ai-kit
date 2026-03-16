@@ -6,7 +6,9 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
 }
 
-const SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION = '2.2.0';
+use SmartCloud\WPSuite\AiKit\Logger;
+
+const SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION = '2.3.0';
 
 final class AiKitHubLoader
 {
@@ -31,6 +33,13 @@ final class AiKitHubLoader
      */
     public static function instance($plugin, $text_domain): AiKitHubLoader
     {
+        if (self::$instance === null) {
+            Logger::info('Initializing AiKit Hub Loader singleton', [
+                'plugin' => $plugin,
+                'version' => SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION
+            ]);
+        }
+
         return self::$instance ?? (self::$instance = new self($plugin, $text_domain));
     }
 
@@ -40,8 +49,14 @@ final class AiKitHubLoader
     public function init(): void
     {
         if (!isset($this->admin)) {
+            Logger::debug('Hub init skipped - admin not initialized', [
+                'plugin' => $this->plugin
+            ]);
             return;
         }
+
+        Logger::info('Hub initializing', ['plugin' => $this->plugin]);
+
         // Hooks.
         add_action('admin_menu', array($this, 'createAdminMenu'), 10);
 
@@ -51,8 +66,13 @@ final class AiKitHubLoader
     public function createAdminMenu(): void
     {
         if (!isset($this->admin)) {
+            Logger::debug('Hub menu creation skipped - admin not initialized', [
+                'plugin' => $this->plugin
+            ]);
             return;
         }
+
+        Logger::debug('Creating Hub admin menu', ['plugin' => $this->plugin]);
         $icon_url = $this->admin->getIconUrl();
         add_menu_page(
             __('SmartCloud', 'smartcloud-ai-kit'),
@@ -67,13 +87,22 @@ final class AiKitHubLoader
         $connect_suffix = add_submenu_page(
             SMARTCLOUD_WPSUITE_SLUG,
             __('Connect your Site to WPSuite', 'smartcloud-ai-kit'),
-            __('Connect your Site to WPSuite', 'smartcloud-ai-kit'),
+            __('Connect your Site', 'smartcloud-ai-kit'),
             'manage_options',
             SMARTCLOUD_WPSUITE_SLUG,
             array($this->admin, 'renderAdminPage'),
         );
 
-        $this->admin->enqueueAdminScripts($connect_suffix /*, $diagnostics_suffix */);
+        $settings_suffix = add_submenu_page(
+            SMARTCLOUD_WPSUITE_SLUG,
+            __('WPSuite General Settings', 'smartcloud-ai-kit'),
+            __('Global Settings', 'smartcloud-ai-kit'),
+            'manage_options',
+            SMARTCLOUD_WPSUITE_SLUG . '-settings',
+            array($this->admin, 'renderAdminPage'),
+        );
+
+        $this->admin->enqueueAdminScripts($connect_suffix, $settings_suffix);
     }
 
     /**
@@ -89,11 +118,20 @@ final class AiKitHubLoader
 
     private function includes()
     {
+        Logger::debug('Hub includes() started', [
+            'plugin' => $this->plugin,
+            'version' => SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION
+        ]);
+
         if (!function_exists('is_plugin_active')) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
 
         if (!empty($GLOBALS['smartcloud_wpsuite_menu_parent'])) {
+            Logger::debug('Hub includes() skipped - menu parent already exists', [
+                'plugin' => $this->plugin,
+                'existing_parent' => $GLOBALS['smartcloud_wpsuite_menu_parent']
+            ]);
             return false;
         }
 
@@ -110,21 +148,56 @@ final class AiKitHubLoader
         $owner_missing = empty($owner);
         $owner_is_me = ($owner === $this->plugin);
 
+        Logger::debug('Hub ownership check', [
+            'current_plugin' => $this->plugin,
+            'current_owner' => $owner ?: 'none',
+            'owner_version' => $owner_version,
+            'this_version' => SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION,
+            'owner_missing' => $owner_missing,
+            'owner_is_me' => $owner_is_me
+        ]);
+
         $owner_is_active = $owner && is_plugin_active($owner);
         $owner_exists = file_exists(WP_PLUGIN_DIR . '/' . $owner);
         $owner_is_valid = in_array(WP_PLUGIN_DIR . '/' . $owner, wp_get_active_and_valid_plugins(), true);
         $owner_inactive = !$owner_is_active || !$owner_is_valid || !$owner_exists;
+
+        if ($owner && $owner_inactive) {
+            Logger::warning('Current hub owner is inactive', [
+                'owner' => $owner,
+                'is_active' => $owner_is_active,
+                'exists' => $owner_exists,
+                'is_valid' => $owner_is_valid
+            ]);
+        }
 
         $owner_version_is_smaller = version_compare($owner_version, SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION) === -1;
         $owner_version_equals = version_compare($owner_version, SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION) === 0;
 
         // If there is no owner yet, try to claim it
         if ($owner_missing || $owner_is_me || $owner_inactive || $owner_version_is_smaller) {
+            Logger::debug('Hub ownership claim attempt', [
+                'plugin' => $this->plugin,
+                'reason' => $owner_missing ? 'owner_missing' :
+                    ($owner_is_me ? 'owner_is_me' :
+                        ($owner_inactive ? 'owner_inactive' :
+                            ($owner_version_is_smaller ? 'version_upgrade' : 'unknown'))),
+                'current_owner' => $owner ?: 'none',
+                'current_version' => $owner_version,
+                'new_version' => SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION
+            ]);
+
             $result = false;
             // add_option atomic: only one can win in case of multiple concurrent requests
             if (empty($GLOBALS['smartcloud_wpsuite_fallback_parent_added'])) {
                 $GLOBALS['smartcloud_wpsuite_fallback_parent_added'] = true;
                 $result = true;
+
+                Logger::info('Hub ownership claimed successfully', [
+                    'plugin' => $this->plugin,
+                    'version' => SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION,
+                    'previous_owner' => $owner ?: 'none'
+                ]);
 
                 define('SMARTCLOUD_WPSUITE_VERSION', SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION);
                 define('SMARTCLOUD_WPSUITE_PATH', plugin_dir_path(__FILE__) . SMARTCLOUD_WPSUITE_SLUG . '/');
@@ -140,14 +213,37 @@ final class AiKitHubLoader
                 if (!$owner_is_me || !$owner_version_equals) {
                     update_option($owner_option, $this->plugin, false);
                     update_option($owner_option . '/version', SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION, false);
+
+                    Logger::info('Hub ownership registered in database', [
+                        'plugin' => $this->plugin,
+                        'version' => SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION
+                    ]);
                 }
+            } else {
+                Logger::debug('Hub ownership race lost - another plugin already claimed', [
+                    'plugin' => $this->plugin,
+                    'winner' => $GLOBALS['smartcloud_wpsuite_fallback_parent_added'] ?? 'unknown'
+                ]);
             }
             if (!$owner_is_me && $owner_version_is_smaller) {
                 update_option($owner_option, $this->plugin, false);
                 update_option($owner_option . '/version', SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION, false);
+
+                Logger::info('Hub ownership updated due to version upgrade', [
+                    'plugin' => $this->plugin,
+                    'from_version' => $owner_version,
+                    'to_version' => SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION,
+                    'previous_owner' => $owner
+                ]);
             }
             return $result;
         }
+
+        Logger::debug('Hub ownership check - no claim needed', [
+            'plugin' => $this->plugin,
+            'owner' => $owner,
+            'owner_version' => $owner_version
+        ]);
 
         return false;
     }

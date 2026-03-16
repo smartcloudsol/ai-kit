@@ -10,6 +10,7 @@ namespace SmartCloud\WPSuite\AiKit;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
+use SmartCloud\WPSuite\AiKit\Logger;
 
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
@@ -17,6 +18,10 @@ if (!defined('ABSPATH')) {
 if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/model.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/model.php';
 }
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php';
+}
+
 class Admin
 {
     private AiKitSettings $settings;
@@ -24,12 +29,8 @@ class Admin
     {
         $defaultSettings = new AiKitSettings(
             sharedContext: "",
-            reCaptchaSiteKey: "",
-            useRecaptchaEnterprise: false,
-            useRecaptchaNet: false,
             enablePoweredBy: false,
             defaultOutputLanguage: "",
-            reCaptchaChatTtlSeconds: 120,
             debugLoggingEnabled: false
         );
 
@@ -97,7 +98,7 @@ class Admin
             wp_add_inline_script('smartcloud-ai-kit-admin-script', $js, 'before');
 
             wp_enqueue_style('smartcloud-ai-kit-admin-style', SMARTCLOUD_AI_KIT_URL . 'admin/index.css', array(), SMARTCLOUD_AI_KIT_VERSION);
-            wp_enqueue_style('smartcloud-mantine-vendor-style', SMARTCLOUD_AI_KIT_URL . 'assets/css/mantine-vendor.css', array(), \SmartCloud\WPSuite\Hub\VERSION_MANTINE);
+            wp_enqueue_style('smartcloud-mantine-vendor-style', SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css', array(), \SmartCloud\WPSuite\Hub\VERSION_MANTINE);
         });
     }
 
@@ -136,41 +137,29 @@ class Admin
         $sharedContext = isset($settings_param['sharedContext'])
             ? (string) $settings_param['sharedContext']
             : "";
-        $reCaptchaSiteKey = isset($settings_param['reCaptchaSiteKey'])
-            ? (string) $settings_param['reCaptchaSiteKey']
-            : "";
         $defaultOutputLanguage = isset($settings_param['defaultOutputLanguage'])
             ? (string) $settings_param['defaultOutputLanguage']
             : "";
-
-        $reCaptchaChatTtlSeconds = 120;
-        if (isset($settings_param['reCaptchaChatTtlSeconds'])) {
-            // Allow string/number payloads.
-            $reCaptchaChatTtlSeconds = (int) $settings_param['reCaptchaChatTtlSeconds'];
-        }
-        // Clamp to a safe range (0..3600). 0 = disabled.
-        if ($reCaptchaChatTtlSeconds < 0) {
-            $reCaptchaChatTtlSeconds = 0;
-        }
-        if ($reCaptchaChatTtlSeconds > 3600) {
-            $reCaptchaChatTtlSeconds = 3600;
-        }
 
         $debugLoggingEnabled = (bool) ($settings_param['debugLoggingEnabled'] ?? false);
 
         $this->settings = new AiKitSettings(
             sharedContext: sanitize_textarea_field($sharedContext),
-            reCaptchaSiteKey: sanitize_text_field($reCaptchaSiteKey),
-            useRecaptchaEnterprise: (bool) ($settings_param['useRecaptchaEnterprise'] ?? false),
-            useRecaptchaNet: (bool) ($settings_param['useRecaptchaNet'] ?? false),
             enablePoweredBy: (bool) ($settings_param['enablePoweredBy'] ?? false),
             defaultOutputLanguage: $defaultOutputLanguage,
-            reCaptchaChatTtlSeconds: $reCaptchaChatTtlSeconds,
             debugLoggingEnabled: $debugLoggingEnabled
         );
 
         // Frissített beállítások mentése
         update_option(SMARTCLOUD_AI_KIT_SLUG, $this->settings);
+
+        Logger::info('AI-Kit settings updated', [
+            'debugLoggingEnabled' => $debugLoggingEnabled,
+            'enablePoweredBy' => $this->settings->enablePoweredBy,
+            'hasSharedContext' => !empty($sharedContext),
+            'defaultOutputLanguage' => $defaultOutputLanguage
+        ]);
+
         return new WP_REST_Response(array('success' => true, 'message' => __('Settings updated successfully.', 'smartcloud-ai-kit')), 200);
     }
 

@@ -14,7 +14,7 @@ declare const AiFeature: FC<_smart_cloud_ai_kit_core.AiWorkerProps & {
     showRegenerateOnBackendButton?: boolean;
     optionsDisplay?: "collapse" | "horizontal" | "vertical";
     default?: _smart_cloud_ai_kit_core.AiFeatureOptions & {
-        getText?: () => string;
+        getText?: Promise<string> | (() => Promise<string>);
         image?: Blob;
     };
     allowOverride?: {

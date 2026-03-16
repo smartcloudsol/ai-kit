@@ -7,6 +7,8 @@
 
 namespace SmartCloud\WPSuite\AiKit\KnowledgeBase;
 
+use SmartCloud\WPSuite\AiKit\Logger;
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -108,6 +110,10 @@ class Schema
         dbDelta($sql_overrides);
         dbDelta($sql_publish);
         dbDelta($sql_dependencies);
+
+        Logger::info('KB Admin database tables created/updated', [
+            'db_version' => SMARTCLOUD_AI_KIT_DB_VERSION ?? 'unknown'
+        ]);
     }
 
     /**
@@ -125,6 +131,8 @@ class Schema
             "{$prefix}kb_publish_state",
             "{$prefix}kb_dependencies"
         ];
+
+        Logger::info('Dropping KB Admin tables', ['tables' => $tables]);
 
         foreach ($tables as $table) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange

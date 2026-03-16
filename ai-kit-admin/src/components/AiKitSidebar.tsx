@@ -165,6 +165,8 @@ const SidebarInner = () => {
                   },
                   variation: "modal",
                   title: __("Metadata generation", TEXT_DOMAIN),
+                  language:
+                    document.documentElement.lang?.split(/[-_]/)[0] || "en",
                   onClose: () => {
                     setSeoModalOpen(false);
                   },
@@ -281,6 +283,8 @@ const SidebarInner = () => {
                   },
                   variation: "modal",
                   title: __("Text generation", TEXT_DOMAIN),
+                  language:
+                    document.documentElement.lang?.split(/[-_]/)[0] || "en",
                   onClose: () => {
                     setModalOpen(false);
                   },

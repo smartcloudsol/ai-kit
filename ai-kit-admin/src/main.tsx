@@ -1,17 +1,16 @@
 import {
+  Accordion,
   ActionIcon,
   Alert,
-  Badge,
+  Box,
   Button,
   Card,
-  Checkbox,
   DEFAULT_THEME,
   Group,
-  NumberInput,
+  NavLink,
   Select,
   Stack,
   Switch,
-  Tabs,
   Text,
   Textarea,
   TextInput,
@@ -35,13 +34,15 @@ import {
   IconApi,
   IconBook,
   IconCheck,
+  IconChevronRight,
   IconExclamationCircle,
   IconInfoCircle,
+  IconLock,
   IconMessage,
   IconSettings,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 
 import { __experimentalHeading as Heading } from "@wordpress/components";
 import { useSelect } from "@wordpress/data";
@@ -201,7 +202,6 @@ interface NavigationOption {
   value: string;
   label: string;
   icon: React.ReactNode;
-  badge?: React.ReactNode;
   disabled?: boolean;
 }
 
@@ -231,6 +231,7 @@ const Main = (props: MainProps) => {
   const [navigationOptions, setNavigationOptions] =
     useState<NavigationOption[]>();
   const [scrollToId, setScrollToId] = useState<string>("");
+  const [accordionValue, setAccordionValue] = useState<string | null>("ai-kit");
   const [accountId] = useState<string | undefined>(
     wpSuiteSiteSettings.accountId,
   );
@@ -243,10 +244,6 @@ const Main = (props: MainProps) => {
   const [settingsFormData, setSettingsFormData] = useState<AiKitSettings>({
     sharedContext: settings?.sharedContext || "",
     defaultOutputLanguage: settings?.defaultOutputLanguage || "en",
-    reCaptchaSiteKey: settings?.reCaptchaSiteKey || "",
-    useRecaptchaEnterprise: settings?.useRecaptchaEnterprise || false,
-    useRecaptchaNet: settings?.useRecaptchaNet || false,
-    reCaptchaChatTtlSeconds: settings?.reCaptchaChatTtlSeconds ?? 120,
     enablePoweredBy: settings?.enablePoweredBy || false,
     debugLoggingEnabled: settings?.debugLoggingEnabled || false,
   });
@@ -481,33 +478,18 @@ const Main = (props: MainProps) => {
         value: "api-settings",
         label: __("API Settings", TEXT_DOMAIN),
         icon: <IconApi size={16} stroke={1.5} />,
-        badge: (
-          <Badge variant="light" color="red" ml="4px" miw={35}>
-            PRO
-          </Badge>
-        ),
         disabled: paidSettingsDisabled,
       },
       {
         value: "chatbot-settings",
         label: __("Chatbot Settings", TEXT_DOMAIN),
         icon: <IconMessage size={16} stroke={1.5} />,
-        badge: (
-          <Badge variant="light" color="red" ml="4px" miw={35}>
-            PRO
-          </Badge>
-        ),
         disabled: paidSettingsDisabled,
       },
       {
         value: "kb-admin",
         label: __("Knowledge Base", TEXT_DOMAIN),
         icon: <IconBook size={16} stroke={1.5} />,
-        badge: (
-          <Badge variant="light" color="red" ml="4px" miw={35}>
-            PRO
-          </Badge>
-        ),
         disabled: paidSettingsDisabled,
       },
     ]);
@@ -651,7 +633,7 @@ const Main = (props: MainProps) => {
               title: __("Shortcode example", TEXT_DOMAIN),
               src: shortcode,
               alt: __(
-                "[ai-kit-feature] shortcode embedded in a page",
+                "[smartcloud-ai-kit-feature] shortcode embedded in a page",
                 TEXT_DOMAIN,
               ),
             },
@@ -659,7 +641,7 @@ const Main = (props: MainProps) => {
               title: __("Shortcode Frontend Output", TEXT_DOMAIN),
               src: shortcodeFrontend,
               alt: __(
-                "[ai-kit-feature] shortcode frontend output example",
+                "[smartcloud-ai-kit-feature] shortcode frontend output example",
                 TEXT_DOMAIN,
               ),
             },
@@ -692,39 +674,158 @@ const Main = (props: MainProps) => {
           width: "100%",
         }}
       >
-        <Tabs
-          classNames={{
-            tabLabel: classes["wpc-tabs-label"],
-            panel:
-              classes[isMobile ? "wpc-tabs-panel-mobile" : "wpc-tabs-panel"],
-          }}
-          value={activePage}
-          orientation={isMobile ? "horizontal" : "vertical"}
-          onChange={(value) =>
-            setActivePage(
-              value as
-                | "general"
-                | "api-settings"
-                | "chatbot-settings"
-                | "kb-admin",
-            )
-          }
-          w="100%"
-        >
-          <Tabs.List>
-            {navigationOptions?.map((item) => (
-              <Tabs.Tab
-                key={item.value}
-                value={item.value}
-                disabled={item.disabled}
-              >
-                {item.icon}
-                {!isMobile && item.label}
-                {item.badge}
-              </Tabs.Tab>
-            ))}
-          </Tabs.List>
-          <Tabs.Panel value="general" w="100%">
+        {isMobile ? (
+          <Accordion
+            w="100%"
+            value={accordionValue}
+            onChange={setAccordionValue}
+            variant="separated"
+          >
+            <Accordion.Item value="ai-kit">
+              <Accordion.Control>
+                <Text fw={600}>{__("AI-Kit", TEXT_DOMAIN)}</Text>
+              </Accordion.Control>
+              <Accordion.Panel>
+                <Stack gap="xs">
+                  {navigationOptions?.slice(0, 1).map((item) => (
+                    <NavLink
+                      key={item.value}
+                      label={item.label}
+                      leftSection={item.icon}
+                      rightSection={
+                        activePage === item.value ? (
+                          <IconChevronRight size={16} stroke={1.5} />
+                        ) : null
+                      }
+                      active={activePage === item.value}
+                      onClick={() => {
+                        setActivePage(
+                          item.value as
+                            | "general"
+                            | "api-settings"
+                            | "chatbot-settings"
+                            | "kb-admin",
+                        );
+                      }}
+                      disabled={item.disabled}
+                    />
+                  ))}
+                </Stack>
+              </Accordion.Panel>
+            </Accordion.Item>
+            <Accordion.Item value="pro-features">
+              <Accordion.Control>
+                <Text fw={600}>{__("Pro Features", TEXT_DOMAIN)}</Text>
+              </Accordion.Control>
+              <Accordion.Panel>
+                <Stack gap="xs">
+                  {navigationOptions?.slice(1).map((item) => (
+                    <NavLink
+                      key={item.value}
+                      label={item.label}
+                      leftSection={item.icon}
+                      rightSection={
+                        item.disabled ||
+                        !(formConfig ?? decryptedConfig)?.subscriptionType ? (
+                          <IconLock size={14} stroke={1.5} />
+                        ) : activePage === item.value ? (
+                          <IconChevronRight size={16} stroke={1.5} />
+                        ) : null
+                      }
+                      active={activePage === item.value}
+                      onClick={() => {
+                        if (!item.disabled) {
+                          setActivePage(
+                            item.value as
+                              | "general"
+                              | "api-settings"
+                              | "chatbot-settings"
+                              | "kb-admin",
+                          );
+                        }
+                      }}
+                      disabled={item.disabled}
+                    />
+                  ))}
+                </Stack>
+              </Accordion.Panel>
+            </Accordion.Item>
+          </Accordion>
+        ) : (
+          <Card w={240} p="md" withBorder style={{ flexShrink: 0 }}>
+            <Stack gap="lg">
+              <Box>
+                <Text size="sm" fw={600} mb="xs" c="dimmed">
+                  {__("AI-Kit", TEXT_DOMAIN)}
+                </Text>
+                <Stack gap={0}>
+                  {navigationOptions
+                    ?.slice(0, 1)
+                    .map((item) => (
+                      <NavLink
+                        key={item.value}
+                        label={item.label}
+                        leftSection={item.icon}
+                        rightSection={
+                          activePage === item.value ? (
+                            <IconChevronRight size={16} stroke={1.5} />
+                          ) : null
+                        }
+                        active={activePage === item.value}
+                        onClick={() =>
+                          setActivePage(
+                            item.value as
+                              | "general"
+                              | "api-settings"
+                              | "chatbot-settings"
+                              | "kb-admin",
+                          )
+                        }
+                        disabled={item.disabled}
+                      />
+                    ))}
+                </Stack>
+              </Box>
+              <Box>
+                <Text size="sm" fw={600} mb="xs" c="dimmed">
+                  {__("Pro Features", TEXT_DOMAIN)}
+                </Text>
+                <Stack gap={0}>
+                  {navigationOptions?.slice(1).map((item) => (
+                    <NavLink
+                      key={item.value}
+                      label={item.label}
+                      leftSection={item.icon}
+                      rightSection={
+                        item.disabled ||
+                        !(formConfig ?? decryptedConfig)?.subscriptionType ? (
+                          <IconLock size={14} stroke={1.5} />
+                        ) : activePage === item.value ? (
+                          <IconChevronRight size={16} stroke={1.5} />
+                        ) : null
+                      }
+                      active={activePage === item.value}
+                      onClick={() => {
+                        if (!item.disabled) {
+                          setActivePage(
+                            item.value as
+                              | "general"
+                              | "api-settings"
+                              | "chatbot-settings"
+                              | "kb-admin",
+                          );
+                        }
+                      }}
+                      disabled={item.disabled}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            </Stack>
+          </Card>
+        )}
+        <Box style={{ flex: 1, width: isMobile ? "100%" : "auto" }} maw={1020}>
+          {activePage === "general" && (
             <form name="general" onSubmit={handleUpdateSettings}>
               <Title order={2} mb="md">
                 General
@@ -781,80 +882,6 @@ const Main = (props: MainProps) => {
                   disabled={savingSettings}
                   label={
                     <InfoLabelComponent
-                      text="Google reCAPTCHA (v3) Site Key"
-                      scrollToId="recaptcha-site-key"
-                    />
-                  }
-                  description="Create the key in your reCAPTCHA project, then paste it here."
-                  value={settingsFormData.reCaptchaSiteKey}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setSettingsFormData({
-                      ...settingsFormData,
-                      reCaptchaSiteKey: e.target.value,
-                    })
-                  }
-                />
-                <Checkbox
-                  disabled={savingSettings}
-                  label={
-                    <InfoLabelComponent
-                      text="Use reCAPTCHA Enterprise"
-                      scrollToId="use-recaptcha-enterprise"
-                    />
-                  }
-                  checked={settingsFormData.useRecaptchaEnterprise}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setSettingsFormData({
-                      ...settingsFormData,
-                      useRecaptchaEnterprise: e.currentTarget.checked,
-                    })
-                  }
-                />
-                <Checkbox
-                  disabled={savingSettings}
-                  label={
-                    <InfoLabelComponent
-                      text="Use recaptcha.net"
-                      scrollToId="use-recaptcha-net"
-                    />
-                  }
-                  checked={settingsFormData.useRecaptchaNet}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setSettingsFormData({
-                      ...settingsFormData,
-                      useRecaptchaNet: e.currentTarget.checked,
-                    })
-                  }
-                />
-                <NumberInput
-                  disabled={savingSettings}
-                  label={
-                    <InfoLabelComponent
-                      text="reCAPTCHA chat verification window (seconds)"
-                      scrollToId="recaptcha-chat-ttl-seconds"
-                    />
-                  }
-                  description={
-                    "After a successful reCAPTCHA verification, AI-Kit will skip requesting and verifying reCAPTCHA tokens for this many seconds in multi-turn chats. Set to 0 to disable."
-                  }
-                  min={0}
-                  max={3600}
-                  clampBehavior="strict"
-                  value={settingsFormData.reCaptchaChatTtlSeconds ?? 120}
-                  onChange={(value) =>
-                    setSettingsFormData({
-                      ...settingsFormData,
-                      reCaptchaChatTtlSeconds:
-                        typeof value === "number" && !Number.isNaN(value)
-                          ? value
-                          : 120,
-                    })
-                  }
-                />
-                <TextInput
-                  disabled={savingSettings}
-                  label={
-                    <InfoLabelComponent
                       text="Custom Translations URL"
                       scrollToId="custom-translations-url"
                     />
@@ -891,11 +918,11 @@ const Main = (props: MainProps) => {
                   }
                   label={
                     <InfoLabelComponent
-                      text="Hide 'Powered by AI-Kit' text"
+                      text="Hide 'Powered by' attribution"
                       scrollToId="hide-powered-by-ai-kit"
                     />
                   }
-                  description="Hide the 'Powered by AI-Kit' text where AI-Kit renders frontend UI."
+                  description="Hide the 'Powered by' attribution where AI-Kit renders frontend UI."
                   onChange={(values: string[]) =>
                     setSettingsFormData({
                       ...settingsFormData,
@@ -947,137 +974,147 @@ const Main = (props: MainProps) => {
                 </Button>
               </Group>
             </form>
-          </Tabs.Panel>
-          <Tabs.Panel value="api-settings" w="100%">
-            <Title order={2} mb="md">
-              <InfoLabelComponent
-                text="API Settings"
-                scrollToId="api-settings"
-              />
-            </Title>
+          )}
+          {activePage === "api-settings" && (
+            <>
+              <Title order={2} mb="md">
+                <InfoLabelComponent
+                  text="API Settings"
+                  scrollToId="api-settings"
+                />
+              </Title>
 
-            <Text mb="md">
-              Configure how AI-Kit reaches its backend for AI features. Choose
-              local vs backend execution, and how to call the backend
-              (Amplify/Gatey or direct base URL).
-            </Text>
+              <Text mb="md">
+                Configure how AI-Kit reaches its backend for AI features. Choose
+                local vs backend execution, and how to call the backend
+                (Amplify/Gatey or direct base URL).
+              </Text>
 
-            {(formConfig ?? decryptedConfig)?.subscriptionType !==
-              "PROFESSIONAL" && (
-              <Alert
-                variant="light"
-                color="yellow"
-                title="PRO Feature"
-                icon={<IconExclamationCircle />}
-                mb="md"
-              >
-                This feature is available in the <strong>PRO</strong> version of
-                the plugin. You can save your settings but they will not take
-                effect until you upgrade your subscription.
-              </Alert>
-            )}
-            {(formConfig ?? decryptedConfig) && (
-              <ApiSettingsEditor
-                apiUrl={apiUrl}
-                config={formConfig ?? decryptedConfig}
-                accountId={accountId!}
-                siteId={siteId!}
-                siteKey={siteKey!}
-                onSave={handleConfigSave}
-                InfoLabelComponent={InfoLabelComponent}
-              />
-            )}
-          </Tabs.Panel>
+              {(formConfig ?? decryptedConfig)?.subscriptionType !==
+                "PROFESSIONAL" && (
+                <Alert
+                  variant="light"
+                  color="yellow"
+                  title="PRO Feature"
+                  icon={<IconExclamationCircle />}
+                  mb="md"
+                >
+                  This feature is available in the <strong>PRO</strong> version
+                  of the plugin. You can save your settings but they will not
+                  take effect until you upgrade your subscription.
+                </Alert>
+              )}
+              {(formConfig ?? decryptedConfig) && (
+                <Suspense fallback={<Text>Loading...</Text>}>
+                  <ApiSettingsEditor
+                    apiUrl={apiUrl}
+                    config={formConfig ?? decryptedConfig}
+                    accountId={accountId!}
+                    siteId={siteId!}
+                    siteKey={siteKey!}
+                    onSave={handleConfigSave}
+                    InfoLabelComponent={InfoLabelComponent}
+                  />
+                </Suspense>
+              )}
+            </>
+          )}
+          {activePage === "chatbot-settings" && (
+            <>
+              <Title order={2} mb="md">
+                <InfoLabelComponent
+                  text="Chatbot Settings"
+                  scrollToId="chatbot-settings"
+                />
+              </Title>
 
-          <Tabs.Panel value="chatbot-settings" w="100%">
-            <Title order={2} mb="md">
-              <InfoLabelComponent
-                text="Chatbot Settings"
-                scrollToId="chatbot-settings"
-              />
-            </Title>
+              <Text mb={0}>
+                Configure how AI-Kit Chatbot behaves on your site — appearance,
+                position, and default messages.
+              </Text>
 
-            <Text mb={0}>
-              Configure how AI-Kit Chatbot behaves on your site — appearance,
-              position, and default messages.
-            </Text>
+              <Text mb="md">
+                Use Preview to instantly try your current settings without
+                saving. While previewing, the live site button is hidden and a
+                preview button appears instead — to apply these settings on your
+                site, enable the chatbot and Save your changes.
+              </Text>
 
-            <Text mb="md">
-              Use Preview to instantly try your current settings without saving.
-              While previewing, the live site button is hidden and a preview
-              button appears instead — to apply these settings on your site,
-              enable the chatbot and Save your changes.
-            </Text>
+              {(formConfig ?? decryptedConfig)?.subscriptionType !==
+                "PROFESSIONAL" && (
+                <Alert
+                  variant="light"
+                  color="yellow"
+                  title="PRO Feature"
+                  icon={<IconExclamationCircle />}
+                  mb="md"
+                >
+                  This feature is available in the <strong>PRO</strong> version
+                  of the plugin. You can save your settings but they will not
+                  take effect until you upgrade your subscription.
+                </Alert>
+              )}
+              {(formConfig ?? decryptedConfig) && (
+                <Suspense fallback={<Text>Loading...</Text>}>
+                  <ChatbotSettingsEditor
+                    apiUrl={apiUrl}
+                    config={formConfig ?? decryptedConfig}
+                    accountId={accountId!}
+                    siteId={siteId!}
+                    siteKey={siteKey!}
+                    onSave={handleConfigSave}
+                    InfoLabelComponent={InfoLabelComponent}
+                    store={store}
+                  />
+                </Suspense>
+              )}
+            </>
+          )}
+          {activePage === "kb-admin" && (
+            <>
+              <Title order={2} mb="md">
+                <InfoLabelComponent
+                  text="Knowledge Base Admin"
+                  scrollToId="kb-admin"
+                />
+              </Title>
 
-            {(formConfig ?? decryptedConfig)?.subscriptionType !==
-              "PROFESSIONAL" && (
-              <Alert
-                variant="light"
-                color="yellow"
-                title="PRO Feature"
-                icon={<IconExclamationCircle />}
-                mb="md"
-              >
-                This feature is available in the <strong>PRO</strong> version of
-                the plugin. You can save your settings but they will not take
-                effect until you upgrade your subscription.
-              </Alert>
-            )}
-            {(formConfig ?? decryptedConfig) && (
-              <ChatbotSettingsEditor
-                apiUrl={apiUrl}
-                config={formConfig ?? decryptedConfig}
-                accountId={accountId!}
-                siteId={siteId!}
-                siteKey={siteKey!}
-                onSave={handleConfigSave}
-                InfoLabelComponent={InfoLabelComponent}
-                store={store}
-              />
-            )}
-          </Tabs.Panel>
+              <Text mb="md">
+                Manage your AI-Kit Knowledge Base sources — add URL patterns,
+                sync documentation, override sections, and publish to make them
+                available for AI-powered search and assistance.
+              </Text>
 
-          <Tabs.Panel value="kb-admin" w="100%">
-            <Title order={2} mb="md">
-              <InfoLabelComponent
-                text="Knowledge Base Admin"
-                scrollToId="kb-admin"
-              />
-            </Title>
-
-            <Text mb="md">
-              Manage your AI-Kit Knowledge Base sources — add URL patterns, sync
-              documentation, override sections, and publish to make them
-              available for AI-powered search and assistance.
-            </Text>
-
-            {(formConfig ?? decryptedConfig)?.subscriptionType !==
-              "PROFESSIONAL" && (
-              <Alert
-                variant="light"
-                color="yellow"
-                title="PRO Feature"
-                icon={<IconExclamationCircle />}
-                mb="md"
-              >
-                This feature is available in the <strong>PRO</strong> version of
-                the plugin. You can save your settings but they will not take
-                effect until you upgrade your subscription.
-              </Alert>
-            )}
-            {(formConfig ?? decryptedConfig) && (
-              <KBAdminEditor
-                apiUrl={apiUrl}
-                config={formConfig ?? decryptedConfig}
-                accountId={accountId!}
-                siteId={siteId!}
-                siteKey={siteKey!}
-                onSave={handleConfigSave}
-                InfoLabelComponent={InfoLabelComponent}
-              />
-            )}
-          </Tabs.Panel>
-        </Tabs>
+              {(formConfig ?? decryptedConfig)?.subscriptionType !==
+                "PROFESSIONAL" && (
+                <Alert
+                  variant="light"
+                  color="yellow"
+                  title="PRO Feature"
+                  icon={<IconExclamationCircle />}
+                  mb="md"
+                >
+                  This feature is available in the <strong>PRO</strong> version
+                  of the plugin. You can save your settings but they will not
+                  take effect until you upgrade your subscription.
+                </Alert>
+              )}
+              {(formConfig ?? decryptedConfig) && (
+                <Suspense fallback={<Text>Loading...</Text>}>
+                  <KBAdminEditor
+                    apiUrl={apiUrl}
+                    config={formConfig ?? decryptedConfig}
+                    accountId={accountId!}
+                    siteId={siteId!}
+                    siteKey={siteKey!}
+                    onSave={handleConfigSave}
+                    InfoLabelComponent={InfoLabelComponent}
+                  />
+                </Suspense>
+              )}
+            </>
+          )}
+        </Box>
       </Group>
     </div>
   );

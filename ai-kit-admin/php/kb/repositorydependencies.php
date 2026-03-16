@@ -9,6 +9,8 @@
 
 namespace SmartCloud\WPSuite\AiKit\KnowledgeBase;
 
+use SmartCloud\WPSuite\AiKit\Logger;
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -38,7 +40,14 @@ class RepositoryDependencies
         // Remove duplicates
         $referenced_post_ids = array_unique(array_filter($referenced_post_ids));
 
+        Logger::debug('Storing KB dependencies', [
+            'kb_source_post_id' => $kb_source_post_id,
+            'dependency_count' => count($referenced_post_ids),
+            'reference_type' => $reference_type
+        ]);
+
         // Start transaction
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $wpdb->query('START TRANSACTION');
 
         try {
@@ -62,18 +71,32 @@ class RepositoryDependencies
                     $placeholders[] = '(%d, %d, %s)';
                 }
 
-                $sql = "INSERT INTO {$this->table} 
-                        (kb_source_post_id, referenced_post_id, reference_type) 
-                        VALUES " . implode(', ', $placeholders);
-
-                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-                $wpdb->query($wpdb->prepare($sql, $values));
+                // Prepare table name and values separately
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+                $wpdb->query($wpdb->prepare(
+                    "INSERT INTO %i (kb_source_post_id, referenced_post_id, reference_type) VALUES " . implode(', ', $placeholders), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Dynamic placeholder building for bulk insert
+                    array_merge([$this->table], $values)
+                ));
             }
 
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->query('COMMIT');
+
+            Logger::info('KB dependencies stored successfully', [
+                'kb_source_post_id' => $kb_source_post_id,
+                'dependency_count' => count($referenced_post_ids)
+            ]);
+
             return true;
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->query('ROLLBACK');
+
+            Logger::error('Failed to store KB dependencies', [
+                'kb_source_post_id' => $kb_source_post_id,
+                'error' => $e->getMessage()
+            ]);
+
             return false;
         }
     }
@@ -90,11 +113,22 @@ class RepositoryDependencies
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $results = $wpdb->get_col($wpdb->prepare(
-            "SELECT DISTINCT kb_source_post_id FROM {$this->table} WHERE referenced_post_id = %d",
+            "SELECT DISTINCT kb_source_post_id FROM %i WHERE referenced_post_id = %d",
+            $this->table,
             $referenced_post_id
         ));
 
-        return array_map('intval', $results);
+        $sources = array_map('intval', $results);
+
+        if (!empty($sources)) {
+            Logger::debug('Found KB sources referencing post', [
+                'referenced_post_id' => $referenced_post_id,
+                'source_count' => count($sources),
+                'sources' => $sources
+            ]);
+        }
+
+        return $sources;
     }
 
     /**
@@ -109,7 +143,8 @@ class RepositoryDependencies
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $results = $wpdb->get_col($wpdb->prepare(
-            "SELECT DISTINCT referenced_post_id FROM {$this->table} WHERE kb_source_post_id = %d",
+            "SELECT DISTINCT referenced_post_id FROM %i WHERE kb_source_post_id = %d",
+            $this->table,
             $kb_source_post_id
         ));
 

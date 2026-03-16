@@ -15,12 +15,8 @@ class AiKitSettings
 {
     public function __construct(
         public string $sharedContext = "",
-        public string $reCaptchaSiteKey = "",
-        public bool $useRecaptchaEnterprise = false,
-        public bool $useRecaptchaNet = false,
         public bool $enablePoweredBy = false,
         public string $defaultOutputLanguage = "",
-        public int $reCaptchaChatTtlSeconds = 120,
         public bool $debugLoggingEnabled = false,
     ) {
     }
@@ -37,12 +33,8 @@ class AiKitSettings
         if ($raw instanceof Settings) {
             return new self(
                 sharedContext: (string) ($raw->sharedContext ?? ""),
-                reCaptchaSiteKey: (string) ($raw->reCaptchaSiteKey ?? ""),
-                useRecaptchaEnterprise: (bool) ($raw->useRecaptchaEnterprise ?? false),
-                useRecaptchaNet: (bool) ($raw->useRecaptchaNet ?? false),
                 enablePoweredBy: (bool) ($raw->enablePoweredBy ?? false),
                 defaultOutputLanguage: (string) ($raw->defaultOutputLanguage ?? ""),
-                reCaptchaChatTtlSeconds: (int) ($raw->reCaptchaChatTtlSeconds ?? 120),
                 debugLoggingEnabled: (bool) ($raw->debugLoggingEnabled ?? false),
             );
         }
@@ -57,12 +49,8 @@ class AiKitSettings
 
         return new self(
             sharedContext: (string) ($arr['sharedContext'] ?? ""),
-            reCaptchaSiteKey: (string) ($arr['reCaptchaSiteKey'] ?? ""),
-            useRecaptchaEnterprise: (bool) ($arr['useRecaptchaEnterprise'] ?? false),
-            useRecaptchaNet: (bool) ($arr['useRecaptchaNet'] ?? false),
             enablePoweredBy: (bool) ($arr['enablePoweredBy'] ?? false),
             defaultOutputLanguage: (string) ($arr['defaultOutputLanguage'] ?? ""),
-            reCaptchaChatTtlSeconds: (int) ($arr['reCaptchaChatTtlSeconds'] ?? 120),
             debugLoggingEnabled: (bool) ($arr['debugLoggingEnabled'] ?? false),
         );
     }

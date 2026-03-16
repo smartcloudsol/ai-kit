@@ -292,6 +292,8 @@ const withLanguageUtils = createHigherOrderComponent((BlockEdit: unknown) => {
                   variation: "modal",
                   autoRun: mode === "proofread",
                   title: title,
+                  language:
+                    document.documentElement.lang?.split(/[-_]/)[0] || "en",
                   onClose: () => {
                     setModalOpen(false);
                   },

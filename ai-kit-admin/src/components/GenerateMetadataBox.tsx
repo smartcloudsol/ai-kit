@@ -273,6 +273,8 @@ export default function GenerateMetadataBox(props: GenerateMetadataBoxProps) {
                 autoRun: false,
                 editable: true,
                 showOpenButton: false,
+                language:
+                  document.documentElement.lang?.split(/[-_]/)[0] || "en",
                 onClose: () => {
                   setModalOpen(false);
                 },

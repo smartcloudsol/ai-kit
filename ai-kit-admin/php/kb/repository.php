@@ -7,6 +7,8 @@
 
 namespace SmartCloud\WPSuite\AiKit\KnowledgeBase;
 
+use SmartCloud\WPSuite\AiKit\Logger;
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -66,20 +68,36 @@ class Repository
         ];
 
         if ($existing) {
-            return $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $result = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                 $this->table_name,
                 $data,
                 ['post_id' => $post_id],
                 ['%d', '%s', '%d', '%s', '%s', '%s'],
                 ['%d']
             ) !== false;
+
+            Logger::info('KB source updated', [
+                'post_id' => $post_id,
+                'post_type' => $post_type,
+                'default_doc_mode' => $data['default_doc_mode']
+            ]);
+
+            return $result;
         } else {
             $data['created_at'] = $now;
-            return $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $result = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                 $this->table_name,
                 $data,
                 ['%d', '%s', '%d', '%s', '%s', '%s', '%s']
             ) !== false;
+
+            Logger::info('KB source enabled', [
+                'post_id' => $post_id,
+                'post_type' => $post_type,
+                'default_doc_mode' => $data['default_doc_mode']
+            ]);
+
+            return $result;
         }
     }
 
@@ -89,13 +107,17 @@ class Repository
     public function disable(int $post_id): bool
     {
         global $wpdb;
-        return $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $result = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $this->table_name,
             ['enabled' => 0, 'updated_at' => current_time('mysql')],
             ['post_id' => $post_id],
             ['%d', '%s'],
             ['%d']
         ) !== false;
+
+        Logger::info('KB source disabled', ['post_id' => $post_id]);
+
+        return $result;
     }
 
     /**
@@ -196,6 +218,13 @@ class KBGeneratedRepository
             $section['doc_id'],
             $section['section_id']
         );
+
+        Logger::debug('Saving KB section', [
+            'post_id' => $section['post_id'],
+            'doc_id' => $section['doc_id'],
+            'section_id' => $section['section_id'],
+            'is_update' => !empty($existing)
+        ]);
 
         $data = [
             'post_id' => $section['post_id'],

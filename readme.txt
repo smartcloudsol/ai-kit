@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.1.6
+Stable tag: 1.2.0
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -39,7 +39,7 @@ AI-Kit uses Chrome’s built-in on-device AI capabilities (when available). In t
   * Use **Preview** to instantly try your current settings without saving
 * **PRO: AI-Kit Feature block**
   * Add front-end buttons to **summarize, write, rewrite, translate, and proofread**
-* **PRO: [ai-kit-feature] shortcode**
+* **PRO: [smartcloud-ai-kit-feature] shortcode**
   * Use the same “AI-Kit Feature” functionality in other editors/builders via a shortcode
 * **Developer API**
   * AI-Kit exposes a small JS surface under `globalThis.WpSuite.plugins.aiKit.features` so developers can integrate AI-Kit features in their own plugins and custom code.
@@ -57,7 +57,7 @@ AI-Kit works in **Free mode** without registration or subscription, using **loca
 **Pro features** are optional and become available after connecting your WordPress site to a WPSuite.io workspace:
 * **AI-Kit Chatbot** (on-site widget + customizable settings + Preview)
 * Front-end **AI-Kit Feature** Gutenberg block
-* Front-end **[ai-kit-feature]** shortcode
+* Front-end **smartcloud-** shortcode
 * Optional **backend-only / backend-fallback** modes (when on-device AI is unavailable or when you explicitly choose backend processing)
 
 When backend is used, requests go to an API endpoint you configure — typically an AWS API deployed into **your own AWS account** using the “wpsuite-ai-kit” SAR template.
@@ -100,7 +100,7 @@ WordPress/PHP does not proxy these calls — your site does not need server-side
 This also means your hosting environment does not need outbound access to the AI API; only the client’s network matters.
 
 = Does this work outside Gutenberg? =
-Yes — Pro includes the **[ai-kit-feature]** shortcode so you can use AI-Kit Feature in other editors/builders. Developers can also integrate the JavaScript APIs directly.
+Yes — Pro includes the **[smartcloud-ai-kit-feature]** shortcode so you can use AI-Kit Feature in other editors/builders. Developers can also integrate the JavaScript APIs directly.
 
 == Screenshots ==
 
@@ -115,7 +115,7 @@ Yes — Pro includes the **[ai-kit-feature]** shortcode so you can use AI-Kit Fe
 9. Gutenberg – “SEO Metadata” panel in image-like blocks
 10. DEV – Using renderFeature function on front-end
 11. PRO – AI-Kit Feature block preview (summarize/write/rewrite/translate/proofread)
-12. PRO – [ai-kit-feature] shortcode usage in a page builder
+12. PRO – [smartcloud-ai-kit-feature] shortcode usage in a page builder
 13. PRO – Chatbot Settings (Preview + configuration)
 14. PRO – Chatbot widget (front-end)
 
@@ -191,6 +191,16 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.2.0 =
+* Moved reCAPTCHA handling and script loading to the shared hub-for-wpsuiteio package.
+* Added optional admin-side PHP debug logging. Requires WP_DEBUG and WP_DEBUG_LOG to be enabled.
+* Improved AiFeature input processing by converting selected HTML content to Markdown before AI handling.
+* Added quota-aware chunking and result merging for summarize, rewrite, and translate modes.
+* Added summary-of-summaries generation for chunked summarization.
+* Added backend fallback for larger requests that would require more than two frontend iterations.
+* Improved quota error messaging when backend fallback is unavailable.
+* Updated AiKitSidebar, LanguageUtils, and GenerateMetadataBox to initialize renderAiFeature with the current WordPress language, with English fallback when no translation is available.
+
 = 1.1.6 =
 DocSearch & AI Feature: More accurate handling of property default values.
 
@@ -260,6 +270,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+This release moves reCAPTCHA integration into the shared WP Suite hub, adds optional PHP debug logging, improves AiFeature processing with Markdown conversion and chunk-aware handling, adds smarter backend fallback, and improves language-aware rendering based on the current WordPress language.
 
 = 1.1.6 =
 Improves default-value behavior for DocSearch and AI Feature settings.

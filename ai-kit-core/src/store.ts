@@ -216,7 +216,7 @@ export const reloadConfig = async (store: Store) => {
 
 export const createStore = async (): Promise<Store> => {
   const DEFAULT_STATE = await getDefaultState();
-  const store = createReduxStore("wpsuite/ai-kit", {
+  const store = createReduxStore("smartcloud/ai-kit", {
     reducer(state = DEFAULT_STATE, action) {
       switch (action.type) {
         case "SET_LANGUAGE":

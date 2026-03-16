@@ -11,6 +11,7 @@ import {
   getStoreSelect,
 } from "@smart-cloud/ai-kit-core";
 import { useSelect } from "@wordpress/data";
+import { htmlToMarkdown } from "./html-to-markdown";
 
 I18n.putVocabularies(translations);
 
@@ -63,6 +64,7 @@ const getValueFromElement = (element: Element | null): string => {
 
   if (element instanceof HTMLElement) {
     if (element.isContentEditable) {
+      // Return HTML as-is; conversion to markdown happens async when needed
       return element.innerHTML ?? "";
     }
 
@@ -150,14 +152,33 @@ export const App: FunctionComponent<
         .renderFeature({
           default: {
             text: mode === "write" ? text : undefined,
-            getText: () => {
+            getText: async () => {
               let el: HTMLElement | null = null;
               try {
                 el = document.querySelector(inputSelector || "body");
               } catch {
                 // ignore
               }
-              return el ? getValueFromElement(el) : "";
+              if (!el) return "";
+
+              const value = getValueFromElement(el);
+
+              // If the element is contentEditable, convert HTML to Markdown
+              // to reduce token size while preserving formatting
+              if (el.isContentEditable && value) {
+                try {
+                  return await htmlToMarkdown(value);
+                } catch (error) {
+                  console.warn(
+                    "AI Kit: Failed to convert HTML to Markdown, using plain text:",
+                    error,
+                  );
+                  // Fallback to plain text if conversion fails
+                  return el.textContent ?? "";
+                }
+              }
+
+              return value;
             },
             instructions,
             tone,

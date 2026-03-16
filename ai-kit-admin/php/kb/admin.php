@@ -21,9 +21,6 @@ if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repository.php')) {
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php';
 }
-if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php')) {
-    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php';
-}
 
 use SmartCloud\WPSuite\AiKit\Logger;
 
@@ -61,6 +58,7 @@ class Admin
         // AJAX handlers
         add_action('wp_ajax_smartcloud_ai_kit_run_db_migration', [$this, 'ajaxRunMigration']);
         add_action('wp_ajax_smartcloud_ai_kit_dismiss_migration_notice', [$this, 'ajaxDismissNotice']);
+        add_action('wp_ajax_smartcloud_ai_kit_bulk_edit_kb_source', [$this, 'ajaxBulkEditKbSource']);
 
         // Post lifecycle hooks
         add_action('save_post', [$this, 'onPostSave'], 10, 3);
@@ -250,6 +248,69 @@ class Admin
     }
 
     /**
+     * AJAX handler: Bulk Edit KB Source
+     * Fallback handler for when WordPress native bulk edit doesn't work properly
+     */
+    public function ajaxBulkEditKbSource(): void
+    {
+        check_ajax_referer('smartcloud_ai_kit_kb_quick_edit', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(['message' => 'Insufficient permissions']);
+        }
+
+        $post_ids = isset($_POST['post_ids']) ? array_map('intval', wp_unslash($_POST['post_ids'])) : [];
+        $action = isset($_POST['kb_action']) ? sanitize_text_field(wp_unslash($_POST['kb_action'])) : '';
+
+        if (empty($post_ids) || empty($action)) {
+            wp_send_json_error(['message' => 'Missing post IDs or action']);
+        }
+
+        $success_count = 0;
+        $errors = [];
+
+        foreach ($post_ids as $post_id) {
+            $post = get_post($post_id);
+            if (!$post) {
+                $errors[] = "Post $post_id not found";
+                continue;
+            }
+
+            if (!current_user_can('edit_post', $post_id)) {
+                $errors[] = "Cannot edit post $post_id";
+                continue;
+            }
+
+            try {
+                if ($action === 'enable') {
+                    $this->sources->enable($post_id, $post->post_type, [
+                        'default_doc_mode' => 'separate_doc',
+                        'taxonomy_mapping' => null
+                    ]);
+                    $this->regeneratePost($post_id);
+                    $success_count++;
+                } elseif ($action === 'disable') {
+                    $this->sources->disable($post_id);
+
+                    $kb_status = $this->calculate_kb_publish_status($post_id);
+                    if ($kb_status !== 'published') {
+                        $this->publish_state->deleteByPost($post_id);
+                    }
+                    $success_count++;
+                }
+            } catch (\Exception $e) {
+                $errors[] = "Error processing post $post_id: " . $e->getMessage();
+            }
+        }
+
+        wp_send_json_success([
+            'message' => sprintf('Updated %d posts', $success_count),
+            'success_count' => $success_count,
+            'errors' => $errors
+        ]);
+    }
+
+    /**
      * Hook: save_post - trigger regeneration for KB sources
      */
     public function onPostSave(int $post_id, \WP_Post $post, bool $update): void
@@ -261,14 +322,37 @@ class Admin
 
         // Handle Quick Edit / Bulk Edit KB source actions
         if (isset($_POST['smartcloud_ai_kit_kb_source_action']) || isset($_POST['smartcloud_ai_kit_kb_source_bulk_action'])) {
-            // Verify nonce for Quick/Bulk Edit (WordPress uses inlineeditnonce)
-            if (isset($_POST['_inline_edit']) && !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_inline_edit'] ?? '')), 'inlineeditnonce')) {
+            // Verify nonce for Quick Edit (uses _inline_edit nonce)
+            // Bulk Edit posts don't have _inline_edit nonce, but they do have standard WP nonces
+            if (isset($_POST['_inline_edit'])) {
+                if (!wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_inline_edit'])), 'inlineeditnonce')) {
+                    return;
+                }
+            }
+            // For bulk edit, WordPress handles nonce verification automatically
+            // Just check if we're in admin context
+            if (!is_admin()) {
                 return;
             }
 
             $action = isset($_POST['smartcloud_ai_kit_kb_source_action'])
                 ? sanitize_text_field(wp_unslash($_POST['smartcloud_ai_kit_kb_source_action']))
                 : sanitize_text_field(wp_unslash($_POST['smartcloud_ai_kit_kb_source_bulk_action'] ?? ''));
+
+            // Skip if no action selected (bulk edit "No Change" option)
+            if (empty($action)) {
+                return;
+            }
+
+            // Debug logging
+            Logger::info(
+                sprintf(
+                    'KB source quick/bulk edit action for post %d: %s',
+                    $post_id,
+                    $action
+                ),
+                ['post_id' => $post_id, 'action' => $action, 'is_bulk' => isset($_POST['smartcloud_ai_kit_kb_source_bulk_action'])]
+            );
 
             if ($action === 'enable') {
                 // Enable KB source with default settings

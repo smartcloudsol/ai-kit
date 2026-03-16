@@ -11,10 +11,10 @@ class Logger
     /**
      * Log levels
      */
-    const DEBUG = 'debug';
-    const INFO = 'info';
-    const WARNING = 'warning';
-    const ERROR = 'error';
+    public const DEBUG = 'debug';
+    public const INFO = 'info';
+    public const WARNING = 'warning';
+    public const ERROR = 'error';
 
     /**
      * Cached Admin instance (lazy initialized)

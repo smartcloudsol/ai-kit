@@ -917,7 +917,7 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
 
         $this->add_control('user_filters_note', [
             'type' => \Elementor\Controls_Manager::RAW_HTML,
-            'raw' => __('<p>When enabled, filter options are loaded from your backend metadata-config.yaml. Users can select categories, subcategories, and tags to narrow search results.</p>', 'smartcloud-ai-kit'),
+            'raw' => __('When enabled, filter options are loaded from your backend metadata-config.yaml. Users can select categories, subcategories, and tags to narrow search results.', 'smartcloud-ai-kit'),
             'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
         ]);
 
