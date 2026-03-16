@@ -1123,6 +1123,7 @@ const DocSearchBase: FC<Props> = (props) => {
                                     ? `docsearch-source-${docNumber}`
                                     : undefined
                                 }
+                                style={{ wordBreak: "break-word" }}
                               >
                                 <Stack gap="xs">
                                   <Group
