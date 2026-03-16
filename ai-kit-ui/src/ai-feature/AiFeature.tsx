@@ -55,12 +55,6 @@ import {
 
 import { translations } from "../i18n";
 import { PoweredBy } from "../poweredBy";
-import { shouldChunkInput } from "./chunking-utils";
-import {
-  chunkedSummarize,
-  chunkedTranslate,
-  chunkedRewrite,
-} from "./chunked-features";
 import {
   isBackendConfigured,
   readDefaultOutputLanguage,
@@ -566,21 +560,6 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 onDeviceTimeoutOverride: onDeviceTimeout,
               };
 
-              // Determine if we're using on-device mode
-              const isOnDevice =
-                modeOverride === "local-only" ||
-                (!modeOverride && context === "admin");
-
-              // Check if chunking is needed
-              if (shouldChunkInput(text!.trim(), "summarize", isOnDevice)) {
-                return await chunkedSummarize(
-                  text!.trim(),
-                  args,
-                  featureOptions,
-                  isOnDevice,
-                );
-              }
-
               // Normal single-pass summarization
               const out = await summarize(args, featureOptions);
               return out.result;
@@ -675,21 +654,6 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 onDeviceTimeoutOverride: onDeviceTimeout,
               };
 
-              // Determine if we're using on-device mode
-              const isOnDevice =
-                modeOverride === "local-only" ||
-                (!modeOverride && context === "admin");
-
-              // Check if chunking is needed (both on-device quota and AWS Translate limit)
-              if (shouldChunkInput(text!.trim(), "translate", isOnDevice)) {
-                return await chunkedTranslate(
-                  text!.trim(),
-                  args,
-                  featureOptions,
-                  isOnDevice,
-                );
-              }
-
               // Normal single-pass translation
               const out = await translate(args, featureOptions);
               return out.result;
@@ -731,21 +695,6 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 modeOverride,
                 onDeviceTimeoutOverride: onDeviceTimeout,
               };
-
-              // Determine if we're using on-device mode
-              const isOnDevice =
-                modeOverride === "local-only" ||
-                (!modeOverride && context === "admin");
-
-              // Check if chunking is needed
-              if (shouldChunkInput(text!.trim(), "rewrite", isOnDevice)) {
-                return await chunkedRewrite(
-                  text!.trim(),
-                  args,
-                  featureOptions,
-                  isOnDevice,
-                );
-              }
 
               // Normal single-pass rewrite
               const out = await rewrite(args, featureOptions);

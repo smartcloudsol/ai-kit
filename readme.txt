@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,9 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.2.2 =
+* Fixed boolean block attributes handling
+
 = 1.2.1 =
 * Fixed missing kb-quick-edit.js
 
@@ -273,6 +276,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.2 =
+This release fixes incorrect handling of boolean block attributes.
 
 = 1.2.1 =
 This release fixes missing kb-quick-edit.js.

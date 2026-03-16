@@ -24,14 +24,18 @@ try {
       // Simple decode of single data-config attribute
       const configAttr = el.getAttribute("data-config");
       let config = configAttr ? JSON.parse(atob(configAttr)) : {};
-      
+
       // If there's YAML config from shortcode, parse and merge it
       if (config.configB64) {
         try {
           const raw = decodeB64Utf8(config.configB64);
           if ((config.configFormat || "yaml.v1").startsWith("yaml")) {
             const yamlConfig = YAML.parse(raw);
-            if (yamlConfig && typeof yamlConfig === "object" && !Array.isArray(yamlConfig)) {
+            if (
+              yamlConfig &&
+              typeof yamlConfig === "object" &&
+              !Array.isArray(yamlConfig)
+            ) {
               // YAML overrides config attributes
               config = { ...config, ...yamlConfig };
             }
@@ -43,7 +47,49 @@ try {
         delete config.configB64;
         delete config.configFormat;
       }
-      
+
+      // Type normalization: convert string values to proper types
+      // Boolean fields from switcher controls
+      const booleanFields = [
+        "autoRun",
+        "enableUserFilters",
+        "showOpenButton",
+        "showOpenButtonTitle",
+        "showOpenButtonIcon",
+        "showSearchButtonTitle",
+        "showSearchButtonIcon",
+      ];
+      for (const field of booleanFields) {
+        if (field in config) {
+          const val = config[field];
+          if (val === "true" || val === true) {
+            config[field] = true;
+          } else if (val === "false" || val === false) {
+            config[field] = false;
+          } else if (val === "" || val === null || val === undefined) {
+            delete config[field];
+          }
+        }
+      }
+
+      // Number fields
+      const numberFields = ["limit", "hitsPerPage"];
+      for (const field of numberFields) {
+        if (field in config && typeof config[field] === "string") {
+          const num = parseInt(config[field], 10);
+          if (!isNaN(num)) {
+            config[field] = num;
+          }
+        }
+      }
+
+      // Remove null/empty values that shouldn't be passed to component
+      for (const key of Object.keys(config)) {
+        if (config[key] === null || config[key] === "") {
+          delete config[key];
+        }
+      }
+
       const isPreview = el.getAttribute("data-is-preview") === "true";
 
       const root = createRoot(el);
@@ -54,11 +100,7 @@ try {
       }
       root.render(
         <StrictMode>
-          <App
-            isPreview={isPreview}
-            store={store}
-            {...config}
-          />
+          <App isPreview={isPreview} store={store} {...config} />
         </StrictMode>,
       );
     }

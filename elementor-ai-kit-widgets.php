@@ -9,6 +9,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use SmartCloud\WPSuite\AiKit\Logger;
+
 /**
  * Helper function to render AI-Kit shortcodes
  * 
@@ -633,9 +635,7 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
 
         // Handle SWITCHER fields explicitly: convert to 'true' or 'false'
         foreach ($switcher_fields as $field) {
-            if (isset($atts[$field])) {
-                $atts[$field] = $atts[$field] === 'true' ? 'true' : 'false';
-            }
+            $atts[$field] = $atts[$field] === 'true' ? 'true' : 'false';
         }
 
         // Filter out empty values except for explicit SWITCHER fields
@@ -1063,9 +1063,7 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
 
         // Handle SWITCHER fields explicitly: convert to 'true' or 'false'
         foreach ($switcher_fields as $field) {
-            if (isset($atts[$field])) {
-                $atts[$field] = $atts[$field] === 'true' ? 'true' : 'false';
-            }
+            $atts[$field] = $atts[$field] === 'true' ? 'true' : 'false';
         }
 
         // Filter out empty values except for explicit SWITCHER fields

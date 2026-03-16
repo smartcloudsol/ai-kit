@@ -674,6 +674,8 @@ export type AnyCreateCoreOptions =
 export interface Capabilities {
   MIN_CHROME_VERSION?: Partial<Record<BuiltInAiFeature, number>>;
 
+  isOnDeviceLanguageSupported: (outputLanguage: AiKitLanguageCode) => boolean;
+
   checkOnDeviceAvailability: (
     feature: BuiltInAiFeature,
     availabilityOptions?: AnyCreateCoreOptions,

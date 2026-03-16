@@ -17,6 +17,7 @@ import {
   getTranslateOptions,
   getWriteOptions,
   initializeAiKit,
+  isOnDeviceLanguageSupported,
   PromptArgs,
   RewriteArgs,
   SummarizeArgs,
@@ -44,16 +45,30 @@ function onDomReady(fn: () => void) {
 
 // ---- Global function implementation ----
 async function renderFeature(args: AiFeatureArgs): Promise<AiWorkerHandle> {
+  let outputLanguage =
+    (args as Partial<WriteArgs | RewriteArgs | SummarizeArgs | PromptArgs>)
+      .outputLanguage || "en";
+  if (!isOnDeviceLanguageSupported(outputLanguage)) {
+    outputLanguage = "en";
+  }
   let feature: BuiltInAiFeature;
   let options: AnyCreateCoreOptions;
   switch (args.mode) {
     case "write":
       feature = "writer";
-      options = (await getWriteOptions?.(args as Partial<WriteArgs>)) ?? {};
+      options =
+        (await getWriteOptions?.({
+          ...args,
+          outputLanguage,
+        } as Partial<WriteArgs>)) ?? {};
       break;
     case "rewrite":
       feature = "rewriter";
-      options = (await getRewriteOptions?.(args as Partial<RewriteArgs>)) ?? {};
+      options =
+        (await getRewriteOptions?.({
+          ...args,
+          outputLanguage,
+        } as Partial<RewriteArgs>)) ?? {};
       break;
     case "proofread":
       feature = "proofreader";
@@ -62,7 +77,10 @@ async function renderFeature(args: AiFeatureArgs): Promise<AiWorkerHandle> {
     case "summarize":
       feature = "summarizer";
       options =
-        (await getSummarizeOptions?.(args as Partial<SummarizeArgs>)) ?? {};
+        (await getSummarizeOptions?.({
+          ...args,
+          outputLanguage,
+        } as Partial<SummarizeArgs>)) ?? {};
       break;
     case "translate":
       feature = "translator";
@@ -71,7 +89,10 @@ async function renderFeature(args: AiFeatureArgs): Promise<AiWorkerHandle> {
     case "generatePostMetadata":
     case "generateImageMetadata":
       feature = "prompt";
-      options = await getPromptOptions?.(args as Partial<PromptArgs>);
+      options = await getPromptOptions?.({
+        ...args,
+        outputLanguage,
+      } as Partial<PromptArgs>);
       break;
     default:
       throw new Error(`Unknown AI feature mode: ${args.mode}`);

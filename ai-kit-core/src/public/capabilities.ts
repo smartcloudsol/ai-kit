@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
+  AiKitLanguageCode,
   AiModePreference,
   AnyCreateCoreOptions,
   BackendTransport,
   BuiltInAiFeature,
   CapabilityDecision,
 } from "../types";
+
+export const isOnDeviceLanguageSupported = (
+  _outputLanguage: AiKitLanguageCode,
+): boolean => {
+  return false;
+};
 
 export const checkOnDeviceAvailability = async (
   _feature: BuiltInAiFeature,

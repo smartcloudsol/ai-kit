@@ -142,7 +142,10 @@ const withLanguageUtils = createHigherOrderComponent((BlockEdit: unknown) => {
 
     const { createNotice, removeNotice } = useDispatch("core/notices");
 
-    const { getBlockIndex } = useSelect("core/block-editor") as {
+    const { getBlockIndex } = useSelect(
+      (select) => select("core/block-editor"),
+      [],
+    ) as {
       getBlockIndex: (clientId: string) => number;
     };
     const { insertBlocks, removeBlock } = useDispatch("core/block-editor") as {

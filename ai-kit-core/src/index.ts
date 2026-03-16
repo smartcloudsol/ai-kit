@@ -77,6 +77,12 @@ export const getMinChromeVersions = async () => {
   const module = await capabilities;
   return module.MIN_CHROME_VERSION;
 };
+export const isOnDeviceLanguageSupported = async (
+  ...args: Parameters<Capabilities["isOnDeviceLanguageSupported"]>
+) => {
+  const module = await capabilities;
+  return module.isOnDeviceLanguageSupported(...args);
+};
 export const decideCapability = async (
   ...args: Parameters<Capabilities["decideCapability"]>
 ) => {

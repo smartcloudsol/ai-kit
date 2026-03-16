@@ -36,20 +36,19 @@ const applyResultToElement = (
   }
 
   if (element instanceof HTMLElement) {
-    const useHtml =
-      format === "html" ||
-      (element.isContentEditable && format !== "plain-text");
-    if (useHtml) {
+    if (format === "html") {
       element.innerHTML = value;
     } else {
-      element.textContent = value;
+      element.innerText = value;
     }
     element.dispatchEvent(new Event("input", { bubbles: true }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
   }
 };
 
-const getValueFromElement = (element: Element | null): string => {
+const getValueFromElement = async (
+  element: Element | null,
+): Promise<string> => {
   if (!element) {
     return "";
   }
@@ -63,12 +62,13 @@ const getValueFromElement = (element: Element | null): string => {
   }
 
   if (element instanceof HTMLElement) {
-    if (element.isContentEditable) {
-      // Return HTML as-is; conversion to markdown happens async when needed
-      return element.innerHTML ?? "";
+    try {
+      await htmlToMarkdown(element.innerHTML ?? "");
+    } catch {
+      // If conversion fails, fallback to plain text
     }
 
-    return element.textContent ?? "";
+    return element.innerText ?? "";
   }
 
   return "";
@@ -161,24 +161,7 @@ export const App: FunctionComponent<
               }
               if (!el) return "";
 
-              const value = getValueFromElement(el);
-
-              // If the element is contentEditable, convert HTML to Markdown
-              // to reduce token size while preserving formatting
-              if (el.isContentEditable && value) {
-                try {
-                  return await htmlToMarkdown(value);
-                } catch (error) {
-                  console.warn(
-                    "AI Kit: Failed to convert HTML to Markdown, using plain text:",
-                    error,
-                  );
-                  // Fallback to plain text if conversion fails
-                  return el.textContent ?? "";
-                }
-              }
-
-              return value;
+              return await getValueFromElement(el);
             },
             instructions,
             tone,

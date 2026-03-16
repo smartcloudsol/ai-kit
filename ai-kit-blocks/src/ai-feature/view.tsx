@@ -48,6 +48,46 @@ try {
         delete config.configFormat;
       }
 
+      // Type normalization: convert string values to proper types
+      // Boolean fields from switcher controls
+      const booleanFields = [
+        "editable",
+        "autoRun",
+        "showRegenerateOnBackendButton",
+        "showOpenButtonTitle",
+        "showOpenButtonIcon",
+      ];
+      for (const field of booleanFields) {
+        if (field in config) {
+          const val = config[field];
+          if (val === "true" || val === true) {
+            config[field] = true;
+          } else if (val === "false" || val === false) {
+            config[field] = false;
+          } else if (val === "" || val === null || val === undefined) {
+            delete config[field];
+          }
+        }
+      }
+
+      // Number fields
+      const numberFields = ["onDeviceTimeout"];
+      for (const field of numberFields) {
+        if (field in config && typeof config[field] === "string") {
+          const num = parseInt(config[field], 10);
+          if (!isNaN(num)) {
+            config[field] = num;
+          }
+        }
+      }
+
+      // Remove null/empty values that shouldn't be passed to component
+      for (const key of Object.keys(config)) {
+        if (config[key] === null || config[key] === "") {
+          delete config[key];
+        }
+      }
+
       const isPreview = el.getAttribute("data-is-preview") === "true";
 
       const root = createRoot(el);
