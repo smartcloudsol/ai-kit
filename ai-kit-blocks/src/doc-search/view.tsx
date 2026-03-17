@@ -73,7 +73,7 @@ try {
       }
 
       // Number fields
-      const numberFields = ["limit", "hitsPerPage"];
+      const numberFields = ["topK", "snippetMaxChars"];
       for (const field of numberFields) {
         if (field in config && typeof config[field] === "string") {
           const num = parseInt(config[field], 10);
