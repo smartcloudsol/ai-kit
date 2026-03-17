@@ -39,6 +39,7 @@ export const enDict: Record<string, string> = {
   "Close chat": "Close chat",
   Confirm: "Confirm",
   Corrected: "Corrected",
+  "Creating final summary...": "Creating final summary...",
   "Creating LanguageDetector session": "Creating LanguageDetector session",
   "Creating LanguageModel session": "Creating LanguageModel session",
   "Creating Proofreader session": "Creating Proofreader session",
@@ -128,6 +129,8 @@ export const enDict: Record<string, string> = {
   "Proofread again": "Proofread again",
   "Proofread on Backend": "Proofread on Backend",
   Proofreading: "Proofreading",
+  "Proofreading part {current}/{total}...":
+    "Proofreading part {current}/{total}...",
   "Ready.": "Ready.",
   "Received backend response.": "Received backend response.",
   "Receiving response...": "Receiving response...",
@@ -149,6 +152,7 @@ export const enDict: Record<string, string> = {
   Rewrite: "Rewrite",
   "Rewrite again": "Rewrite again",
   "Rewrite on Backend": "Rewrite on Backend",
+  "Rewriting part {current}/{total}...": "Rewriting part {current}/{total}...",
   "Rewriting text": "Rewriting text",
   "Running on-device...": "Running on-device...",
   Russian: "Russian",
@@ -176,6 +180,8 @@ export const enDict: Record<string, string> = {
   "Summarize again": "Summarize again",
   "Summarize on Backend": "Summarize on Backend",
   Summarizing: "Summarizing",
+  "Summarizing part {current}/{total}...":
+    "Summarizing part {current}/{total}...",
   Swedish: "Swedish",
   Tags: "Tags",
   Teaser: "Teaser",
@@ -208,6 +214,8 @@ export const enDict: Record<string, string> = {
   "Translate again": "Translate again",
   "Translate on Backend": "Translate on Backend",
   Translating: "Translating",
+  "Translating part {current}/{total}...":
+    "Translating part {current}/{total}...",
   Turkish: "Turkish",
   Type: "Type",
   Ukrainian: "Ukrainian",
@@ -223,6 +231,7 @@ export const enDict: Record<string, string> = {
   "Working…": "Working…",
   "WPSuite AI-Kit": "WPSuite AI-Kit",
   Write: "Write",
+  "Writing part {current}/{total}...": "Writing part {current}/{total}...",
   Yes: "Yes",
   "You need a subscription to use this feature on frontend.":
     "You need a subscription to use this feature on frontend.",
