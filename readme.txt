@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.5
+Stable tag: 1.2.6
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,9 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.2.6 =
+* Admin: Modified WP Suite site settings loading behavior.
+
 = 1.2.5 =
 * Fixed rendering of numeric DocSearch properties in the shortcode and Elementor widget integrations.
 
@@ -287,6 +290,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.6 =
+Improves how WP Suite site settings are loaded in the admin UI.
 
 = 1.2.5 =
 This release fixes how numeric DocSearch properties are rendered when the component is embedded via shortcode or Elementor widget.
