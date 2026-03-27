@@ -41,7 +41,16 @@ import {
   type WriteArgs,
 } from "@smart-cloud/ai-kit-core";
 import { I18n } from "aws-amplify/utils";
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as CountryFlagIcons from "country-flag-icons/react/3x2";
+import {
+  type ComponentProps,
+  FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -80,7 +89,96 @@ type GeneratedPostMetadata = {
   excerpt?: string;
 };
 
+type LanguageSelectorOption = {
+  value: AiKitLanguageCode;
+  label: string;
+  countryCode: string;
+};
+
+type WriterTone = "neutral" | "formal" | "casual";
+type RewriterTone = "as-is" | "more-formal" | "more-casual";
+type WriterLength = "short" | "medium" | "long";
+type RewriterLength = "as-is" | "shorter" | "longer";
+type SummarizerLength = "short" | "medium" | "long";
+type SummarizerType = "headline" | "key-points" | "teaser" | "tldr";
+type ProofreadResult = {
+  corrections: ComponentProps<typeof ProofreadDiff>["corrections"];
+  correctedInput?: string;
+};
+
 const aiKit = getAiKitPlugin();
+
+const LANGUAGE_TO_COUNTRY_CODE: Record<AiKitLanguageCode, string> = {
+  ar: "SA",
+  en: "US",
+  zh: "CN",
+  nl: "NL",
+  fr: "FR",
+  de: "DE",
+  he: "IL",
+  hi: "IN",
+  hu: "HU",
+  id: "ID",
+  it: "IT",
+  ja: "JP",
+  ko: "KR",
+  no: "NO",
+  pl: "PL",
+  pt: "PT",
+  ru: "RU",
+  es: "ES",
+  sv: "SE",
+  th: "TH",
+  tr: "TR",
+  uk: "UA",
+};
+
+const RTL_LANGUAGES = new Set<AiKitLanguageCode>(["ar", "he"]);
+
+function LanguageFlag(props: { countryCode?: string; size?: number }) {
+  const { countryCode, size = 18 } = props;
+
+  if (!countryCode) {
+    return null;
+  }
+
+  const Flag = CountryFlagIcons[
+    countryCode as keyof typeof CountryFlagIcons
+  ] as FC<ComponentProps<"svg">> | undefined;
+
+  if (!Flag) {
+    return null;
+  }
+
+  return (
+    <Flag
+      aria-hidden="true"
+      focusable="false"
+      style={{
+        display: "block",
+        flex: "none",
+        height: size,
+        width: Math.round(size * (4 / 3)),
+      }}
+    />
+  );
+}
+
+function isRtlLanguage(code?: AiKitLanguageCode | "" | null): boolean {
+  return Boolean(code && RTL_LANGUAGES.has(code as AiKitLanguageCode));
+}
+
+function getSupportedLanguageOptions(): LanguageSelectorOption[] {
+  return LANGUAGE_OPTIONS.map((languageOption) => {
+    const countryCode = LANGUAGE_TO_COUNTRY_CODE[languageOption.value];
+
+    return {
+      value: languageOption.value,
+      label: languageOption.label,
+      countryCode,
+    };
+  });
+}
 
 const postResponseConstraint = {
   type: "object",
@@ -314,8 +412,29 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
     onAccept,
     onOptionsChanged,
     language,
+    direction,
     rootElement,
   } = props;
+
+  const [languageOverride, setLanguageOverride] = useState<
+    AiKitLanguageCode | undefined
+  >();
+  const [directionOverride, setDirectionOverride] = useState<
+    "ltr" | "rtl" | "auto" | undefined
+  >();
+
+  const effectiveUiLanguage = languageOverride ?? normalizeLang(language);
+  I18n.setLanguage(effectiveUiLanguage || "en");
+  const currentUiLanguage = effectiveUiLanguage || "en";
+  const effectiveDirection = useMemo(() => {
+    const activeDirection = languageOverride ? directionOverride : direction;
+
+    if (!activeDirection || activeDirection === "auto") {
+      return isRtlLanguage(effectiveUiLanguage) ? "rtl" : "ltr";
+    }
+
+    return activeDirection;
+  }, [direction, directionOverride, effectiveUiLanguage, languageOverride]);
 
   const allowOverride = {
     text: allowOverrideDefaults?.text ?? true,
@@ -341,7 +460,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
       (mode === "summarize" && allowOverride?.type) ||
       allowOverride?.outputLanguage,
     );
-  }, [allowOverride]);
+  }, [allowOverride, mode]);
 
   const [state, setState] = useState<string>();
   const [featureOpen, setFeatureOpen] = useState<boolean>(!showOpenButton);
@@ -375,13 +494,17 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
     defaults?.tone,
   );
   const [type, setType] = useState<SummarizerType | undefined>(defaults?.type);
+  const [generatedContentLanguage, setGeneratedContentLanguage] = useState<
+    AiKitLanguageCode | ""
+  >("");
 
   const autoRunOnceRef = useRef(false);
+  const supportedLanguageOptions = useMemo(
+    () => getSupportedLanguageOptions(),
+    [],
+  );
 
   const defaultTitle = useMemo(() => {
-    if (language) {
-      I18n.setLanguage(language || "en");
-    }
     if (title) {
       return title;
     }
@@ -411,7 +534,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
         break;
     }
     return t;
-  }, [title, mode, language]);
+  }, [title, mode, effectiveUiLanguage]);
 
   const formatAiKitStatus = useCallback(
     (e: AiKitStatusEvent | null): string | null => {
@@ -464,7 +587,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
           return msg || I18n.get("Working...");
       }
     },
-    [language, mode],
+    [effectiveUiLanguage, mode],
   );
 
   const inputText = useMemo(() => {
@@ -520,6 +643,18 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
   const statusText =
     formatAiKitStatus(ai.statusEvent) ?? (state ? I18n.get(state) : null);
 
+  const setGeneratedResultLanguage = useCallback(
+    (nextLanguage?: AiKitLanguageCode | "auto" | "" | null) => {
+      if (nextLanguage && nextLanguage !== "auto") {
+        setGeneratedContentLanguage(nextLanguage);
+        return;
+      }
+
+      setGeneratedContentLanguage(readDefaultOutputLanguage() || "");
+    },
+    [],
+  );
+
   const runGenerate = useCallback(
     async (modeOverride?: AiModePreference) => {
       if (!canGenerate) {
@@ -538,11 +673,11 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
           typeof input === "function" ? await Promise.resolve(input()) : input;
         switch (mode) {
           case "summarize": {
+            const outLang =
+              (outputLanguage && outputLanguage !== "auto"
+                ? outputLanguage
+                : null) || readDefaultOutputLanguage();
             const res = await ai.run(async ({ signal, onStatus }) => {
-              const outLang =
-                (outputLanguage && outputLanguage !== "auto"
-                  ? outputLanguage
-                  : null) || readDefaultOutputLanguage();
               const args: SummarizeArgs = {
                 text: text!.trim(),
                 format:
@@ -564,6 +699,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
               const out = await summarize(args, featureOptions);
               return out.result;
             });
+            setGeneratedResultLanguage(outLang || "");
             setGenerated((res as never) ?? "");
             break;
           }
@@ -606,6 +742,10 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
             break;
           }
           case "translate": {
+            const outLang =
+              (outputLanguage && outputLanguage !== "auto"
+                ? outputLanguage
+                : null) || readDefaultOutputLanguage();
             const res = await ai.run(async ({ signal, onStatus }) => {
               let inputLang = inputLanguage ?? "auto";
               if (inputLang === "auto") {
@@ -621,10 +761,6 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
               } else {
                 setDetectedLanguage(inputLang);
               }
-              const outLang =
-                (outputLanguage && outputLanguage !== "auto"
-                  ? outputLanguage
-                  : null) || readDefaultOutputLanguage();
               if (outLang === inputLang) {
                 console.warn(
                   "AI Kit: input and output languages are the same",
@@ -658,10 +794,12 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
               const out = await translate(args, featureOptions);
               return out.result;
             });
+            setGeneratedResultLanguage(outLang || "");
             setGenerated((res as never) ?? "");
             break;
           }
           case "rewrite": {
+            let generatedLanguage: AiKitLanguageCode | "" = "";
             const res = await ai.run(async ({ signal, onStatus }) => {
               let outLang =
                 (outputLanguage && outputLanguage !== "auto"
@@ -678,6 +816,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 });
                 setOutputLanguage(outLang);
               }
+              generatedLanguage = outLang || "";
               const args: RewriteArgs = {
                 text: text!.trim(),
                 context: instructions?.trim() || undefined,
@@ -700,6 +839,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
               const out = await rewrite(args, featureOptions);
               return out.result;
             });
+            setGeneratedResultLanguage(generatedLanguage);
             setGenerated((res as never) ?? "");
             break;
           }
@@ -763,6 +903,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
               });
               return out.result;
             });
+            setGeneratedResultLanguage(outLang || "");
             setGenerated((res as never) ?? "");
             break;
           }
@@ -996,7 +1137,7 @@ Follow these additional instructions: ${instructions}`
       default:
         return ai.lastSource ? I18n.get("Regenerate") : I18n.get("Generate");
     }
-  }, [language, ai.lastSource, mode]);
+  }, [effectiveUiLanguage, ai.lastSource, mode]);
 
   const getRegenerateOnBackendTitle = useCallback(() => {
     switch (mode) {
@@ -1011,7 +1152,7 @@ Follow these additional instructions: ${instructions}`
       default:
         return I18n.get("Regenerate on Backend");
     }
-  }, [language, mode]);
+  }, [effectiveUiLanguage, mode]);
 
   const close = useCallback(async () => {
     setFeatureOpen(false);
@@ -1082,6 +1223,16 @@ Follow these additional instructions: ${instructions}`
     };
   }, []);
 
+  useEffect(() => {
+    if (!languageOverride) {
+      return;
+    }
+
+    setDirectionOverride("auto");
+    setOutputLanguage(languageOverride);
+    setDetectedLanguage(undefined);
+  }, [languageOverride]);
+
   const optionsSummary = useMemo(() => {
     const parts: string[] = [];
 
@@ -1126,7 +1277,7 @@ Follow these additional instructions: ${instructions}`
 
     return parts.length ? parts.join(" • ") : I18n.get("No overrides");
   }, [
-    language,
+    effectiveUiLanguage,
     mode,
     inputLanguage,
     outputLanguage,
@@ -1150,6 +1301,111 @@ Follow these additional instructions: ${instructions}`
     variation === "modal" ? Modal.Body : Group;
   const CollapseComponent = optionsDisplay === "collapse" ? Collapse : Stack;
   const OptionsComponent = optionsDisplay === "horizontal" ? Group : Stack;
+
+  const selectedLanguageOption = useMemo(
+    () =>
+      supportedLanguageOptions.find(
+        (option) => option.value === currentUiLanguage,
+      ) ?? supportedLanguageOptions[0],
+    [currentUiLanguage, supportedLanguageOptions],
+  );
+
+  const renderLanguageOverrideSelect = useCallback(
+    (size: "xs" | "sm" = "sm") => (
+      <Select
+        allowDeselect={false}
+        aria-label={I18n.get("Interface language")}
+        checkIconPosition="right"
+        className="ai-feature-language-selector"
+        data={supportedLanguageOptions.map((option) => ({
+          value: option.value,
+          label: "",
+        }))}
+        disabled={ai.busy}
+        leftSection={
+          selectedLanguageOption?.countryCode ? (
+            <LanguageFlag
+              countryCode={selectedLanguageOption.countryCode}
+              size={18}
+            />
+          ) : null
+        }
+        onChange={(value) => {
+          const nextLanguage = normalizeLang(value);
+
+          if (!nextLanguage) {
+            return;
+          }
+
+          setLanguageOverride(nextLanguage);
+        }}
+        renderOption={({ option }) => {
+          const languageOption = supportedLanguageOptions.find(
+            (item) => item.value === option.value,
+          );
+
+          if (!languageOption) {
+            return option.label;
+          }
+
+          return (
+            <Group gap="xs" wrap="nowrap">
+              {languageOption.countryCode ? (
+                <LanguageFlag
+                  countryCode={languageOption.countryCode}
+                  size={18}
+                />
+              ) : null}
+              <span>{I18n.get(languageOption.label)}</span>
+            </Group>
+          );
+        }}
+        rightSection={null}
+        searchable={false}
+        size={size}
+        styles={{
+          dropdown: {
+            minWidth: 220,
+          },
+          input: {
+            backgroundColor: "transparent",
+            border: 0,
+            boxShadow: "none",
+            color: "inherit",
+            fontSize: 18,
+            lineHeight: 1,
+            minHeight: size === "sm" ? 36 : 28,
+            paddingInlineStart: 0,
+            paddingInlineEnd: 0,
+            backgroundImage: "none",
+            width: size === "sm" ? 44 : 36,
+          },
+          option: {
+            color: "inherit",
+          },
+          section: {
+            color: "inherit",
+            alignItems: "center",
+            display: "flex",
+            height: "100%",
+            insetInlineStart: 0,
+            justifyContent: "center",
+            pointerEvents: "none",
+            width: "100%",
+          },
+        }}
+        value={selectedLanguageOption?.value || null}
+        w={size === "sm" ? 44 : 36}
+      />
+    ),
+    [
+      ai.busy,
+      selectedLanguageOption?.countryCode,
+      selectedLanguageOption?.value,
+      setLanguageOverride,
+      supportedLanguageOptions,
+    ],
+  );
 
   useEffect(() => {
     if (variation !== "modal" || !featureOpen) {
@@ -1214,14 +1470,25 @@ Follow these additional instructions: ${instructions}`
           {variation === "modal" && <Modal.Overlay />}
           <ContentComponent
             w="100%"
+            dir={effectiveDirection}
             style={{
               left: 0,
             }}
           >
             {variation === "modal" && (
-              <Modal.Header style={{ zIndex: 1000 }}>
+              <Modal.Header dir={effectiveDirection} style={{ zIndex: 1000 }}>
                 {getOpenButtonDefaultIcon("ai-feature-title-icon")}
                 <Modal.Title>{I18n.get(defaultTitle)}</Modal.Title>
+                <div
+                  style={{
+                    display: "flex",
+                    flex: 1,
+                    justifyContent: "flex-start",
+                    marginRight: 8,
+                  }}
+                >
+                  {renderLanguageOverrideSelect("xs")}
+                </div>
                 <Modal.CloseButton />
               </Modal.Header>
             )}
@@ -1231,7 +1498,13 @@ Follow these additional instructions: ${instructions}`
                 working={ai.busy}
                 variation={variation}
               >
-                <Stack gap="sm" mb="sm" p="sm">
+                <Stack gap="sm" mb="sm" p="sm" dir={effectiveDirection}>
+                  {variation !== "modal" && (
+                    <Group justify="flex-end">
+                      {renderLanguageOverrideSelect()}
+                    </Group>
+                  )}
+
                   {/* ERROR */}
                   {error && <Alert color="red">{I18n.get(error)}</Alert>}
 
@@ -1877,6 +2150,7 @@ Follow these additional instructions: ${instructions}`
                         mode !== "generatePostMetadata" &&
                         typeof generated === "string" && (
                           <MarkdownResult
+                            contentLanguage={generatedContentLanguage}
                             value={generated}
                             editable={!!editable}
                             onChange={(v) => {
@@ -1887,7 +2161,11 @@ Follow these additional instructions: ${instructions}`
                     </Stack>
                   )}
                   {generated === "" && (
-                    <MarkdownResult value={generated} editable={false} />
+                    <MarkdownResult
+                      contentLanguage={generatedContentLanguage}
+                      value={generated}
+                      editable={false}
+                    />
                   )}
                 </Stack>
                 {/* ACTIONS */}
@@ -1974,15 +2252,23 @@ Follow these additional instructions: ${instructions}`
 };
 
 function MarkdownResult(props: {
+  contentLanguage?: AiKitLanguageCode | "";
   value: string;
   editable: boolean;
   onChange?: (v: string) => void;
 }) {
-  const { value, editable, onChange } = props;
+  const { contentLanguage, value, editable, onChange } = props;
+  const contentDirection = isRtlLanguage(contentLanguage) ? "rtl" : "ltr";
+  const contentAlign = contentDirection === "rtl" ? "right" : "left";
 
   if (editable) {
     return (
-      <Stack p={0} gap="sm">
+      <Stack
+        p={0}
+        gap="sm"
+        dir={contentDirection}
+        style={{ textAlign: contentAlign }}
+      >
         <Input.Label>{I18n.get("Generated content")}</Input.Label>
         <Textarea
           value={value}
@@ -1992,10 +2278,17 @@ function MarkdownResult(props: {
           maxRows={12}
           p={0}
           className="ai-feature-generated-content ai-feature-editor"
+          styles={{
+            input: { direction: contentDirection, textAlign: contentAlign },
+          }}
         />
 
         <Input.Label>{I18n.get("Preview")}</Input.Label>
-        <Stack className="ai-feature-generated-content ai-feature-preview">
+        <Stack
+          className="ai-feature-generated-content ai-feature-preview"
+          dir={contentDirection}
+          style={{ textAlign: contentAlign }}
+        >
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
         </Stack>
       </Stack>
@@ -2003,7 +2296,11 @@ function MarkdownResult(props: {
   }
 
   return (
-    <Stack className="ai-feature-generated-content">
+    <Stack
+      className="ai-feature-generated-content"
+      dir={contentDirection}
+      style={{ textAlign: contentAlign }}
+    >
       {value ? (
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{value}</ReactMarkdown>
       ) : (

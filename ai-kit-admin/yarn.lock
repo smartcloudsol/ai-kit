@@ -3883,10 +3883,10 @@
     "@smart-cloud/wpsuite-core" "^2.2.10"
     aws-amplify "^6.16.3"
 
-"@smart-cloud/ai-kit-ui@^1.4.6":
-  version "1.4.6"
-  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-ui/-/ai-kit-ui-1.4.6.tgz#f9d0de7e8b30b19cb6cb39b5bb636629ba74a69b"
-  integrity sha512-ZpVENG/w6XxeO92ECw4wdte+NiBBmTWZxe+YYS00q/zSI6ai0rkpYXjgKv6PvmkMcuQiK5BDSTUWokpQBNEp/A==
+"@smart-cloud/ai-kit-ui@^1.4.8":
+  version "1.4.8"
+  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-ui/-/ai-kit-ui-1.4.8.tgz#5e3c2716fc1b110b81c3e8e3dc599f9adf6e3b61"
+  integrity sha512-bb3qcGh0onrpTXCN6pojPoBuEiA9te7UhPOrwqR0NVIgWTHG/5Np1U2vmjlCpvoA70yhpdrSfiIy69ePhXrgag==
   dependencies:
     "@emotion/cache" "^11.14.0"
     "@emotion/react" "^11.14.0"
@@ -3895,6 +3895,7 @@
     "@smart-cloud/wpsuite-core" "^2.2.10"
     "@tabler/icons-react" "^3.40.0"
     chroma-js "^3.2.0"
+    country-flag-icons "^1.6.15"
     react-markdown "^10.1.0"
     rehype-parse "^9.0.1"
     rehype-raw "^7.0.0"
@@ -8792,6 +8793,11 @@ country-flag-icons@^1.6.13:
   version "1.6.13"
   resolved "https://registry.npmjs.org/country-flag-icons/-/country-flag-icons-1.6.13.tgz"
   integrity sha512-mR9GoTXtj3zAXoZXBkb3J4QvyDllFEPtEfZvHb9U23TAHYXfkJyP03pRtZiR0spxo6Ibja3R/hn6a68T4LHBuA==
+
+country-flag-icons@^1.6.15:
+  version "1.6.15"
+  resolved "https://registry.npmjs.org/country-flag-icons/-/country-flag-icons-1.6.15.tgz#f89014f84534d4f35109280d88930e6c371684a9"
+  integrity sha512-92HoA8l6DluEidku8tKBftjuFRj4Rv3zDW1lXxCuNnqAxhUSkvso9gM/Afj4F5BnK+wneHIe3ydI+s+4NA29/Q==
 
 crc-32@1.2.2:
   version "1.2.2"

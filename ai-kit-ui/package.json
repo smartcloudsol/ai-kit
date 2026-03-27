@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/ai-kit-ui",
-  "version": "1.4.6",
+  "version": "1.4.8",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -24,6 +24,7 @@
     "@smart-cloud/wpsuite-core": "^2.2.10",
     "@tabler/icons-react": "^3.40.0",
     "chroma-js": "^3.2.0",
+    "country-flag-icons": "^1.6.15",
     "react-markdown": "^10.1.0",
     "rehype-parse": "^9.0.1",
     "rehype-raw": "^7.0.0",
