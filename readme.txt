@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.7
+Stable tag: 1.2.8
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,11 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.2.8 =
+* UX: The AI Feature UI language can now be changed while the component is already running.
+  Behavior: The language change is applied immediately to the user interface, without interrupting the currently running task.
+  Note: The active in-progress operation continues with its original settings; the new language selection applies to subsequent interactions and UI rendering.
+
 = 1.2.7 =
 * Stability: Improved plugin bootstrap order so AI-Kit can no longer initialize before the shared WP Suite hub when multiple WP Suite plugins load together.
 * Internal: Adjusted hub-loader sequencing and hardened global `WpSuite` namespace initialization to prevent race conditions during startup.
@@ -296,6 +301,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.8 =
+Improves AI Feature language switching. The UI language can now be changed even while the component is already running. The change takes effect immediately in the interface, while the current in-progress task continues uninterrupted with its original settings.
 
 = 1.2.7 =
 Recommended update. Improves startup reliability when multiple WP Suite plugins are active, preventing AI-Kit from initializing before the shared hub. Also adds a per-component UI language switcher to AI Feature, which updates the component language together with `outputLanguage` for a smoother front-end user experience.

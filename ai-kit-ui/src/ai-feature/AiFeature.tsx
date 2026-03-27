@@ -1321,7 +1321,6 @@ Follow these additional instructions: ${instructions}`
           value: option.value,
           label: "",
         }))}
-        disabled={ai.busy}
         leftSection={
           selectedLanguageOption?.countryCode ? (
             <LanguageFlag
