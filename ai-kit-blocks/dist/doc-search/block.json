@@ -84,8 +84,7 @@
   "supports": {
     "html": false
   },
-  "editorScript": "file:./index.js",
-  "style": "file:./index.css",
-  "viewScript": "file:./view.js",
+  "editorScript": "smartcloud-ai-kit-blocks-editor-script",
+  "viewScript": "smartcloud-ai-kit-view-script",
   "render": "file:./render.php"
 }

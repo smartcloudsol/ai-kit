@@ -147,10 +147,9 @@
     }
   },
   "textdomain": "wpsuite-ai-kit",
-  "editorScript": "file:./index.js",
-  "style": "file:./index.css",
+  "editorScript": "smartcloud-ai-kit-blocks-editor-script",
   "render": "file:./render.php",
-  "viewScript": "file:./view.js",
+  "viewScript": "smartcloud-ai-kit-view-script",
   "supports": {
     "align": true,
     "__experimentalBorder": {

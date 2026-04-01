@@ -8,13 +8,10 @@ module.exports = function (env = {}) {
   const config = {
     ...defaultConfig,
     entry: {
-      index: [
-        path.resolve(process.cwd(), "src", "index.tsx"),
-        path.resolve(process.cwd(), "src/ai-feature", "index.tsx"),
+      editor: [path.resolve(process.cwd(), "src", "editor.tsx")],
+      view: [
         path.resolve(process.cwd(), "src/ai-feature", "view.tsx"),
-        path.resolve(process.cwd(), "src/doc-search", "index.tsx"),
         path.resolve(process.cwd(), "src/doc-search", "view.tsx"),
-        path.resolve(process.cwd(), "src/kb-section", "index.tsx"),
       ],
     },
     externals: {

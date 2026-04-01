@@ -76,12 +76,14 @@ class Admin
                 return;
             }
 
+            aiKit()->enqueueAdminRuntimeAssets();
+
             $script_asset = array();
             if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/index.asset.php')) {
                 $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/index.asset.php');
             }
             $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-mantine-vendor'));
-            $res = wp_enqueue_script('smartcloud-ai-kit-admin-script', SMARTCLOUD_AI_KIT_URL . 'admin/index.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, true);
+            $res = wp_enqueue_script('smartcloud-ai-kit-admin-script', SMARTCLOUD_AI_KIT_URL . 'admin/index.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
             // Make the blocks translatable.
             if (function_exists('wp_set_script_translations')) {
                 wp_set_script_translations('smartcloud-ai-kit-admin-script', 'smartcloud-ai-kit', SMARTCLOUD_AI_KIT_PATH . 'languages');

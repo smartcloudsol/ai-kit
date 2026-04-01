@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.2.8
+ * Version:           1.2.9
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.2.8';
+const VERSION = '1.2.9';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -55,6 +55,13 @@ final class AiKit
         $this->includes();
     }
 
+    /** @var string[] */
+    private array $blocks = [
+        'ai-feature',
+        'doc-search',
+        'kb-section',
+    ];
+
     /**
      * Access the singleton instance.
      */
@@ -83,22 +90,17 @@ final class AiKit
         add_filter('bulk_actions-upload', array($this, 'registerMediaBulkActions'), 10, 1);
         add_filter('handle_bulk_actions-upload', array($this, 'handleMediaBulkAction'), 10, 3);
 
-        // Register Gutenberg blocks (summarizer etc.)
-        if (function_exists('register_block_type')) {
-            register_block_type(SMARTCLOUD_AI_KIT_PATH . 'blocks/ai-feature');
-            register_block_type(SMARTCLOUD_AI_KIT_PATH . 'blocks/doc-search');
-            register_block_type(SMARTCLOUD_AI_KIT_PATH . 'blocks/kb-section');
-        }
+        $this->registerBlocks();
 
         // Assets
-        add_action('wp_enqueue_scripts', array($this, 'enqueueAssets'), 20);
-        add_action('admin_init', array($this, 'enqueueAssets'), 20);
-        add_action('elementor/preview/after_enqueue_scripts', array($this, 'enqueueAssets'), 20);
+        add_action('wp_enqueue_scripts', array($this, 'enqueueFrontendAssets'), 20);
+        add_action('elementor/preview/after_enqueue_scripts', array($this, 'enqueueFrontendAssets'), 20);
 
         add_action('enqueue_block_editor_assets', array($this, 'enqueueEditorAssets'), 20);
+        add_filter('block_categories_all', array($this, 'registerBlockCategory'), 20, 2);
         add_action('admin_enqueue_scripts', array($this, 'enqueueAdminAssets'), 20);
-        // Hooks.
-        add_action('admin_menu', array($this, 'createAdminMenu'), 21);
+
+        add_action('admin_menu', array($this, 'createAdminMenu'), 20);
 
         // KB Admin hooks
         if ($this->kbAdmin) {
@@ -108,9 +110,6 @@ final class AiKit
         // Shortcodes
         add_shortcode('smartcloud-ai-kit-feature', array($this, 'shortcodeFeature'));
         add_shortcode('smartcloud-ai-kit-doc-search', array($this, 'shortcodeDocSearch'));
-
-        // Category for custom blocks.
-        add_filter('block_categories_all', array($this, 'registerBlockCategory'), 20, 2);
 
         add_filter('no_texturize_shortcodes', function ($shortcodes) {
             $shortcodes[] = 'smartcloud-ai-kit-feature';
@@ -215,10 +214,24 @@ final class AiKit
         return $categories;
     }
 
+    public function registerBlocks(): void
+    {
+        if (!function_exists('register_block_type')) {
+            return;
+        }
+
+        foreach ($this->blocks as $block) {
+            $metadata_path = SMARTCLOUD_AI_KIT_PATH . 'blocks/' . $block;
+            if (file_exists($metadata_path . '/block.json')) {
+                register_block_type($metadata_path);
+            }
+        }
+    }
+
     /**
      * Enqueue inline scripts that expose PHP constants to JS.
      */
-    public function enqueueAssets(): void
+    private function enqueueMainRuntimeScript(): void
     {
         $main_script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'main/index.asset.php')) {
@@ -232,18 +245,9 @@ final class AiKit
             $main_script_dependencies[] = 'smartcloud-wpsuite-main-script';
         }
         $main_script_asset['dependencies'] = array_values(array_unique($main_script_dependencies));
-        wp_enqueue_script('smartcloud-ai-kit-main-script', SMARTCLOUD_AI_KIT_URL . 'main/index.js', $main_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, false);
-        wp_enqueue_style('smartcloud-ai-kit-main-style', SMARTCLOUD_AI_KIT_URL . 'main/index.css', array(), SMARTCLOUD_AI_KIT_VERSION);
-        add_editor_style(SMARTCLOUD_AI_KIT_URL . 'main/index.css');
-
-        $blocks_script_asset = array();
-        if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'blocks/index.asset.php')) {
-            $blocks_script_asset = require(SMARTCLOUD_AI_KIT_PATH . 'blocks/index.asset.php');
-        }
-        $blocks_script_asset['dependencies'] = array_merge($blocks_script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
-        wp_enqueue_script('smartcloud-ai-kit-blocks-script', SMARTCLOUD_AI_KIT_URL . 'blocks/index.js', $blocks_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, false);
-        wp_enqueue_style('smartcloud-ai-kit-blocks-style', SMARTCLOUD_AI_KIT_URL . 'blocks/index.css', array(), SMARTCLOUD_AI_KIT_VERSION);
-        add_editor_style(SMARTCLOUD_AI_KIT_URL . 'blocks/index.css');
+        wp_enqueue_script('smartcloud-ai-kit-main-script', SMARTCLOUD_AI_KIT_URL . 'main/index.js', $main_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
+        //wp_enqueue_style('smartcloud-ai-kit-main-style', SMARTCLOUD_AI_KIT_URL . 'main/index.css', array(), SMARTCLOUD_AI_KIT_VERSION);
+        //add_editor_style(SMARTCLOUD_AI_KIT_URL . 'main/index.css');
 
         // Build data passed to JS.
         $settings = $this->admin->getSettings();
@@ -275,6 +279,49 @@ __aikitGlobal.WpSuite.constants.aiKit = {
         wp_add_inline_script('smartcloud-ai-kit-main-script', $js, 'before');
     }
 
+    private function enqueueFormViewAssets(): void
+    {
+        $view_script_asset = array();
+        if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'blocks/view.asset.php')) {
+            $view_script_asset = require(SMARTCLOUD_AI_KIT_PATH . 'blocks/view.asset.php');
+        }
+        $view_script_dependencies = array_merge(
+            $view_script_asset['dependencies'] ?? array(),
+            array('smartcloud-ai-kit-main-script')
+        );
+        if (wp_script_is('smartcloud-wpsuite-main-script', 'registered')) {
+            $view_script_dependencies[] = 'smartcloud-wpsuite-main-script';
+        }
+        $view_script_asset['dependencies'] = array_values(array_unique($view_script_dependencies));
+        wp_enqueue_script('smartcloud-ai-kit-view-script', SMARTCLOUD_AI_KIT_URL . 'blocks/view.js', $view_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
+    }
+
+    public function enqueueFrontendAssets(): void
+    {
+        $this->enqueueMainRuntimeScript();
+        $this->enqueueFormViewAssets();
+    }
+
+    public function enqueueAdminRuntimeAssets(): void
+    {
+        $this->enqueueMainRuntimeScript();
+    }
+
+    public function enqueueEditorAssets(): void
+    {
+        $this->enqueueMainRuntimeScript();
+        $this->registerEditorRuntimeAssets();
+
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'blocks/editor.css')) {
+            wp_enqueue_style(
+                'smartcloud-ai-kit-blocks-editor-style',
+                SMARTCLOUD_AI_KIT_URL . 'blocks/editor.css',
+                array(),
+                SMARTCLOUD_AI_KIT_VERSION
+            );
+        }
+    }
+
     public function enqueueAdminAssets($hook): void
     {
         if ($hook !== 'upload.php' && $hook !== 'post.php') {
@@ -288,45 +335,56 @@ __aikitGlobal.WpSuite.constants.aiKit = {
                 return;
         }
 
+        $this->enqueueAdminRuntimeAssets();
+
         $script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/media.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/media.asset.php');
         }
         $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
-        wp_enqueue_script('smartcloud-ai-kit-media-script', SMARTCLOUD_AI_KIT_URL . 'admin/media.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, true);
+        wp_enqueue_script('smartcloud-ai-kit-media-script', SMARTCLOUD_AI_KIT_URL . 'admin/media.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
     }
 
     /**
      * Enqueue inline editor scripts that expose PHP constants to JS.
      */
-    public function enqueueEditorAssets(): void
+    private function registerEditorRuntimeAssets(): void
     {
+        $blocks_script_asset = array();
+        if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'blocks/editor.asset.php')) {
+            $blocks_script_asset = require(SMARTCLOUD_AI_KIT_PATH . 'blocks/editor.asset.php');
+        }
+        $blocks_script_asset['dependencies'] = array_merge($blocks_script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
+        wp_enqueue_script('smartcloud-ai-kit-blocks-editor-script', SMARTCLOUD_AI_KIT_URL . 'blocks/editor.js', $blocks_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
+        wp_enqueue_style('smartcloud-ai-kit-blocks-editor-style', SMARTCLOUD_AI_KIT_URL . 'blocks/editor.css', array(), SMARTCLOUD_AI_KIT_VERSION);
+        add_editor_style(SMARTCLOUD_AI_KIT_URL . 'blocks/editor.css');
+
         $script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/media.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/media.asset.php');
         }
         $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
-        wp_enqueue_script('smartcloud-ai-kit-media-script', SMARTCLOUD_AI_KIT_URL . 'admin/media.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, true);
+        wp_enqueue_script('smartcloud-ai-kit-media-script', SMARTCLOUD_AI_KIT_URL . 'admin/media.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
         $script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/sidebar.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/sidebar.asset.php');
         }
         $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
-        wp_enqueue_script('smartcloud-ai-kit-sidebar-script', SMARTCLOUD_AI_KIT_URL . 'admin/sidebar.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, true);
+        wp_enqueue_script('smartcloud-ai-kit-sidebar-script', SMARTCLOUD_AI_KIT_URL . 'admin/sidebar.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
 
         $script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/langutils.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/langutils.asset.php');
         }
         $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
-        wp_enqueue_script('smartcloud-ai-kit-langutils-script', SMARTCLOUD_AI_KIT_URL . 'admin/langutils.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, true);
+        wp_enqueue_script('smartcloud-ai-kit-langutils-script', SMARTCLOUD_AI_KIT_URL . 'admin/langutils.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
 
         $script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/imgextra.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/imgextra.asset.php');
         }
         $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
-        wp_enqueue_script('smartcloud-ai-kit-imgextra-script', SMARTCLOUD_AI_KIT_URL . 'admin/imgextra.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, true);
+        wp_enqueue_script('smartcloud-ai-kit-imgextra-script', SMARTCLOUD_AI_KIT_URL . 'admin/imgextra.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('strategy' => 'defer'));
     }
 
     /**

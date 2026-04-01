@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.8
+Stable tag: 1.2.9
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -191,6 +191,10 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.2.9 =
+* Improved the robustness of script loading and dependency ordering for shared functions, blocks, and related assets.
+* Added defer loading where possible so scripts no longer block page rendering unnecessarily.
+
 = 1.2.8 =
 * UX: The AI Feature UI language can now be changed while the component is already running.
   Behavior: The language change is applied immediately to the user interface, without interrupting the currently running task.
@@ -301,6 +305,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.9 =
+This release improves how AI-Kit loads scripts and resolves dependencies, with broader use of deferred loading to reduce render-blocking during page load.
 
 = 1.2.8 =
 Improves AI Feature language switching. The UI language can now be changed even while the component is already running. The change takes effect immediately in the interface, while the current in-progress task continues uninterrupted with its original settings.

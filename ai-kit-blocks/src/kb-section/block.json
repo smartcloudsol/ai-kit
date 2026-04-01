@@ -48,6 +48,6 @@
     "smartcloud-ai-kit/kb-section-mode": "mode",
     "smartcloud-ai-kit/kb-section-docKey": "docKey"
   },
-  "editorScript": "file:./index.tsx",
-  "editorStyle": "file:./index.css"
+  "editorScript": "smartcloud-ai-kit-blocks-editor-script",
+  "editorStyle": "smartcloud-ai-kit-blocks-editor-style"
 }
