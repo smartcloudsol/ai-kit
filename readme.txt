@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.9
+Stable tag: 1.2.10
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -168,6 +168,14 @@ This plugin may integrate with the following external services, depending on con
      - AWS Service Terms: https://aws.amazon.com/service-terms/
      - AWS Privacy: https://aws.amazon.com/privacy/
 
+5. **Stripe (optional; subscription/purchase flow)**
+   - **When it applies:** Only when the user opens the optional WPSuite subscription / purchase flow in the shared admin component.
+   - **What it’s used for:** Displaying hosted pricing/subscription UI for optional paid features.
+   - **What data may be sent:** Browser/session data required by Stripe to render the hosted purchase UI and process the purchase flow.
+   - **Links:**
+     - Terms: https://stripe.com/legal/consumer
+     - Privacy: https://stripe.com/privacy
+
 == Trademark Notice ==
 
 Google Chrome and reCAPTCHA are trademarks of Google LLC.  
@@ -190,6 +198,12 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.2.10 =
+* Security/Compliance: Replaced the previous custom Monaco loader shim with the editor loading approach recommended by the Monaco Editor developers.
+* Security/Compliance: No external CDN calls are required for the editor; the loading behavior is fully contained in the published plugin source code.
+* Compatibility: Switched Elementor widget loading to namespace-based registration under `SmartCloud\WPSuite\AiKit`.
+* Stability: Improved shared hub loading and race-condition handling for more reliable startup together with other WP Suite / wpsuite.io plugins.
 
 = 1.2.9 =
 * Improved the robustness of script loading and dependency ordering for shared functions, blocks, and related assets.
@@ -305,6 +319,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.10 =
+Recommended update. This release improves editor loading by adopting the Monaco team’s recommended integration approach without external CDN calls, updates Elementor widget loading to namespace-based registration, and makes shared hub loading more stable across WP Suite plugins.
 
 = 1.2.9 =
 This release improves how AI-Kit loads scripts and resolves dependencies, with broader use of deferred loading to reduce render-blocking during page load.

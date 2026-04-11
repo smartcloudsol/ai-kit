@@ -3883,10 +3883,10 @@
     "@smart-cloud/wpsuite-core" "^2.2.10"
     aws-amplify "^6.16.3"
 
-"@smart-cloud/ai-kit-ui@^1.4.8":
-  version "1.4.8"
-  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-ui/-/ai-kit-ui-1.4.8.tgz#5e3c2716fc1b110b81c3e8e3dc599f9adf6e3b61"
-  integrity sha512-bb3qcGh0onrpTXCN6pojPoBuEiA9te7UhPOrwqR0NVIgWTHG/5Np1U2vmjlCpvoA70yhpdrSfiIy69ePhXrgag==
+"@smart-cloud/ai-kit-ui@^1.4.10":
+  version "1.4.10"
+  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-ui/-/ai-kit-ui-1.4.10.tgz#d8439dbf48fb02ba9b9566ef7a47fdeee7b8a463"
+  integrity sha512-GSEgU9XaFxnxRo9Gnqg6rSBIxbSVzHyCG8B2wJopHh9HLJOX4AqEqoaYOxY7mLTG6o9mP87dtWBGBhCiK5OBtQ==
   dependencies:
     "@emotion/cache" "^11.14.0"
     "@emotion/react" "^11.14.0"
@@ -12663,7 +12663,7 @@ loader-runner@^4.3.1:
   resolved "https://registry.npmjs.org/loader-runner/-/loader-runner-4.3.1.tgz"
   integrity sha512-IWqP2SCPhyVFTBtRcgMHdzlf9ul25NwaFx4wCEH/KjAXuuHY4yNjvPXsBokp8jCB936PyWRaPKUNh8NvylLp2Q==
 
-loader-utils@^2.0.0, loader-utils@^2.0.4:
+loader-utils@^2.0.0, loader-utils@^2.0.2, loader-utils@^2.0.4:
   version "2.0.4"
   resolved "https://registry.npmjs.org/loader-utils/-/loader-utils-2.0.4.tgz"
   integrity sha512-xXqpXoINfFhgua9xiqD8fPFHgkoq1mmmpE92WlDbm9rNRd/EbRb+Gqf908T2DMfuHjjJlksiK2RbHVOdD/MqSw==
@@ -13588,6 +13588,13 @@ moment@^2.29.4:
   version "2.30.1"
   resolved "https://registry.npmjs.org/moment/-/moment-2.30.1.tgz"
   integrity sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==
+
+monaco-editor-webpack-plugin@^7.1.1:
+  version "7.1.1"
+  resolved "https://registry.npmjs.org/monaco-editor-webpack-plugin/-/monaco-editor-webpack-plugin-7.1.1.tgz#5c90c8ccfadd11a9168d439d1f5b96a397431553"
+  integrity sha512-WxdbFHS3Wtz4V9hzhe/Xog5hQRSMxmDLkEEYZwqMDHgJlkZo00HVFZR0j5d0nKypjTUkkygH3dDSXERLG4757A==
+  dependencies:
+    loader-utils "^2.0.2"
 
 monaco-editor@^0.55.1:
   version "0.55.1"

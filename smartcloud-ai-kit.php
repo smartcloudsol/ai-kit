@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.2.9
+ * Version:           1.2.10
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.2.9';
+const VERSION = '1.2.10';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -271,8 +271,8 @@ final class AiKit
 Object.assign(__aikitGlobal.WpSuite.plugins.aiKit, ' . wp_json_encode($data) . ');
 __aikitGlobal.WpSuite.constants = __aikitGlobal.WpSuite.constants ?? {};
 __aikitGlobal.WpSuite.constants.aiKit = {
-    mantineCssHref: "' . SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css",
-    aiKitUiCssHref: "' . SMARTCLOUD_AI_KIT_URL . 'main/index.css"
+    mantineCssHref: "' . esc_url(SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css') . '",
+    aiKitUiCssHref: "' . esc_url(SMARTCLOUD_AI_KIT_URL . 'main/index.css') . '"
 };
     var WpSuite = __aikitGlobal.WpSuite;
 ';

@@ -714,6 +714,10 @@
   max-width: 80%;
 }
 
+.ai-chat-bubble > * {
+  margin: 0;
+}
+
 .ai-chat-row.user .ai-chat-bubble {
   background: var(--ai-kit-user-bubble-bg);
   color: var(--ai-kit-user-bubble-color);

@@ -4,6 +4,7 @@
  * 
  * Provides Elementor widgets for AI-Kit Feature and Doc Search blocks
  */
+namespace SmartCloud\WPSuite\AiKit;
 
 if (!defined('ABSPATH')) {
     exit;
@@ -1151,6 +1152,6 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
 
 // Register widgets
 add_action('elementor/widgets/register', static function ($widgets_manager) {
-    $widgets_manager->register(new \AiKit_Feature_Widget());
-    $widgets_manager->register(new \AiKit_DocSearch_Widget());
+    $widgets_manager->register(new \SmartCloud\WPSuite\AiKit\AiKit_Feature_Widget());
+    $widgets_manager->register(new \SmartCloud\WPSuite\AiKit\AiKit_DocSearch_Widget());
 });

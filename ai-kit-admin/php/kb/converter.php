@@ -9,7 +9,6 @@
 namespace SmartCloud\WPSuite\AiKit\KnowledgeBase;
 
 use League\HTMLToMarkdown\HtmlConverter;
-use League\HTMLToMarkdown\Environment;
 use SmartCloud\WPSuite\AiKit\Logger;
 
 if (!defined('ABSPATH')) {

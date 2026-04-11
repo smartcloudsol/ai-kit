@@ -21,7 +21,7 @@ import {
   type WriteArgs,
 } from "@smart-cloud/ai-kit-core";
 
-import { readDefaultOutputLanguage } from "@smart-cloud/ai-kit-ui";
+import { readDefaultOutputLanguage } from "../readDefaultOutputLanguage";
 
 import { mdToGutenberg } from "./utils";
 

@@ -3,11 +3,12 @@ import {
   getAiKitPlugin,
   TEXT_DOMAIN,
 } from "@smart-cloud/ai-kit-core";
-import { readDefaultOutputLanguage } from "@smart-cloud/ai-kit-ui";
 import apiFetch from "@wordpress/api-fetch";
 import { Button, Notice } from "@wordpress/components";
 import { __ } from "@wordpress/i18n";
 import { useCallback, useMemo, useState } from "react";
+
+import { readDefaultOutputLanguage } from "../readDefaultOutputLanguage";
 
 type WpGlobal = {
   media?: {
