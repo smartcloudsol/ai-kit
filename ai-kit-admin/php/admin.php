@@ -18,9 +18,6 @@ if (!defined('ABSPATH')) {
 if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/model.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/model.php';
 }
-if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php')) {
-    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php';
-}
 
 class Admin
 {

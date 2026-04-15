@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.10
+Stable tag: 1.2.11
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,13 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.2.11 =
+* Fix: Stabilized loading of `admin/logger.php` and initialization of the `Logger` class in the admin environment.
+* Fix: Prevented cases where admin PHP pages could break because the logger initialized later than required.
+* Improvement: Monaco Editor is now fully bundled with the plugin instead of being loaded from an external CDN.
+* Compliance: The editor loading is now fully contained in the plugin codebase and does not rely on remote third-party asset delivery.
+* Stability: Ensures the logger is reliably available during admin page load across all affected admin screens.
+
 = 1.2.10 =
 * Security/Compliance: Replaced the previous custom Monaco loader shim with the editor loading approach recommended by the Monaco Editor developers.
 * Security/Compliance: No external CDN calls are required for the editor; the loading behavior is fully contained in the published plugin source code.
@@ -319,6 +326,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.11 =
+Recommended update. Fixes an admin-side logger loading issue that could break affected PHP-based admin pages, and fully bundles Monaco Editor inside the plugin instead of loading it from an external CDN.
 
 = 1.2.10 =
 Recommended update. This release improves editor loading by adopting the Monaco team’s recommended integration approach without external CDN calls, updates Elementor widget loading to namespace-based registration, and makes shared hub loading more stable across WP Suite plugins.

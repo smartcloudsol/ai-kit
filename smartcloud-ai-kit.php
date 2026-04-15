@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.2.10
+ * Version:           1.2.11
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.2.10';
+const VERSION = '1.2.11';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -657,12 +657,17 @@ __aikitGlobal.WpSuite.constants.aiKit = {
             require_once SMARTCLOUD_AI_KIT_PATH . 'vendor/autoload.php';
         }
 
-        // Hub admin classes.
+        // Logger class
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'admin/logger.php';
+        }
+
+        // Hub admin classes
         if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'hub-loader.php')) {
             require_once SMARTCLOUD_AI_KIT_PATH . 'hub-loader.php';
         }
 
-        // Admin classes.
+        // Admin classes
         if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/admin.php')) {
             require_once SMARTCLOUD_AI_KIT_PATH . 'admin/admin.php';
         }
