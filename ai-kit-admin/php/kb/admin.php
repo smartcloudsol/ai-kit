@@ -1138,9 +1138,13 @@ class Admin
     private function getEffectiveSectionMetadata(object $section, ?object $override): array
     {
         $metadata = [];
+        $extra_meta = $section->extra_meta_json ? json_decode($section->extra_meta_json, true) : null;
 
         if ($section->title) {
             $metadata['title'] = $section->title;
+        }
+        if (is_array($extra_meta) && !empty($extra_meta['description']) && is_string($extra_meta['description'])) {
+            $metadata['description'] = $extra_meta['description'];
         }
         if ($section->category) {
             $metadata['category'] = $section->category;
@@ -1264,6 +1268,9 @@ class Admin
                 'md' => $section->md,
                 'origin_hash' => $section->origin_hash,
                 'generated_at' => $section->generated_at,
+                'extra_meta' => $section->extra_meta_json
+                    ? json_decode($section->extra_meta_json, true)
+                    : null,
                 'has_override' => (bool) $override,
                 'needs_review' => false
             ];
@@ -1304,6 +1311,9 @@ class Admin
         return new \WP_REST_Response([
             'post_id' => $post_id,
             'post_title' => $post->post_title,
+            'post_excerpt' => has_excerpt($post_id)
+                ? get_the_excerpt($post_id)
+                : wp_trim_words(wp_strip_all_tags($post->post_content), 30, '...'),
             'post_type' => $post->post_type,
             'post_url' => get_permalink($post_id),
             'source' => $source ? [

@@ -19,6 +19,7 @@ interface EditProps {
     sectionKey?: string;
     docKey?: string;
     title?: string;
+    description?: string;
     tags?: string[];
     category?: string;
     subcategory?: string;
@@ -39,6 +40,7 @@ export default function Edit({
     sectionKey,
     docKey,
     title,
+    description,
     tags,
     category,
     subcategory,
@@ -135,6 +137,21 @@ export default function Edit({
                 )}
                 placeholder="e.g., Pricing Information"
                 required
+              />
+              <TextareaControl
+                label={__("Document Description", "smartcloud-ai-kit")}
+                value={description || ""}
+                onChange={(value: string) =>
+                  setAttributes({ description: value })
+                }
+                help={__(
+                  "Optional description stored in document metadata. Leave empty to fall back to the source post excerpt.",
+                  "smartcloud-ai-kit",
+                )}
+                placeholder={__(
+                  "Short summary shown in Doc Search results...",
+                  "smartcloud-ai-kit",
+                )}
               />
             </>
           )}

@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.13
+Stable tag: 1.2.14
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,11 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.2.14 =
+* Feature: Added a document description override option in the KB admin/editor UI.
+* Feature: The overridden description is used as the excerpt shown below the title in DocSearch result lists.
+* UX: Gives editors more control over how Knowledge Base documents appear in search results.
+
 = 1.2.13 =
 * Feature: Extended the KB admin editing UI for generated documents and sections.
 * Feature: Base document metadata can now be overridden even for automatically enabled KB sources that do not have a dedicated KB Section override.
@@ -337,6 +342,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.14 =
+Adds a document description override option for Knowledge Base documents. The custom description is used as the excerpt shown under the title in DocSearch results.
 
 = 1.2.13 =
 Improves the KB admin editor for generated content. You can now override base document metadata and the Knowledge Base document title even for automatically enabled KB sources that do not have a dedicated KB Section override.

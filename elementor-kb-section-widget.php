@@ -105,6 +105,20 @@ class ElementorKBSectionWidget
         );
 
         $element->add_control(
+            'kb_doc_description',
+            [
+                'label' => __('Document Description', 'smartcloud-ai-kit'),
+                'type' => \Elementor\Controls_Manager::TEXTAREA,
+                'placeholder' => __('Short summary shown in Doc Search results', 'smartcloud-ai-kit'),
+                'description' => __('Optional description stored in document metadata. Leave empty to use the source post excerpt.', 'smartcloud-ai-kit'),
+                'condition' => [
+                    'kb_enabled' => 'yes',
+                    'kb_mode' => 'separate_doc',
+                ],
+            ]
+        );
+
+        $element->add_control(
             'kb_section_key',
             [
                 'label' => __('Section Key', 'smartcloud-ai-kit'),

@@ -342,6 +342,7 @@ class Parser
         $section_key = $attrs['sectionKey'] ?? null;
         $doc_key = $attrs['docKey'] ?? null;
         $title = $attrs['title'] ?? null;
+        $description = $attrs['description'] ?? null;
         $tags = $attrs['tags'] ?? null;
         $category = $attrs['category'] ?? null;
         $subcategory = $attrs['subcategory'] ?? null;
@@ -379,6 +380,7 @@ class Parser
             'source_updated_at' => $post->post_modified,
             'extra_meta' => [
                 'block_type' => 'gutenberg',
+                'description' => $description,
                 'priority' => $priority,
             ],
         ];
@@ -412,6 +414,9 @@ class Parser
             'md' => $markdown,
             'generated_at' => current_time('mysql'),
             'source_updated_at' => $post->post_modified,
+            'extra_meta' => [
+                'description' => $this->getPostDescription($post),
+            ],
         ];
 
         $section['origin_hash'] = $this->calculateOriginHash($section);
@@ -582,6 +587,7 @@ class Parser
                 'generated_at' => current_time('mysql'),
                 'source_updated_at' => $post->post_modified,
                 'extra_meta' => [
+                    'description' => $this->getPostDescription($post),
                     'source_type' => 'elementor',
                 ],
             ];
@@ -672,6 +678,7 @@ class Parser
         $section_key = $settings['kb_section_key'] ?? null;
         $doc_key = $settings['kb_doc_key'] ?? null;
         $doc_title = $settings['kb_doc_title'] ?? null;
+        $doc_description = $settings['kb_doc_description'] ?? null;
         $title = $settings['kb_title'] ?? null;
         $category = $settings['kb_category'] ?? null;
         $subcategory = $settings['kb_subcategory'] ?? null;
@@ -725,6 +732,7 @@ class Parser
             'generated_at' => current_time('mysql'),
             'source_updated_at' => $post->post_modified,
             'extra_meta' => [
+                'description' => $doc_description,
                 'source_type' => 'elementor',
                 'priority' => $priority,
             ],
@@ -844,6 +852,7 @@ class Parser
             'generated_at' => current_time('mysql'),
             'source_updated_at' => $post->post_modified,
             'extra_meta' => [
+                'description' => $this->getPostDescription($post),
                 'source_type' => 'elementor',
             ],
         ];
@@ -889,6 +898,9 @@ class Parser
             'md' => $markdown,
             'generated_at' => current_time('mysql'),
             'source_updated_at' => $post->post_modified,
+            'extra_meta' => [
+                'description' => $this->getPostDescription($post),
+            ],
         ];
 
         $section['origin_hash'] = $this->calculateOriginHash($section);
@@ -940,6 +952,20 @@ class Parser
         }
 
         return array_map(fn($tag) => $tag->name, $tags);
+    }
+
+    /**
+     * Get the best available post description/excerpt for metadata.
+     */
+    private function getPostDescription(\WP_Post $post): ?string
+    {
+        $description = has_excerpt($post->ID)
+            ? get_the_excerpt($post->ID)
+            : wp_trim_words(wp_strip_all_tags($post->post_content), 30, '...');
+
+        $description = trim((string) $description);
+
+        return $description !== '' ? $description : null;
     }
 
     /**
