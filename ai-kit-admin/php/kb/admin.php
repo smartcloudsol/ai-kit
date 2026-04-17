@@ -80,6 +80,17 @@ class Admin
         add_filter('handle_bulk_actions-edit-page', [$this, 'handleBulkActions'], 10, 3);
         add_action('admin_notices', [$this, 'showBulkActionNotices']);
 
+        foreach ($this->getKbAdminListPostTypes() as $post_type) {
+            if ($post_type === 'post' || $post_type === 'page') {
+                continue;
+            }
+
+            add_action("manage_{$post_type}_posts_custom_column", [$this, 'renderKbColumn'], 10, 2);
+            add_filter("manage_{$post_type}_posts_columns", [$this, 'addKbColumn']);
+            add_filter("bulk_actions-edit-{$post_type}", [$this, 'addBulkActions']);
+            add_filter("handle_bulk_actions-edit-{$post_type}", [$this, 'handleBulkActions'], 10, 3);
+        }
+
         // REST API
         add_action('rest_api_init', [$this, 'registerRestRoutes']);
 
@@ -174,7 +185,7 @@ class Admin
                 $("#aikit-run-migration").on("click", function() {
                     var btn = $(this);
                     btn.prop("disabled", true).text("' . esc_js(__('Updating...', 'smartcloud-ai-kit')) . '");
-                    
+
                     $.post(ajaxurl, {
                         action: "smartcloud_ai_kit_run_db_migration",
                         nonce: $(".aikit-migration-notice").data("nonce")
@@ -189,7 +200,7 @@ class Admin
                         }
                     });
                 });
-                
+
                 $("#aikit-dismiss-migration").on("click", function() {
                     $.post(ajaxurl, {
                         action: "smartcloud_ai_kit_dismiss_migration_notice",
@@ -276,6 +287,11 @@ class Admin
                 continue;
             }
 
+            if (!$this->isKbAdminListPostType($post->post_type)) {
+                $errors[] = "Post $post_id has unsupported post type {$post->post_type}";
+                continue;
+            }
+
             if (!current_user_can('edit_post', $post_id)) {
                 $errors[] = "Cannot edit post $post_id";
                 continue;
@@ -322,6 +338,10 @@ class Admin
 
         // Handle Quick Edit / Bulk Edit KB source actions
         if (isset($_POST['smartcloud_ai_kit_kb_source_action']) || isset($_POST['smartcloud_ai_kit_kb_source_bulk_action'])) {
+            if (!$this->isKbAdminListPostType($post->post_type)) {
+                return;
+            }
+
             // Verify nonce for Quick Edit (uses _inline_edit nonce)
             // Bulk Edit posts don't have _inline_edit nonce, but they do have standard WP nonces
             if (isset($_POST['_inline_edit'])) {
@@ -830,6 +850,7 @@ class Admin
             $result[] = [
                 'post_id' => $post_id,
                 'post_type' => $source->post_type,
+                'post_type_label' => $this->getKbPostTypeLabel($source->post_type),
                 'post_title' => $source->post_title,
                 'post_status' => $source->post_status,
                 'enabled' => (bool) $source->enabled,
@@ -863,6 +884,7 @@ class Admin
 
         return new \WP_REST_Response([
             'items' => $result,
+            'post_type_options' => $this->getKbPostTypeOptions(),
             'total' => $total,
             'page' => $page,
             'per_page' => $per_page,
@@ -957,7 +979,7 @@ class Admin
         $limit = $request->get_param('limit') ?? 10;
 
         $args = [
-            'post_type' => ['post', 'page'],
+            'post_type' => $this->getKbSearchablePostTypes(),
             'post_status' => 'publish',
             'posts_per_page' => min($limit, 50),
             'orderby' => 'title',
@@ -997,6 +1019,7 @@ class Admin
                 'post_id' => $post->ID,
                 'post_title' => $post->post_title,
                 'post_type' => $post->post_type,
+                'post_type_label' => $this->getKbPostTypeLabel($post->post_type),
                 'post_status' => $post->post_status,
                 'post_excerpt' => $excerpt,
                 'featured_image_url' => $featured_image_url,
@@ -1004,6 +1027,198 @@ class Admin
         }
 
         return new \WP_REST_Response($result, 200);
+    }
+
+    /**
+     * Resolve the post types that can be searched and enabled as KB sources.
+     *
+     * Includes normal UI-managed content types and Elementor templates, while
+     * excluding internal/system records that should never appear in the picker.
+     *
+     * @return string[]
+     */
+    private function getKbSearchablePostTypes(): array
+    {
+        $post_types = get_post_types(['show_ui' => true], 'names');
+
+        if (post_type_exists('elementor_library')) {
+            $post_types[] = 'elementor_library';
+        }
+
+        $excluded = [
+            'attachment',
+            'custom_css',
+            'customize_changeset',
+            'nav_menu_item',
+            'oembed_cache',
+            'revision',
+            'user_request',
+            'wp_block',
+            'wp_font_face',
+            'wp_font_family',
+            'wp_global_styles',
+            'wp_navigation',
+            'wp_template_part',
+        ];
+
+        $post_types = array_values(array_unique(array_diff($post_types, $excluded)));
+
+        return apply_filters('smartcloud_ai_kit_kb_search_post_types', $post_types);
+    }
+
+    /**
+     * Resolve the post types that support KB source controls on edit.php screens.
+     *
+     * @return string[]
+     */
+    private function getKbAdminListPostTypes(): array
+    {
+        $post_types = $this->getKbSearchablePostTypes();
+
+        return apply_filters('smartcloud_ai_kit_kb_admin_post_types', $post_types);
+    }
+
+    /**
+     * Check whether a post type supports KB source controls in wp-admin lists.
+     */
+    private function isKbAdminListPostType(string $post_type): bool
+    {
+        return in_array($post_type, $this->getKbAdminListPostTypes(), true);
+    }
+
+    /**
+     * Get the human-readable label for a post type.
+     */
+    private function getKbPostTypeLabel(string $post_type): string
+    {
+        $post_type_object = get_post_type_object($post_type);
+
+        if ($post_type_object && !empty($post_type_object->labels->singular_name)) {
+            return $post_type_object->labels->singular_name;
+        }
+
+        if ($post_type_object && !empty($post_type_object->label)) {
+            return $post_type_object->label;
+        }
+
+        return $post_type;
+    }
+
+    /**
+     * Build Select options for supported KB post types.
+     *
+     * @return array<int, array{value:string,label:string}>
+     */
+    private function getKbPostTypeOptions(): array
+    {
+        $options = [];
+
+        foreach ($this->getKbAdminListPostTypes() as $post_type) {
+            $options[] = [
+                'value' => $post_type,
+                'label' => $this->getKbPostTypeLabel($post_type),
+            ];
+        }
+
+        usort($options, static function (array $left, array $right): int {
+            return strcasecmp($left['label'], $right['label']);
+        });
+
+        return $options;
+    }
+
+    /**
+     * Build the effective metadata for a section, applying metadata overrides
+     * even when the markdown itself is not locked.
+     *
+     * @param object $section
+     * @param object|null $override
+     * @return array<string, mixed>
+     */
+    private function getEffectiveSectionMetadata(object $section, ?object $override): array
+    {
+        $metadata = [];
+
+        if ($section->title) {
+            $metadata['title'] = $section->title;
+        }
+        if ($section->category) {
+            $metadata['category'] = $section->category;
+        }
+        if ($section->subcategory) {
+            $metadata['subcategory'] = $section->subcategory;
+        }
+        if ($section->tags_json) {
+            $metadata['tags'] = json_decode($section->tags_json, true);
+        }
+
+        if ($override && $override->override_meta_json) {
+            $override_meta = json_decode($override->override_meta_json, true);
+            if (is_array($override_meta)) {
+                $metadata = array_merge($metadata, $override_meta);
+            }
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * Resolve the effective markdown for a section.
+     *
+     * Only locked overrides replace the generated markdown.
+     *
+     * @param object $section
+     * @param object|null $override
+     */
+    private function getEffectiveSectionMarkdown(object $section, ?object $override): string
+    {
+        if ($override && $override->locked) {
+            return $override->override_md;
+        }
+
+        return $section->md;
+    }
+
+    /**
+     * Build the final markdown and metadata payload for a document.
+     *
+     * @param array<int, object> $sections
+     * @return array{markdown:string, metadata:array<string, mixed>}
+     */
+    private function buildEffectiveDocumentPayload(int $post_id, string $doc_id, array $sections, bool $acknowledge_locked_overrides = false): array
+    {
+        $final_md = '';
+        $final_meta = [];
+
+        foreach ($sections as $section) {
+            if ($section->mode === 'exclude') {
+                continue;
+            }
+
+            $override = $this->overrides->get($post_id, $doc_id, $section->section_id);
+
+            if ($acknowledge_locked_overrides && $override && $override->locked && $override->origin_hash_at_override !== $section->origin_hash) {
+                $this->overrides->save([
+                    'post_id' => $post_id,
+                    'doc_id' => $doc_id,
+                    'section_id' => $section->section_id,
+                    'override_md' => $override->override_md,
+                    'override_meta' => $override->override_meta_json
+                        ? json_decode($override->override_meta_json, true)
+                        : null,
+                    'locked' => $override->locked,
+                    'origin_hash_at_override' => $section->origin_hash
+                ]);
+            }
+
+            $final_md .= $this->getEffectiveSectionMarkdown($section, $override) . "\n\n";
+            $final_meta = array_merge($final_meta, $this->getEffectiveSectionMetadata($section, $override));
+        }
+
+        return [
+            'markdown' => $final_md,
+            'metadata' => $final_meta,
+        ];
     }
 
     /**
@@ -1505,40 +1720,9 @@ class Admin
                 continue;
             }
 
-            // Build final document (same logic as publish_document)
-            $final_md = '';
-            $final_meta = [];
-
-            foreach ($sections as $section) {
-                if ($section->mode === 'exclude') {
-                    continue;
-                }
-
-                // Check for override
-                $override = $this->overrides->get($post_id, $doc_id, $section->section_id);
-
-                if ($override && $override->locked) {
-                    $final_md .= $override->override_md . "\n\n";
-                    if ($override->override_meta_json) {
-                        $override_meta = json_decode($override->override_meta_json, true);
-                        $final_meta = array_merge($final_meta, $override_meta);
-                    }
-                } else {
-                    $final_md .= $section->md . "\n\n";
-                    if ($section->title) {
-                        $final_meta['title'] = $section->title;
-                    }
-                    if ($section->category) {
-                        $final_meta['category'] = $section->category;
-                    }
-                    if ($section->subcategory) {
-                        $final_meta['subcategory'] = $section->subcategory;
-                    }
-                    if ($section->tags_json) {
-                        $final_meta['tags'] = json_decode($section->tags_json, true);
-                    }
-                }
-            }
+            $payload = $this->buildEffectiveDocumentPayload($post_id, $doc_id, $sections);
+            $final_md = $payload['markdown'];
+            $final_meta = $payload['metadata'];
 
             // Calculate effective hash
             $effective_hash = hash('sha256', $final_md . wp_json_encode($final_meta));
@@ -1683,56 +1867,9 @@ class Admin
 
         // For each document, calculate effective hash and create publish_state
         foreach ($docs as $doc_id => $sections) {
-            // Build final document with overrides (same logic as publish_document)
-            $final_md = '';
-            $final_meta = [];
-
-            foreach ($sections as $section) {
-                if ($section->mode === 'exclude') {
-                    continue;
-                }
-
-                // Check for override
-                $override = $this->overrides->get($post_id, $doc_id, $section->section_id);
-
-                if ($override && $override->locked) {
-                    // Update override's origin_hash_at_override to current origin_hash
-                    // This acknowledges the source content change and clears needs_review
-                    if ($override->origin_hash_at_override !== $section->origin_hash) {
-                        $this->overrides->save([
-                            'post_id' => $post_id,
-                            'doc_id' => $doc_id,
-                            'section_id' => $section->section_id,
-                            'override_md' => $override->override_md,
-                            'override_meta' => $override->override_meta_json
-                                ? json_decode($override->override_meta_json, true)
-                                : null,
-                            'locked' => $override->locked,
-                            'origin_hash_at_override' => $section->origin_hash
-                        ]);
-                    }
-
-                    $final_md .= $override->override_md . "\n\n";
-                    if ($override->override_meta_json) {
-                        $override_meta = json_decode($override->override_meta_json, true);
-                        $final_meta = array_merge($final_meta, $override_meta);
-                    }
-                } else {
-                    $final_md .= $section->md . "\n\n";
-                    if ($section->title) {
-                        $final_meta['title'] = $section->title;
-                    }
-                    if ($section->category) {
-                        $final_meta['category'] = $section->category;
-                    }
-                    if ($section->subcategory) {
-                        $final_meta['subcategory'] = $section->subcategory;
-                    }
-                    if ($section->tags_json) {
-                        $final_meta['tags'] = json_decode($section->tags_json, true);
-                    }
-                }
-            }
+            $payload = $this->buildEffectiveDocumentPayload($post_id, $doc_id, $sections, true);
+            $final_md = $payload['markdown'];
+            $final_meta = $payload['metadata'];
 
             // Calculate effective hash
             $effective_hash = hash('sha256', $final_md . wp_json_encode($final_meta));
@@ -1884,44 +2021,9 @@ class Admin
             ];
         }
 
-        // Build final document with overrides
-        $final_md = '';
-        $final_meta = [];
-
-        foreach ($sections as $section) {
-            if ($section->mode === 'exclude') {
-                continue;
-            }
-
-            // Check for override
-            $override = $this->overrides->get($post_id, $doc_id, $section->section_id);
-
-            if ($override && $override->locked) {
-                // Use override
-                $final_md .= $override->override_md . "\n\n";
-
-                if ($override->override_meta_json) {
-                    $override_meta = json_decode($override->override_meta_json, true);
-                    $final_meta = array_merge($final_meta, $override_meta);
-                }
-            } else {
-                // Use generated
-                $final_md .= $section->md . "\n\n";
-
-                if ($section->title) {
-                    $final_meta['title'] = $section->title;
-                }
-                if ($section->category) {
-                    $final_meta['category'] = $section->category;
-                }
-                if ($section->subcategory) {
-                    $final_meta['subcategory'] = $section->subcategory;
-                }
-                if ($section->tags_json) {
-                    $final_meta['tags'] = json_decode($section->tags_json, true);
-                }
-            }
-        }
+        $payload = $this->buildEffectiveDocumentPayload($post_id, $doc_id, $sections);
+        $final_md = $payload['markdown'];
+        $final_meta = $payload['metadata'];
 
         // Calculate effective hash
         $effective_hash = hash('sha256', $final_md . wp_json_encode($final_meta));
@@ -1996,49 +2098,71 @@ class Admin
      */
     public function restDeriveMetadataFromSources(\WP_REST_Request $request): \WP_REST_Response
     {
-        global $wpdb;
-        $generated_table = $wpdb->prefix . 'smartcloud_ai_kit_kb_generated';
-
-        // Collect all unique categories, subcategories, and tags from generated sections
-        $results = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->prepare(
-                'SELECT DISTINCT category, subcategory, tags_json 
-                 FROM %i
-                 WHERE category IS NOT NULL OR subcategory IS NOT NULL OR tags_json IS NOT NULL
-                 ORDER BY category, subcategory',
-                $generated_table
-            )
-        );
-
         $categories = [];
         $tags_set = [];
+        $sources = $this->sources->getAllEnabled();
+        $analyzed_sections = 0;
 
-        foreach ($results as $row) {
-            if (!empty($row->category)) {
-                $cat = $row->category;
-                if (!isset($categories[$cat])) {
-                    $categories[$cat] = [];
+        foreach ($sources as $source) {
+            $sections = $this->generated->getByPost((int) $source->post_id);
+
+            foreach ($sections as $section) {
+                if (($section->mode ?? 'inherit') === 'exclude') {
+                    continue;
                 }
 
-                if (!empty($row->subcategory)) {
-                    $subcat = $row->subcategory;
-                    if (!in_array($subcat, $categories[$cat])) {
-                        $categories[$cat][] = $subcat;
+                $override = $this->overrides->get(
+                    (int) $source->post_id,
+                    (string) $section->doc_id,
+                    (string) $section->section_id
+                );
+                $metadata = $this->getEffectiveSectionMetadata($section, $override);
+
+                $category = isset($metadata['category']) && is_string($metadata['category'])
+                    ? trim($metadata['category'])
+                    : '';
+                $subcategory = isset($metadata['subcategory']) && is_string($metadata['subcategory'])
+                    ? trim($metadata['subcategory'])
+                    : '';
+                $tags = is_array($metadata['tags'] ?? null) ? $metadata['tags'] : [];
+
+                if ($category !== '') {
+                    if (!isset($categories[$category])) {
+                        $categories[$category] = [];
+                    }
+
+                    if ($subcategory !== '' && !in_array($subcategory, $categories[$category], true)) {
+                        $categories[$category][] = $subcategory;
                     }
                 }
-            }
 
-            if (!empty($row->tags_json)) {
-                $tags = json_decode($row->tags_json, true);
-                if (is_array($tags)) {
-                    foreach ($tags as $tag) {
-                        $tags_set[$tag] = true;
+                foreach ($tags as $tag) {
+                    if (!is_string($tag)) {
+                        continue;
                     }
+
+                    $normalized_tag = trim($tag);
+                    if ($normalized_tag === '') {
+                        continue;
+                    }
+
+                    $tags_set[$normalized_tag] = true;
+                }
+
+                if ($category !== '' || $subcategory !== '' || !empty($tags)) {
+                    $analyzed_sections++;
                 }
             }
         }
 
+        ksort($categories, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach ($categories as &$subcategories) {
+            sort($subcategories, SORT_NATURAL | SORT_FLAG_CASE);
+        }
+        unset($subcategories);
+
         // Build YAML structure
+        $yaml_lines = [];
         $yaml_lines[] = 'allowedCategories:';
 
         foreach ($categories as $category => $subcategories) {
@@ -2055,7 +2179,7 @@ class Admin
         $yaml_lines[] = 'allowedTags:';
         if (!empty($tags_set)) {
             $tags_array = array_keys($tags_set);
-            sort($tags_array);
+            usort($tags_array, 'strnatcasecmp');
             foreach ($tags_array as $tag) {
                 $yaml_lines[] = "  - {$tag}";
             }
@@ -2074,7 +2198,7 @@ class Admin
             'stats' => [
                 'categories' => count($categories),
                 'tags' => count($tags_set),
-                'total_sections_analyzed' => count($results)
+                'total_sections_analyzed' => $analyzed_sections
             ]
         ], 200);
     }
@@ -2127,13 +2251,13 @@ class Admin
     public function enqueueQuickEditScript(string $hook): void
     {
         // Only load on post list screens
-        if (!in_array($hook, ['edit.php'])) {
+        if (!in_array($hook, ['edit.php'], true)) {
             return;
         }
 
         // Check if we're on a supported post type
         $screen = get_current_screen();
-        if (!$screen || !in_array($screen->post_type, ['post', 'page'])) {
+        if (!$screen || !$this->isKbAdminListPostType((string) $screen->post_type)) {
             return;
         }
 
@@ -2163,7 +2287,7 @@ class Admin
             return;
         }
 
-        if (!in_array($post_type, ['post', 'page'])) {
+        if (!$this->isKbAdminListPostType($post_type)) {
             return;
         }
 
@@ -2192,7 +2316,7 @@ class Admin
             return;
         }
 
-        if (!in_array($post_type, ['post', 'page'])) {
+        if (!$this->isKbAdminListPostType($post_type)) {
             return;
         }
 
@@ -2236,6 +2360,10 @@ class Admin
         foreach ($post_ids as $post_id) {
             $post = get_post($post_id);
             if (!$post) {
+                continue;
+            }
+
+            if (!$this->isKbAdminListPostType($post->post_type)) {
                 continue;
             }
 

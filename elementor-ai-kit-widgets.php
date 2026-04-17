@@ -86,6 +86,7 @@ abstract class AiKit_Base_Widget extends \Elementor\Widget_Base
         ];
 
         self::$LANGUAGES = [
+            'system' => __('System', 'smartcloud-ai-kit'),
             'ar' => __('Arabic', 'smartcloud-ai-kit'),
             'zh' => __('Chinese', 'smartcloud-ai-kit'),
             'nl' => __('Dutch', 'smartcloud-ai-kit'),
@@ -212,7 +213,7 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
             'label' => __('Editable', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::SWITCHER,
             'return_value' => 'true',
-            'default' => 'true',
+            'default' => '',
         ]);
 
         $this->add_control('autoRun', [
@@ -452,7 +453,7 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
             'label' => __('Language', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::SELECT,
             'options' => self::$LANGUAGES,
-            'default' => 'en',
+            'default' => 'system',
         ]);
 
         $this->add_control('direction', [
@@ -519,7 +520,7 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
             'label' => __('Color Mode', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::SELECT,
             'options' => self::$COLOR_MODES,
-            'default' => 'auto',
+            'default' => 'light',
         ]);
 
         $this->add_control('primaryColor', [
@@ -803,6 +804,7 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'label' => __('Auto Run', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::SWITCHER,
             'return_value' => 'true',
+            'default' => 'true',
         ]);
 
         $this->add_control('title', [
@@ -933,14 +935,14 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'label' => __('Color Mode', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::SELECT,
             'options' => self::$COLOR_MODES,
-            'default' => 'auto',
+            'default' => 'light',
         ]);
 
         $this->add_control('language', [
             'label' => __('Language', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::SELECT,
             'options' => self::$LANGUAGES,
-            'default' => 'en',
+            'default' => 'system',
         ]);
 
         $this->add_control('direction', [

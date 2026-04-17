@@ -1,4 +1,5 @@
 const defaultConfig = require("@wordpress/scripts/config/webpack.config");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const MonacoWebpackPlugin = require("monaco-editor-webpack-plugin");
 const webpack = require("webpack");
 const path = require("path");
@@ -26,6 +27,10 @@ function getStyleChunkName(chunks, cacheGroupKey) {
 }
 
 module.exports = function () {
+  const miniCssExtractPlugin = defaultConfig.plugins.find(
+    (plugin) => plugin.constructor.name === "MiniCssExtractPlugin",
+  );
+
   const config = {
     ...defaultConfig,
     entry: {
@@ -76,8 +81,18 @@ module.exports = function () {
     },
     plugins: [
       ...defaultConfig.plugins.filter(
-        (plugin) => plugin.constructor.name !== "RtlCssPlugin"
+        (plugin) =>
+          plugin.constructor.name !== "RtlCssPlugin" &&
+          plugin.constructor.name !== "MiniCssExtractPlugin",
       ),
+      ...(miniCssExtractPlugin
+        ? [
+          new MiniCssExtractPlugin({
+            ...miniCssExtractPlugin.options,
+            ignoreOrder: true,
+          }),
+        ]
+        : []),
       new MonacoWebpackPlugin({
         languages: ["json"],
         features: [],

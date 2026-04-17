@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.2.11
+ * Version:           1.2.12
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.2.11';
+const VERSION = '1.2.12';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -528,7 +528,7 @@ __aikitGlobal.WpSuite.constants.aiKit = {
 
         $attribute_defaults = array(
             'mode' => null,
-            'editable' => null,
+            'editable' => false,
             'autoRun' => null,
             'onDeviceTimeout' => null,
             'default' => null,
@@ -575,13 +575,11 @@ __aikitGlobal.WpSuite.constants.aiKit = {
      * Supported attributes (shortcode keys are case-insensitive; kebab_case / snake_case variants also work):
      * - variation (default: "default")
      * - title
-     * - placeholder
      * - showOpenButton
      * - openButtonTitle
      * - showOpenButtonTitle
      * - openButtonIcon
      * - showOpenButtonIcon
-     * - searchButtonTitle
      * - showSearchButtonTitle
      * - searchButtonIcon (base64-encoded image data URI)
      * - showSearchButtonIcon
@@ -589,7 +587,9 @@ __aikitGlobal.WpSuite.constants.aiKit = {
      * - direction (default: "auto")
      * - colorMode (default: "light")
      * - primaryColor
-     * - themeOverrides (JSON string or array depending on usage)
+     * - themeOverrides
+     * - topK
+     * - snippetMaxChars
      *
      * Optional content: mini-YAML (same as the blocks) which will be passed as configB64.
      */
