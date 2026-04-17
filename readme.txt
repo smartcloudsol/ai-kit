@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.12
+Stable tag: 1.2.13
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,12 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.2.13 =
+* Feature: Extended the KB admin editing UI for generated documents and sections.
+* Feature: Base document metadata can now be overridden even for automatically enabled KB sources that do not have a dedicated KB Section override.
+* Feature: The document title used in the Knowledge Base can now also be overridden from the admin UI.
+* UX: Makes it easier to refine generated KB classification and naming without requiring a separate section-level override.
+
 = 1.2.12 =
 * Fix: Improved Elementor widget parameter handling for more reliable widget configuration and rendering.
 * Fix: Added missing frontend translations to complete the user-facing UI in more cases.
@@ -331,6 +337,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.2.13 =
+Improves the KB admin editor for generated content. You can now override base document metadata and the Knowledge Base document title even for automatically enabled KB sources that do not have a dedicated KB Section override.
 
 = 1.2.12 =
 Recommended update. Improves Elementor widget parameter handling and fills in missing frontend translations for a more complete and reliable user experience.
