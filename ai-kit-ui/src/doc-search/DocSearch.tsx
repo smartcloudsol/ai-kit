@@ -19,6 +19,7 @@ import {
 import {
   AiKitDocSearchIcon,
   CapabilityDecision,
+  type ContextKind,
   dispatchBackend,
   resolveBackend,
   sendSearchMessage,
@@ -51,7 +52,74 @@ I18n.putVocabularies(translations);
 
 type Props = DocSearchProps & AiKitShellInjectedProps;
 
+type MetadataOptions = {
+  allowedCategories: Record<string, string[]>;
+  allowedTags: string[];
+};
+
+const metadataOptionsCache = new Map<string, MetadataOptions>();
+const metadataOptionsRequestCache = new Map<string, Promise<MetadataOptions>>();
+
 const USE_AUDIO = false; // Set to true to enable audio recording feature (requires backend support for audio input)
+
+async function loadMetadataOptionsFromBackend(
+  context: ContextKind,
+): Promise<MetadataOptions> {
+  const cached = metadataOptionsCache.get(context);
+  if (cached) {
+    return cached;
+  }
+
+  const inFlight = metadataOptionsRequestCache.get(context);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const request = (async () => {
+    const backend = await resolveBackend();
+
+    if (!backend.available) {
+      throw new Error("Backend not available for metadata options");
+    }
+
+    const decision: CapabilityDecision = {
+      feature: "prompt",
+      source: "backend",
+      mode: "backend-only",
+      onDeviceAvailable: false,
+      backendAvailable: backend.available,
+      backendTransport: backend.transport,
+      backendApiName: backend.apiName,
+      backendBaseUrl: backend.baseUrl,
+      reason: backend.reason ?? "",
+    };
+
+    const data = (await dispatchBackend(
+      decision,
+      context,
+      "/kb/metadata-options",
+      "GET",
+      null,
+      {},
+    )) as MetadataOptions;
+
+    const normalized: MetadataOptions = {
+      allowedCategories: data.allowedCategories || {},
+      allowedTags: data.allowedTags || [],
+    };
+
+    metadataOptionsCache.set(context, normalized);
+    return normalized;
+  })();
+
+  metadataOptionsRequestCache.set(context, request);
+
+  try {
+    return await request;
+  } finally {
+    metadataOptionsRequestCache.delete(context);
+  }
+}
 
 function groupChunksByDoc(result: SearchResult | null) {
   const docs = result?.citations?.docs ?? [];
@@ -157,10 +225,8 @@ const DocSearchBase: FC<Props> = (props) => {
   );
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagSearchValue, setTagSearchValue] = useState<string>("");
-  const [metadataOptions, setMetadataOptions] = useState<{
-    allowedCategories: Record<string, string[]>;
-    allowedTags: string[];
-  } | null>(null);
+  const [metadataOptions, setMetadataOptions] =
+    useState<MetadataOptions | null>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -351,6 +417,8 @@ const DocSearchBase: FC<Props> = (props) => {
   useEffect(() => {
     if (!enableUserFilters) return;
 
+    if (showOpenButton && !featureOpen) return;
+
     // Use provided options if available
     if (availableCategories || availableTags) {
       setMetadataOptions({
@@ -362,43 +430,14 @@ const DocSearchBase: FC<Props> = (props) => {
 
     // Otherwise fetch from backend
     const loadMetadata = async () => {
+      const effectiveContext: ContextKind =
+        context === "admin" ? "admin" : "frontend";
+
       setLoadingMetadata(true);
       try {
-        const backend = await resolveBackend();
+        const data = await loadMetadataOptionsFromBackend(effectiveContext);
 
-        if (!backend.available) {
-          console.error("Backend not available for metadata options");
-          return;
-        }
-
-        const decision: CapabilityDecision = {
-          feature: "prompt",
-          source: "backend",
-          mode: "backend-only",
-          onDeviceAvailable: false,
-          backendAvailable: backend.available,
-          backendTransport: backend.transport,
-          backendApiName: backend.apiName,
-          backendBaseUrl: backend.baseUrl,
-          reason: backend.reason ?? "",
-        };
-
-        const data = (await dispatchBackend(
-          decision,
-          context ?? "frontend",
-          "/kb/metadata-options",
-          "GET",
-          null,
-          {},
-        )) as {
-          allowedCategories: Record<string, string[]>;
-          allowedTags: string[];
-        };
-
-        setMetadataOptions({
-          allowedCategories: data.allowedCategories || {},
-          allowedTags: data.allowedTags || [],
-        });
+        setMetadataOptions(data);
       } catch (error) {
         console.error("Failed to load metadata options:", error);
       } finally {
@@ -407,7 +446,14 @@ const DocSearchBase: FC<Props> = (props) => {
     };
 
     void loadMetadata();
-  }, [enableUserFilters, availableCategories, availableTags, context]);
+  }, [
+    enableUserFilters,
+    availableCategories,
+    availableTags,
+    context,
+    featureOpen,
+    showOpenButton,
+  ]);
 
   const onSearch = useCallback(async () => {
     let q: string | undefined;

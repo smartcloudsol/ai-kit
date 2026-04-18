@@ -1,5 +1,5 @@
 import * as _smart_cloud_ai_kit_core from '@smart-cloud/ai-kit-core';
-import { AiModePreference, HistoryStorageMode, AiChatbotLabels, AiKitStatusEvent, AiKitLanguageCode, AiWorkerProps } from '@smart-cloud/ai-kit-core';
+import { AiModePreference, HistoryStorageMode, AiChatbotLabels, ContextKind, AiKitStatusEvent, AiKitLanguageCode, AiWorkerProps } from '@smart-cloud/ai-kit-core';
 import * as React from 'react';
 import React__default, { FC, ComponentType } from 'react';
 
@@ -47,7 +47,7 @@ declare const AiChatbot: React__default.FC<_smart_cloud_ai_kit_core.AiWorkerProp
 } & Partial<_smart_cloud_ai_kit_core.AiWorkerProps>>;
 
 declare const DocSearch: FC<_smart_cloud_ai_kit_core.AiWorkerProps & {
-    context?: _smart_cloud_ai_kit_core.ContextKind;
+    context?: ContextKind;
     autoRun?: boolean;
     title?: string;
     getSearchText?: () => string;
