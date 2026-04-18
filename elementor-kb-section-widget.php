@@ -119,6 +119,21 @@ class ElementorKBSectionWidget
         );
 
         $element->add_control(
+            'kb_post_url',
+            [
+                'label' => __('Source URL', 'smartcloud-ai-kit'),
+                'type' => \Elementor\Controls_Manager::URL,
+                'placeholder' => ['url' => 'https://example.com/custom-page'],
+                'description' => __('Optional URL stored in document metadata. Leave empty so separate documents can inherit the base document URL.', 'smartcloud-ai-kit'),
+                'show_external' => false,
+                'condition' => [
+                    'kb_enabled' => 'yes',
+                    'kb_mode' => 'separate_doc',
+                ],
+            ]
+        );
+
+        $element->add_control(
             'kb_section_key',
             [
                 'label' => __('Section Key', 'smartcloud-ai-kit'),

@@ -1146,6 +1146,9 @@ class Admin
         if (is_array($extra_meta) && !empty($extra_meta['description']) && is_string($extra_meta['description'])) {
             $metadata['description'] = $extra_meta['description'];
         }
+        if (is_array($extra_meta) && !empty($extra_meta['postUrl']) && is_string($extra_meta['postUrl'])) {
+            $metadata['postUrl'] = $extra_meta['postUrl'];
+        }
         if ($section->category) {
             $metadata['category'] = $section->category;
         }

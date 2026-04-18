@@ -315,6 +315,10 @@ class Parser
                 'md' => $this->converter->blocksToMarkdown($base_content_blocks),
                 'generated_at' => current_time('mysql'),
                 'source_updated_at' => $post->post_modified,
+                'extra_meta' => [
+                    'description' => $this->getPostDescription($post),
+                    'postUrl' => $this->getPostUrl($post),
+                ],
             ];
 
             $base_section['origin_hash'] = $this->calculateOriginHash($base_section);
@@ -343,6 +347,7 @@ class Parser
         $doc_key = $attrs['docKey'] ?? null;
         $title = $attrs['title'] ?? null;
         $description = $attrs['description'] ?? null;
+        $post_url = $attrs['postUrl'] ?? null;
         $tags = $attrs['tags'] ?? null;
         $category = $attrs['category'] ?? null;
         $subcategory = $attrs['subcategory'] ?? null;
@@ -381,6 +386,7 @@ class Parser
             'extra_meta' => [
                 'block_type' => 'gutenberg',
                 'description' => $description,
+                'postUrl' => $post_url,
                 'priority' => $priority,
             ],
         ];
@@ -416,6 +422,7 @@ class Parser
             'source_updated_at' => $post->post_modified,
             'extra_meta' => [
                 'description' => $this->getPostDescription($post),
+                'postUrl' => $this->getPostUrl($post),
             ],
         ];
 
@@ -588,6 +595,7 @@ class Parser
                 'source_updated_at' => $post->post_modified,
                 'extra_meta' => [
                     'description' => $this->getPostDescription($post),
+                    'postUrl' => $this->getPostUrl($post),
                     'source_type' => 'elementor',
                 ],
             ];
@@ -679,6 +687,7 @@ class Parser
         $doc_key = $settings['kb_doc_key'] ?? null;
         $doc_title = $settings['kb_doc_title'] ?? null;
         $doc_description = $settings['kb_doc_description'] ?? null;
+        $doc_post_url = $settings['kb_post_url']['url'] ?? null;
         $title = $settings['kb_title'] ?? null;
         $category = $settings['kb_category'] ?? null;
         $subcategory = $settings['kb_subcategory'] ?? null;
@@ -733,6 +742,7 @@ class Parser
             'source_updated_at' => $post->post_modified,
             'extra_meta' => [
                 'description' => $doc_description,
+                'postUrl' => $doc_post_url,
                 'source_type' => 'elementor',
                 'priority' => $priority,
             ],
@@ -853,6 +863,7 @@ class Parser
             'source_updated_at' => $post->post_modified,
             'extra_meta' => [
                 'description' => $this->getPostDescription($post),
+                'postUrl' => $this->getPostUrl($post),
                 'source_type' => 'elementor',
             ],
         ];
@@ -900,6 +911,7 @@ class Parser
             'source_updated_at' => $post->post_modified,
             'extra_meta' => [
                 'description' => $this->getPostDescription($post),
+                'postUrl' => $this->getPostUrl($post),
             ],
         ];
 
@@ -966,6 +978,16 @@ class Parser
         $description = trim((string) $description);
 
         return $description !== '' ? $description : null;
+    }
+
+    /**
+     * Get the canonical post URL when available.
+     */
+    private function getPostUrl(\WP_Post $post): ?string
+    {
+        $url = get_permalink($post);
+
+        return is_string($url) && $url !== '' ? $url : null;
     }
 
     /**

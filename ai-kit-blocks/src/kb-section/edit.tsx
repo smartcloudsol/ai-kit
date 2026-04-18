@@ -20,6 +20,7 @@ interface EditProps {
     docKey?: string;
     title?: string;
     description?: string;
+    postUrl?: string;
     tags?: string[];
     category?: string;
     subcategory?: string;
@@ -41,6 +42,7 @@ export default function Edit({
     docKey,
     title,
     description,
+    postUrl,
     tags,
     category,
     subcategory,
@@ -152,6 +154,16 @@ export default function Edit({
                   "Short summary shown in Doc Search results...",
                   "smartcloud-ai-kit",
                 )}
+              />
+              <TextControl
+                label={__("Source URL", "smartcloud-ai-kit")}
+                value={postUrl || ""}
+                onChange={(value: string) => setAttributes({ postUrl: value })}
+                help={__(
+                  "Optional URL stored in document metadata. Leave empty so separate documents can inherit the base document URL.",
+                  "smartcloud-ai-kit",
+                )}
+                placeholder="https://example.com/custom-page"
               />
             </>
           )}
