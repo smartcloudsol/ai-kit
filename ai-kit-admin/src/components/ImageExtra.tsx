@@ -1,7 +1,7 @@
 import { TEXT_DOMAIN } from "@smart-cloud/ai-kit-core";
 import apiFetch from "@wordpress/api-fetch";
 import { InspectorControls } from "@wordpress/block-editor";
-import { BlockInstance, type BlockEditProps } from "@wordpress/blocks";
+import { type BlockEditProps } from "@wordpress/blocks";
 import { PanelBody } from "@wordpress/components";
 import { createHigherOrderComponent } from "@wordpress/compose";
 import { select } from "@wordpress/data";
@@ -26,6 +26,16 @@ type BlockSettings = {
   [k: string]: unknown;
 };
 
+type EditorBlockInstance = {
+  attributes: Record<string, unknown>;
+  innerBlocks?: EditorBlockInstance[];
+};
+
+type RegisterBlockSettings = {
+  attributes?: Record<string, unknown>;
+  [k: string]: unknown;
+};
+
 // --- 1) InspectorControls panel ---
 
 function stripHtml(s: string): string {
@@ -35,9 +45,7 @@ function stripHtml(s: string): string {
 const withInspectorControls = createHigherOrderComponent(
   (BlockEdit: React.ComponentType<BlockEditProps<BlockSettings>>) => {
     function findInnerImageId(
-      block: BlockInstance<{
-        [k: string]: unknown;
-      }> | null,
+      block: EditorBlockInstance | null | undefined,
     ): number | undefined {
       if (!block) return undefined;
       // közvetlen id / mediaId
@@ -172,7 +180,7 @@ addFilter(
 addFilter(
   "blocks.registerBlockType",
   TEXT_DOMAIN + "/image-extra/extend-attrs",
-  (settings: BlockInstance["attributes"], name: string) => {
+  (settings: RegisterBlockSettings, name: string) => {
     if (!["core/image", "core/cover", "core/media-text"].includes(name))
       return settings;
 

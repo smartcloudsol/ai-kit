@@ -1,10 +1,12 @@
 {
   "name": "@smart-cloud/ai-kit-main",
-  "version": "1.4.9",
+  "version": "1.4.10",
   "type": "module",
   "license": "ISC",
   "scripts": {
-    "build": "tsup --minify",
+    "build": "yarn build:js && yarn build:types",
+    "build:js": "tsup --minify",
+    "build:types": "tsc -p tsconfig.types.json",
     "lint": "eslint 'src/**/*.{ts,tsx}' --report-unused-disable-directives --max-warnings 0",
     "build-wp": "wp-scripts build --config=webpack.config.cjs --webpack-copy-php --output-path",
     "format": "wp-scripts format",
@@ -16,33 +18,33 @@
     "check-licenses": "wp-scripts check-licenses --prod"
   },
   "dependencies": {
-    "@smart-cloud/ai-kit-core": "^1.4.7",
-    "@smart-cloud/ai-kit-ui": "^1.4.12",
-    "@smart-cloud/wpsuite-core": "^2.2.10"
+    "@smart-cloud/ai-kit-core": "^1.4.9",
+    "@smart-cloud/ai-kit-ui": "^1.4.14",
+    "@smart-cloud/wpsuite-core": "^2.2.11"
   },
   "peerDependencies": {
-    "@wordpress/data": "^10.41.0",
+    "@wordpress/data": "^10.44.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/dom-chromium-ai": "^0.0.15",
+    "@types/dom-chromium-ai": "^0.0.16",
     "@types/jquery": "^4.0.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@typescript-eslint/eslint-plugin": "^8.57.0",
-    "@typescript-eslint/parser": "^8.57.0",
-    "@wordpress/data": "^10.41.0",
-    "@wordpress/scripts": "^31.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
+    "@wordpress/data": "^10.44.0",
+    "@wordpress/scripts": "^32.0.0",
     "ajv": "^8.18.0",
-    "eslint": "^10.0.3",
-    "globals": "^17.4.0",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0",
     "jquery": "^4.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.0"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.58.2"
   }
 }

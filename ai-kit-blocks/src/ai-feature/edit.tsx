@@ -57,7 +57,7 @@ export interface EditorBlock {
   innerBlocks: EditorBlock[];
 }
 
-export interface EditorBlockProps {
+export type EditorBlockProps = {
   inputSelector?: string;
   outputSelector?: string;
   mode?: AiFeatureMode;
@@ -101,7 +101,7 @@ export interface EditorBlockProps {
   uid?: string;
   themeOverrides?: string;
   onDeviceTimeout?: number;
-}
+} & Record<string, unknown>;
 
 const Divider = () => (
   <div style={{ borderTop: "1px solid #ddd", margin: "12px 0" }} />

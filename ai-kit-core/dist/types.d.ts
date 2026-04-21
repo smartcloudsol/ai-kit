@@ -1,80 +1,17 @@
-import { SubscriptionType, WpSuitePluginBase } from '@smart-cloud/wpsuite-core';
-import { StoreDescriptor } from '@wordpress/data';
-
-interface AiKitConfig {
-    mode?: AiModePreference;
-    backendTransport?: BackendTransport;
-    backendApiName?: string;
-    backendBaseUrl?: string;
-    subscriptionType?: SubscriptionType;
-    enableChatbot?: boolean;
-    chatbot?: AiChatbotProps;
-}
-/**
- * Ensures we only keep runtime keys that are part of AiKitConfig.
- *
- * Defensive: upstream getConfig("ai-kit") or persisted site.settings may include
- * additional keys, but the admin UI and core should only operate on AiKitConfig.
- */
-declare const sanitizeAiKitConfig: (input: unknown) => AiKitConfig;
-declare const actions: {
-    setShowChatbotPreview(showChatbotPreview: boolean): {
-        type: string;
-        showChatbotPreview: boolean;
-    };
-    setLanguage(language: string | undefined | null): {
-        type: string;
-        language: string | null | undefined;
-    };
-    setDirection(direction: "ltr" | "rtl" | "auto" | undefined | null): {
-        type: string;
-        direction: "ltr" | "rtl" | "auto" | null | undefined;
-    };
-    setConfig: (config: AiKitConfig) => {
-        type: "SET_CONFIG";
-        config: AiKitConfig;
-    };
-};
-interface CustomTranslations {
-    [key: string]: Record<string, string>;
-}
-interface State {
-    config: AiKitConfig | null;
-    showChatbotPreview: boolean;
-    language: string | undefined | null;
-    direction: "ltr" | "rtl" | "auto" | undefined | null;
-    customTranslations: CustomTranslations | null;
-}
-type Store = StoreDescriptor;
-type StoreSelectors = {
-    getConfig(): AiKitConfig | null;
-    isShowChatbotPreview(): boolean;
-    getCustomTranslations(): CustomTranslations | null;
-    getLanguage(): string | undefined | null;
-    getDirection(): "ltr" | "rtl" | "auto" | undefined | null;
-    getState(): State;
-};
-type StoreActions = Omit<typeof actions, "setConfig"> & {
-    setConfig?: typeof actions.setConfig;
-};
-declare const getStoreDispatch: (store: Store) => Omit<StoreActions, "setConfig">;
-declare const getStoreSelect: (store: Store) => StoreSelectors;
-declare const reloadConfig: (store: Store) => Promise<void>;
-declare const observeStore: (observableStore: Store, selector: (state: State) => boolean | number | string | null | undefined, onChange: (nextValue: boolean | number | string | null | undefined, previousValue: boolean | number | string | null | undefined) => void) => () => void;
-
-type ContextKind = "admin" | "frontend";
-type AiModePreference = "local-only" | "backend-fallback" | "backend-only";
-type BuiltInAiFeature = "prompt" | "summarizer" | "writer" | "rewriter" | "proofreader" | "language-detector" | "translator";
-type CapabilitySource = "on-device" | "backend" | "none";
-type BackendTransport = "gatey" | "fetch";
-interface AiKit {
+import { Store } from "./store";
+export type ContextKind = "admin" | "frontend";
+export type AiModePreference = "local-only" | "backend-fallback" | "backend-only";
+export type BuiltInAiFeature = "prompt" | "summarizer" | "writer" | "rewriter" | "proofreader" | "language-detector" | "translator";
+export type CapabilitySource = "on-device" | "backend" | "none";
+export type BackendTransport = "gatey" | "fetch";
+export interface AiKit {
     features: AiKitFeatures;
     settings: AiKitSettings;
     nonce: string;
     restUrl: string;
     view: "settings" | "diagnostics";
 }
-interface AiKitFeatures {
+export interface AiKitFeatures {
     readonly store: Promise<Store>;
     readonly write: Features["write"];
     readonly rewrite: Features["rewrite"];
@@ -89,7 +26,7 @@ interface AiKitFeatures {
     readonly renderFeature: (args: AiFeatureArgs) => Promise<AiWorkerHandle>;
     readonly renderSearchComponent: (args: DocSearchArgs) => Promise<AiWorkerHandle>;
 }
-interface AiKitSettings {
+export interface AiKitSettings {
     /**
      * Context injected into supported Chrome APIs (Writer/Rewriter/Summarizer) and/or backend.
      */
@@ -108,13 +45,13 @@ interface AiKitSettings {
     /** Whether to enable server-side debug logging for AI-Kit. */
     debugLoggingEnabled?: boolean;
 }
-interface DeviceAvailability {
+export interface DeviceAvailability {
     available: boolean;
     status?: Availability | "api-not-present" | "unknown-feature" | "error";
     reason?: string;
     error?: Error;
 }
-interface CapabilityDecision {
+export interface CapabilityDecision {
     feature: BuiltInAiFeature;
     source: CapabilitySource;
     mode: AiModePreference;
@@ -128,7 +65,7 @@ interface CapabilityDecision {
     backendReason?: string;
     reason: string;
 }
-interface BackendCallOptions {
+export interface BackendCallOptions {
     signal?: AbortSignal;
     headers?: Record<string, string>;
     query?: Record<string, string | number | boolean>;
@@ -137,12 +74,12 @@ interface BackendCallOptions {
      */
     onStatus?: (event: AiKitStatusEvent) => void;
 }
-type AiKitLanguageCode = "ar" | "en" | "zh" | "nl" | "fr" | "de" | "he" | "hi" | "hu" | "id" | "it" | "ja" | "ko" | "no" | "pl" | "pt" | "ru" | "es" | "sv" | "th" | "tr" | "uk";
-type AiKitLanguageRef = "site" | "admin" | "content" | AiKitLanguageCode;
-type AiKitLanguageProfile = "singleSite" | "englishAdminSingleFrontend" | "multilingual" | "custom";
-type OnDeviceUnsupportedLanguageStrategy = "prefer-backend" | "pivot-translate";
-type AiKitStatusStep = "decide" | "on-device:init" | "on-device:download" | "on-device:ready" | "on-device:run" | "backend:request" | "backend:waiting" | "backend:response" | "done" | "error";
-interface AiKitStatusEvent {
+export type AiKitLanguageCode = "ar" | "en" | "zh" | "nl" | "fr" | "de" | "he" | "hi" | "hu" | "id" | "it" | "ja" | "ko" | "no" | "pl" | "pt" | "ru" | "es" | "sv" | "th" | "tr" | "uk";
+export type AiKitLanguageRef = "site" | "admin" | "content" | AiKitLanguageCode;
+export type AiKitLanguageProfile = "singleSite" | "englishAdminSingleFrontend" | "multilingual" | "custom";
+export type OnDeviceUnsupportedLanguageStrategy = "prefer-backend" | "pivot-translate";
+export type AiKitStatusStep = "decide" | "on-device:init" | "on-device:download" | "on-device:ready" | "on-device:run" | "backend:request" | "backend:waiting" | "backend:response" | "done" | "error";
+export interface AiKitStatusEvent {
     feature: BuiltInAiFeature;
     context: ContextKind;
     step: AiKitStatusStep;
@@ -155,21 +92,21 @@ interface AiKitStatusEvent {
     message?: string;
     silent?: boolean;
 }
-declare class BackendError extends Error {
+export declare class BackendError extends Error {
     readonly decision?: CapabilityDecision | undefined;
     readonly status?: number | undefined;
     constructor(message: string, decision?: CapabilityDecision | undefined, status?: number | undefined);
 }
-type AiWorkerHandle = {
+export type AiWorkerHandle = {
     container: HTMLDivElement;
     close: () => void;
     unmount: () => void;
 };
-type AiFeatureArgs = AiFeatureProps & {
+export type AiFeatureArgs = AiFeatureProps & {
     target?: string | HTMLElement;
 };
-type AiFeatureMode = "proofread" | "translate" | "write" | "rewrite" | "summarize" | "generatePostMetadata" | "generateImageMetadata";
-type AiWorkerProps = {
+export type AiFeatureMode = "proofread" | "translate" | "write" | "rewrite" | "summarize" | "generatePostMetadata" | "generateImageMetadata";
+export type AiWorkerProps = {
     store: Store;
     variation?: "default" | "modal";
     language?: string;
@@ -190,10 +127,10 @@ type AiWorkerProps = {
     title?: string;
     onClose: () => void;
 };
-type HistoryStorageMode = "localstorage" | "sessionstorage" | "nostorage";
-type OpenButtonIconLayout = "top" | "bottom" | "left" | "right";
-type OpenButtonPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
-type AiChatbotLabels = Partial<{
+export type HistoryStorageMode = "localstorage" | "sessionstorage" | "nostorage";
+export type OpenButtonIconLayout = "top" | "bottom" | "left" | "right";
+export type OpenButtonPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
+export type AiChatbotLabels = Partial<{
     modalTitle: string;
     userLabel: string;
     assistantLabel: string;
@@ -222,7 +159,7 @@ type AiChatbotLabels = Partial<{
     emptyResponseLabel: string;
     unexpectedErrorLabel: string;
 }>;
-type AiChatbotProps = AiWorkerProps & {
+export type AiChatbotProps = AiWorkerProps & {
     context?: ContextKind;
     placeholder?: string;
     maxImages?: number;
@@ -255,7 +192,7 @@ type AiChatbotProps = AiWorkerProps & {
      */
     openButtonPosition?: OpenButtonPosition;
 };
-type AiFeatureOptions = {
+export type AiFeatureOptions = {
     text?: string;
     instructions?: string;
     inputLanguage?: AiKitLanguageCode | "auto";
@@ -265,7 +202,7 @@ type AiFeatureOptions = {
     type?: SummarizerType;
     outputFormat?: "plain-text" | "markdown" | "html";
 };
-type AiFeatureProps = AiWorkerProps & {
+export type AiFeatureProps = AiWorkerProps & {
     mode: AiFeatureMode;
     context?: ContextKind;
     modeOverride?: AiModePreference;
@@ -291,7 +228,7 @@ type AiFeatureProps = AiWorkerProps & {
     onAccept?: (result: unknown) => void;
     onOptionsChanged?: (options: AiFeatureOptions) => void;
 };
-interface SummarizeArgs {
+export interface SummarizeArgs {
     text: string;
     context?: string;
     sharedContext?: string;
@@ -300,10 +237,10 @@ interface SummarizeArgs {
     length?: SummarizerLength;
     outputLanguage?: AiKitLanguageCode;
 }
-interface SummarizeResult {
+export interface SummarizeResult {
     result: string;
 }
-interface WriteArgs {
+export interface WriteArgs {
     prompt: string;
     context?: string;
     sharedContext?: string;
@@ -312,10 +249,10 @@ interface WriteArgs {
     length?: WriterLength;
     outputLanguage?: AiKitLanguageCode;
 }
-interface WriteResult {
+export interface WriteResult {
     result: string;
 }
-interface RewriteArgs {
+export interface RewriteArgs {
     text: string;
     context?: string;
     sharedContext?: string;
@@ -324,10 +261,10 @@ interface RewriteArgs {
     length?: RewriterLength;
     outputLanguage?: AiKitLanguageCode;
 }
-interface RewriteResult {
+export interface RewriteResult {
     result: string;
 }
-interface ProofreadArgs {
+export interface ProofreadArgs {
     text: string;
     expectedInputLanguages?: AiKitLanguageCode[];
     includeCorrectionTypes?: boolean;
@@ -338,26 +275,26 @@ interface ProofreadArgs {
  * ProofreadResult is provided by dom-chromium-ai:
  *   interface ProofreadResult { correctedInput: string; corrections: ProofreadCorrection[] }
  */
-interface ProofreadOutput {
+export interface ProofreadOutput {
     result: ProofreadResult;
 }
-interface DetectLanguageArgs {
+export interface DetectLanguageArgs {
     text: string;
 }
-interface DetectLanguageOutput {
+export interface DetectLanguageOutput {
     result: {
         candidates: LanguageDetectionResult[];
     };
 }
-interface TranslateArgs {
+export interface TranslateArgs {
     text: string;
     sourceLanguage: AiKitLanguageCode;
     targetLanguage: AiKitLanguageCode;
 }
-interface TranslateResult {
+export interface TranslateResult {
     result: string;
 }
-type PromptMessages = Array<{
+export type PromptMessages = Array<{
     role: "system" | "user" | "assistant";
     content: string;
 }>;
@@ -365,16 +302,16 @@ type PromptMessages = Array<{
  * Visual inputs supported by Chrome Prompt API multimodal prompting.
  * Note: For backend uploads we only handle Blob/File inputs.
  */
-type PromptImageInput = Blob | File | HTMLImageElement | SVGImageElement | HTMLVideoElement | HTMLCanvasElement | OffscreenCanvas | ImageBitmap | VideoFrame | ImageData;
+export type PromptImageInput = Blob | File | HTMLImageElement | SVGImageElement | HTMLVideoElement | HTMLCanvasElement | OffscreenCanvas | ImageBitmap | VideoFrame | ImageData;
 /**
  * Audio input for multimodal prompting.
  * Backend supports base64-encoded audio with format specification.
  */
-type PromptAudioInput = {
+export type PromptAudioInput = {
     format: string;
     data: string;
 };
-interface PromptArgs {
+export interface PromptArgs {
     messages: PromptMessages;
     sharedContext?: string;
     outputLanguage?: AiKitLanguageCode;
@@ -405,26 +342,26 @@ interface PromptArgs {
     topK?: number;
     temperature?: number;
 }
-interface PromptResult {
+export interface PromptResult {
     result: string;
     sessionId?: string;
     metadata?: {
         messageId: string;
     };
 }
-interface RetrievedDoc {
+export interface RetrievedDoc {
     docId: string;
     title?: string;
     description?: string;
     author?: string;
     sourceUrl?: string;
 }
-interface RetrievedChunk {
+export interface RetrievedChunk {
     docId: string;
     chunkId: string;
     snippet?: string;
 }
-interface ProcessedCitations {
+export interface ProcessedCitations {
     docs: Array<RetrievedDoc>;
     chunks: Array<RetrievedChunk>;
     anchors?: Array<{
@@ -435,7 +372,7 @@ interface ProcessedCitations {
         chunkIds: Array<string>;
     }>;
 }
-interface SearchResult {
+export interface SearchResult {
     result: string;
     sessionId?: string;
     citations?: ProcessedCitations;
@@ -450,7 +387,7 @@ interface SearchResult {
         fallbackReason?: string;
     };
 }
-interface SearchMessageArgs {
+export interface SearchMessageArgs {
     /** Search query in the user's language (required if no audio). */
     query?: string;
     /** Optional audio query (alternative to text query). Blob will be uploaded to S3. */
@@ -472,7 +409,7 @@ interface SearchMessageArgs {
     /** User-selected tag filters */
     userSelectedTags?: string[];
 }
-interface ChatMessageArgs {
+export interface ChatMessageArgs {
     sessionId?: string;
     message?: string;
     audio?: Blob;
@@ -484,12 +421,12 @@ interface ChatMessageArgs {
     topK?: number;
     temperature?: number;
 }
-interface FeedbackMessageArgs {
+export interface FeedbackMessageArgs {
     feedbackType: "accepted" | "rejected";
     feedbackMessageId: string;
     sessionId: string;
 }
-type DocSearchProps = AiWorkerProps & {
+export type DocSearchProps = AiWorkerProps & {
     context?: ContextKind;
     autoRun?: boolean;
     /** Title shown above the search input (optional). */
@@ -515,11 +452,11 @@ type DocSearchProps = AiWorkerProps & {
     /** Available tags for user selection */
     availableTags?: string[];
 };
-type DocSearchArgs = DocSearchProps & {
+export type DocSearchArgs = DocSearchProps & {
     target?: string | HTMLElement;
 };
-type AnyCreateCoreOptions = LanguageModelCreateCoreOptions | SummarizerCreateCoreOptions | WriterCreateCoreOptions | RewriterCreateCoreOptions | ProofreaderCreateCoreOptions | LanguageDetectorCreateCoreOptions | TranslatorCreateCoreOptions;
-interface Capabilities {
+export type AnyCreateCoreOptions = LanguageModelCreateCoreOptions | SummarizerCreateCoreOptions | WriterCreateCoreOptions | RewriterCreateCoreOptions | ProofreaderCreateCoreOptions | LanguageDetectorCreateCoreOptions | TranslatorCreateCoreOptions;
+export interface Capabilities {
     MIN_CHROME_VERSION?: Partial<Record<BuiltInAiFeature, number>>;
     isOnDeviceLanguageSupported: (outputLanguage: AiKitLanguageCode) => boolean;
     checkOnDeviceAvailability: (feature: BuiltInAiFeature, availabilityOptions?: AnyCreateCoreOptions) => Promise<DeviceAvailability>;
@@ -534,17 +471,17 @@ interface Capabilities {
     willUseOnDevice: (feature: BuiltInAiFeature, availabilityOptions?: AnyCreateCoreOptions) => Promise<boolean>;
     willUseBackend: (feature: BuiltInAiFeature, availabilityOptions?: AnyCreateCoreOptions) => Promise<boolean>;
 }
-interface Backend<TResponse> {
+export interface Backend<TResponse> {
     dispatchFeatureBackend: (decision: CapabilityDecision, context: ContextKind, feature: BuiltInAiFeature, requestBody: unknown, options: BackendCallOptions) => Promise<TResponse>;
     dispatchCustomBackend: (decision: CapabilityDecision, context: ContextKind, customPath: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", requestBody: unknown, options: BackendCallOptions) => Promise<TResponse>;
 }
-type FeatureOptions = BackendCallOptions & {
+export type FeatureOptions = BackendCallOptions & {
     context?: ContextKind;
     modeOverride?: AiModePreference;
     onDeviceTimeoutOverride?: number;
     silent?: boolean;
 };
-interface Features {
+export interface Features {
     getWriteOptions: (args: Partial<WriteArgs>) => Promise<WriterCreateCoreOptions>;
     write: (args: WriteArgs, options?: FeatureOptions) => Promise<WriteResult>;
     getRewriteOptions: (args: Partial<RewriteArgs>) => Promise<RewriterCreateCoreOptions>;
@@ -562,52 +499,3 @@ interface Features {
     sendFeedbackMessage: (args: FeedbackMessageArgs, options?: FeatureOptions) => Promise<PromptResult>;
     sendSearchMessage: (args: SearchMessageArgs, options?: FeatureOptions) => Promise<SearchResult>;
 }
-
-type AiKitReadyEvent = "wpsuite:ai-kit:ready";
-type AiKitErrorEvent = "wpsuite:ai-kit:error";
-type AiKitPlugin = WpSuitePluginBase & AiKit;
-declare function getAiKitPlugin(): AiKitPlugin;
-declare function waitForAiKitReady(timeoutMs?: number): Promise<void>;
-declare function getStore(timeoutMs?: number): Promise<Store>;
-
-declare const TEXT_DOMAIN = "smartcloud-ai-kit";
-
-declare const AiKitFeatureIcon: React.FC<React.SVGProps<SVGSVGElement>>;
-declare const AiKitChatbotIcon: React.FC<React.SVGProps<SVGSVGElement>>;
-declare const AiKitDocSearchIcon: React.FC<React.SVGProps<SVGSVGElement>>;
-
-declare const LANGUAGE_OPTIONS: {
-    label: string;
-    value: AiKitLanguageCode;
-}[];
-declare const getMinChromeVersions: () => Promise<Partial<Record<BuiltInAiFeature, number>> | undefined>;
-declare const isOnDeviceLanguageSupported: (...args: Parameters<Capabilities["isOnDeviceLanguageSupported"]>) => Promise<boolean>;
-declare const decideCapability: (...args: Parameters<Capabilities["decideCapability"]>) => Promise<CapabilityDecision>;
-declare const checkOnDeviceAvailability: (...args: Parameters<Capabilities["checkOnDeviceAvailability"]>) => Promise<DeviceAvailability>;
-declare const resolveBackend: (...args: Parameters<Capabilities["resolveBackend"]>) => Promise<{
-    available: boolean;
-    transport?: BackendTransport;
-    apiName?: string;
-    baseUrl?: string;
-    reason?: string;
-}>;
-declare const dispatchBackend: (...args: Parameters<Backend<unknown>["dispatchCustomBackend"]>) => Promise<unknown>;
-declare const getWriteOptions: (...args: Parameters<Features["getWriteOptions"]>) => Promise<WriterCreateCoreOptions>;
-declare const write: (...args: Parameters<Features["write"]>) => Promise<WriteResult>;
-declare const getRewriteOptions: (...args: Parameters<Features["getRewriteOptions"]>) => Promise<RewriterCreateCoreOptions>;
-declare const rewrite: (...args: Parameters<Features["rewrite"]>) => Promise<RewriteResult>;
-declare const getProofreadOptions: (...args: Parameters<Features["getProofreadOptions"]>) => Promise<ProofreaderCreateCoreOptions>;
-declare const proofread: (...args: Parameters<Features["proofread"]>) => Promise<ProofreadOutput>;
-declare const getSummarizeOptions: (...args: Parameters<Features["getSummarizeOptions"]>) => Promise<SummarizerCreateCoreOptions>;
-declare const summarize: (...args: Parameters<Features["summarize"]>) => Promise<SummarizeResult>;
-declare const getTranslateOptions: (...args: Parameters<Features["getTranslateOptions"]>) => Promise<TranslatorCreateCoreOptions>;
-declare const translate: (...args: Parameters<Features["translate"]>) => Promise<TranslateResult>;
-declare const detectLanguage: (...args: Parameters<Features["detectLanguage"]>) => Promise<DetectLanguageOutput>;
-declare const getPromptOptions: (...args: Parameters<Features["getPromptOptions"]>) => Promise<LanguageModelCreateCoreOptions>;
-declare const prompt: (...args: Parameters<Features["prompt"]>) => Promise<PromptResult>;
-declare const sendChatMessage: (...args: Parameters<Features["sendChatMessage"]>) => Promise<PromptResult>;
-declare const sendFeedbackMessage: (...args: Parameters<Features["sendFeedbackMessage"]>) => Promise<PromptResult>;
-declare const sendSearchMessage: (...args: Parameters<Features["sendSearchMessage"]>) => Promise<SearchResult>;
-declare const initializeAiKit: (renderFeature: (args: AiFeatureArgs) => Promise<AiWorkerHandle>, renderSearchComponent?: (args: DocSearchArgs) => Promise<AiWorkerHandle>) => AiKitPlugin;
-
-export { type AiChatbotLabels, type AiChatbotProps, type AiFeatureArgs, type AiFeatureMode, type AiFeatureOptions, type AiFeatureProps, type AiKit, AiKitChatbotIcon, type AiKitConfig, AiKitDocSearchIcon, type AiKitErrorEvent, AiKitFeatureIcon, type AiKitFeatures, type AiKitLanguageCode, type AiKitLanguageProfile, type AiKitLanguageRef, type AiKitPlugin, type AiKitReadyEvent, type AiKitSettings, type AiKitStatusEvent, type AiKitStatusStep, type AiModePreference, type AiWorkerHandle, type AiWorkerProps, type AnyCreateCoreOptions, type Backend, type BackendCallOptions, BackendError, type BackendTransport, type BuiltInAiFeature, type Capabilities, type CapabilityDecision, type CapabilitySource, type ChatMessageArgs, type ContextKind, type CustomTranslations, type DetectLanguageArgs, type DetectLanguageOutput, type DeviceAvailability, type DocSearchArgs, type DocSearchProps, type FeatureOptions, type Features, type FeedbackMessageArgs, type HistoryStorageMode, LANGUAGE_OPTIONS, type OnDeviceUnsupportedLanguageStrategy, type OpenButtonIconLayout, type OpenButtonPosition, type ProcessedCitations, type PromptArgs, type PromptAudioInput, type PromptImageInput, type PromptMessages, type PromptResult, type ProofreadArgs, type ProofreadOutput, type RetrievedChunk, type RetrievedDoc, type RewriteArgs, type RewriteResult, type SearchMessageArgs, type SearchResult, type State, type Store, type SummarizeArgs, type SummarizeResult, TEXT_DOMAIN, type TranslateArgs, type TranslateResult, type WriteArgs, type WriteResult, checkOnDeviceAvailability, decideCapability, detectLanguage, dispatchBackend, getAiKitPlugin, getMinChromeVersions, getPromptOptions, getProofreadOptions, getRewriteOptions, getStore, getStoreDispatch, getStoreSelect, getSummarizeOptions, getTranslateOptions, getWriteOptions, initializeAiKit, isOnDeviceLanguageSupported, observeStore, prompt, proofread, reloadConfig, resolveBackend, rewrite, sanitizeAiKitConfig, sendChatMessage, sendFeedbackMessage, sendSearchMessage, summarize, translate, waitForAiKitReady, write };

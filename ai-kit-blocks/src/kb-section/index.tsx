@@ -1,4 +1,4 @@
-import { BlockAttributes, registerBlockType } from "@wordpress/blocks";
+import { registerBlockType, type BlockAttribute } from "@wordpress/blocks";
 import metadata from "./block.json";
 import Edit from "./edit";
 import Save from "./save";
@@ -6,7 +6,7 @@ import { TEXT_DOMAIN } from "@smart-cloud/ai-kit-core";
 
 registerBlockType(metadata.name, {
   apiVersion: metadata.apiVersion,
-  attributes: metadata.attributes as BlockAttributes,
+  attributes: metadata.attributes as Record<string, BlockAttribute>,
   title: metadata.title,
   category: metadata.category,
   description: metadata.description,

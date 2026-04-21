@@ -1,0 +1,17 @@
+import type { PromptArgs, RewriteArgs, SummarizeArgs, TranslateArgs, WriteArgs, Features } from "../types";
+export declare const getWriteOptions: (args: Partial<WriteArgs>) => Promise<WriterCreateCoreOptions>;
+export declare const write: Features["write"];
+export declare const getRewriteOptions: (args: Partial<RewriteArgs>) => Promise<RewriterCreateCoreOptions>;
+export declare const rewrite: Features["rewrite"];
+export declare const getProofreadOptions: () => Promise<ProofreaderCreateCoreOptions>;
+export declare const proofread: Features["proofread"];
+export declare const getSummarizeOptions: (args: Partial<SummarizeArgs>) => Promise<SummarizerCreateCoreOptions>;
+export declare const summarize: Features["summarize"];
+export declare const getTranslateOptions: (args: Partial<TranslateArgs>) => Promise<TranslatorCreateCoreOptions>;
+export declare const translate: Features["translate"];
+export declare const detectLanguage: Features["detectLanguage"];
+export declare const getPromptOptions: (args: Partial<PromptArgs>) => Promise<LanguageModelCreateCoreOptions>;
+export declare const prompt: Features["prompt"];
+export declare const sendChatMessage: Features["sendChatMessage"];
+export declare const sendFeedbackMessage: Features["sendFeedbackMessage"];
+export declare const sendSearchMessage: Features["sendSearchMessage"];

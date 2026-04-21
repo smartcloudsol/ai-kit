@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.16
+Stable tag: 1.3.0
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,13 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.3.0 =
+* Compatibility: Updated AI-Kit packages for TypeScript 6 and newer shared dependency versions.
+* Compatibility: Aligned admin and block code with current WordPress typings.
+* Refactor: Updated the admin help-label flow to use the shared InfoLabelComponent pattern.
+* Fix: Replaced legacy WordPress block-type usages so builds complete cleanly again.
+* Internal: Improved overall typing stability across admin and block packages.
+
 = 1.2.16 =
 * Fix: Improved frontend block mounting so DocSearch and AiFeature can no longer mount multiple times in parallel on the same element.
 * Refactor: Moved the shared race-condition protection into a unified shared helper for more consistent frontend initialization.
@@ -353,6 +360,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.3.0 =
+Recommended compatibility update. Modernizes AI-Kit admin and block packages for TypeScript 6 and current WordPress typings, and updates the admin help-label flow to the shared InfoLabelComponent pattern.
 
 = 1.2.16 =
 Recommended update. Improves frontend mounting reliability for DocSearch and AI Feature, and reduces unnecessary DocSearch metadata requests with lazy loading, client-side cache, and in-flight deduplication.

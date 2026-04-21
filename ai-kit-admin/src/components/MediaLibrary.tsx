@@ -107,7 +107,9 @@ export function MediaLibrary(props: { ids: number[]; onClose: () => void }) {
   }, [id]);
 
   useEffect(() => {
-    fetchMedia();
+    queueMicrotask(() => {
+      fetchMedia();
+    });
   }, [fetchMedia]);
 
   const url = media?.source_url as string | undefined;

@@ -18,7 +18,8 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["dom-chromium-ai"]
   },
   "include": ["src"],
   "exclude": ["dist", "build", "node_modules"],

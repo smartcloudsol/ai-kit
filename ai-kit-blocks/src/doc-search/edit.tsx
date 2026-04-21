@@ -46,7 +46,7 @@ export interface EditorBlock {
   innerBlocks: EditorBlock[];
 }
 
-export interface EditorBlockProps {
+export type EditorBlockProps = {
   inputSelector?: string;
   variation?: DocSearchArgs["variation"];
   autoRun?: boolean;
@@ -74,7 +74,7 @@ export interface EditorBlockProps {
   themeOverrides?: string;
   topK?: number;
   snippetMaxChars?: number;
-}
+} & Record<string, unknown>;
 
 const Divider = () => (
   <div style={{ borderTop: "1px solid #ddd", margin: "12px 0" }} />

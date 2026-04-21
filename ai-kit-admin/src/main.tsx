@@ -102,10 +102,30 @@ export interface SettingsEditorProps {
   siteId: string;
   siteKey: string | undefined;
   onSave: (config: AiKitConfig) => void;
-  InfoLabelComponent: (props: {
-    text: string;
-    scrollToId: string;
-  }) => JSX.Element;
+  InfoLabel: (props: InfoLabelProps) => JSX.Element;
+  openInfo: (targetScrollToId: string) => void;
+}
+
+type InfoLabelProps = {
+  text: string;
+  scrollToId: string;
+  onOpen: (targetScrollToId: string) => void;
+};
+
+function InfoLabel({ text, scrollToId, onOpen }: InfoLabelProps) {
+  return (
+    <Group align="center" gap="0.25rem">
+      {text}
+      <ActionIcon
+        component="label"
+        variant="subtle"
+        size="xs"
+        onClick={() => onOpen(scrollToId)}
+      >
+        <IconInfoCircle size={16} />
+      </ActionIcon>
+    </Group>
+  );
 }
 
 let wpSuiteInstalled: boolean = false;
@@ -410,23 +430,11 @@ const Main = (props: MainProps) => {
     [nonce, settingsFormData],
   );
 
-  const InfoLabelComponent = useCallback(
-    ({ text, scrollToId }: { text: string; scrollToId: string }) => (
-      <Group align="center" gap="0.25rem">
-        {text}
-        <ActionIcon
-          component="label"
-          variant="subtle"
-          size="xs"
-          onClick={() => {
-            setScrollToId(scrollToId);
-            open();
-          }}
-        >
-          <IconInfoCircle size={16} />
-        </ActionIcon>
-      </Group>
-    ),
+  const openInfo = useCallback(
+    (targetScrollToId: string) => {
+      setScrollToId(targetScrollToId);
+      open();
+    },
     [open],
   );
 
@@ -444,65 +452,73 @@ const Main = (props: MainProps) => {
   );
 
   useEffect(() => {
-    if (isSiteError || !isSitePending || !loadSiteEnabled) {
-      setSite(isSiteError ? null : siteRecord ?? null);
-    }
+    queueMicrotask(() => {
+      if (isSiteError || !isSitePending || !loadSiteEnabled) {
+        setSite(isSiteError ? null : siteRecord ?? null);
+      }
+    });
   }, [siteRecord, loadSiteEnabled, isSitePending, isSiteError]);
 
   useEffect(() => {
-    if (site) {
-      setResolvedConfig({
-        ...sanitizeAiKitConfig(site.settings ?? {}),
-        subscriptionType: site.subscriptionType,
-      });
-    } else {
-      if ((!accountId && !siteId) || isSiteError) {
-        setResolvedConfig(null);
+    queueMicrotask(() => {
+      if (site) {
+        setResolvedConfig({
+          ...sanitizeAiKitConfig(site.settings ?? {}),
+          subscriptionType: site.subscriptionType,
+        });
+      } else {
+        if ((!accountId && !siteId) || isSiteError) {
+          setResolvedConfig(null);
+        }
       }
-    }
+    });
   }, [accountId, isSiteError, site, siteId]);
 
   // Navigation options for both NavLink and Select
   useEffect(() => {
-    const paidSettingsDisabled =
-      decryptedConfig && accountId && siteId && siteKey
-        ? !decryptedConfig
-        : !resolvedConfig;
-    setNavigationOptions([
-      {
-        value: "general",
-        label: __("General", TEXT_DOMAIN),
-        icon: <IconSettings size={16} stroke={1.5} />,
-      },
-      {
-        value: "api-settings",
-        label: __("API Settings", TEXT_DOMAIN),
-        icon: <IconApi size={16} stroke={1.5} />,
-        disabled: paidSettingsDisabled,
-      },
-      {
-        value: "chatbot-settings",
-        label: __("Chatbot Settings", TEXT_DOMAIN),
-        icon: <IconMessage size={16} stroke={1.5} />,
-        disabled: paidSettingsDisabled,
-      },
-      {
-        value: "kb-admin",
-        label: __("Knowledge Base", TEXT_DOMAIN),
-        icon: <IconBook size={16} stroke={1.5} />,
-        disabled: paidSettingsDisabled,
-      },
-    ]);
-    if (paidSettingsDisabled) {
-      setActivePage("general");
-    }
+    queueMicrotask(() => {
+      const paidSettingsDisabled =
+        decryptedConfig && accountId && siteId && siteKey
+          ? !decryptedConfig
+          : !resolvedConfig;
+      setNavigationOptions([
+        {
+          value: "general",
+          label: __("General", TEXT_DOMAIN),
+          icon: <IconSettings size={16} stroke={1.5} />,
+        },
+        {
+          value: "api-settings",
+          label: __("API Settings", TEXT_DOMAIN),
+          icon: <IconApi size={16} stroke={1.5} />,
+          disabled: paidSettingsDisabled,
+        },
+        {
+          value: "chatbot-settings",
+          label: __("Chatbot Settings", TEXT_DOMAIN),
+          icon: <IconMessage size={16} stroke={1.5} />,
+          disabled: paidSettingsDisabled,
+        },
+        {
+          value: "kb-admin",
+          label: __("Knowledge Base", TEXT_DOMAIN),
+          icon: <IconBook size={16} stroke={1.5} />,
+          disabled: paidSettingsDisabled,
+        },
+      ]);
+      if (paidSettingsDisabled) {
+        setActivePage("general");
+      }
+    });
   }, [accountId, decryptedConfig, resolvedConfig, siteId, siteKey]);
 
   useEffect(() => {
-    if (resolvedConfig !== undefined) {
-      const fc = (resolvedConfig ?? decryptedConfig) as AiKitConfig;
-      setFormConfig(fc);
-    }
+    queueMicrotask(() => {
+      if (resolvedConfig !== undefined) {
+        const fc = (resolvedConfig ?? decryptedConfig) as AiKitConfig;
+        setFormConfig(fc);
+      }
+    });
   }, [resolvedConfig, decryptedConfig]);
 
   useEffect(() => {
@@ -840,9 +856,10 @@ const Main = (props: MainProps) => {
                 <Textarea
                   disabled={savingSettings}
                   label={
-                    <InfoLabelComponent
+                    <InfoLabel
                       text="Shared Context"
                       scrollToId="shared-context"
+                      onOpen={openInfo}
                     />
                   }
                   description="Optional. A global context string sent with AI requests. Use your site’s frontend language or English. If you generate content in multiple languages (write, rewrite, SEO metadata), keep this context in English for consistency."
@@ -859,9 +876,10 @@ const Main = (props: MainProps) => {
                 <Select
                   disabled={savingSettings}
                   label={
-                    <InfoLabelComponent
+                    <InfoLabel
                       text="Default output language"
                       scrollToId="default-output-language"
+                      onOpen={openInfo}
                     />
                   }
                   description="The language AI-Kit should use for generated text by default (when applicable)."
@@ -881,9 +899,10 @@ const Main = (props: MainProps) => {
                 <TextInput
                   disabled={savingSettings}
                   label={
-                    <InfoLabelComponent
+                    <InfoLabel
                       text="Custom Translations URL"
                       scrollToId="custom-translations-url"
+                      onOpen={openInfo}
                     />
                   }
                   description={
@@ -917,9 +936,10 @@ const Main = (props: MainProps) => {
                     settingsFormData.enablePoweredBy ? [] : ["hide"]
                   }
                   label={
-                    <InfoLabelComponent
+                    <InfoLabel
                       text="Hide 'Powered by' attribution"
                       scrollToId="hide-powered-by-ai-kit"
+                      onOpen={openInfo}
                     />
                   }
                   description="Hide the 'Powered by' attribution where AI-Kit renders frontend UI."
@@ -938,9 +958,10 @@ const Main = (props: MainProps) => {
                     settingsFormData.debugLoggingEnabled ? ["enable"] : []
                   }
                   label={
-                    <InfoLabelComponent
+                    <InfoLabel
                       text={__("Enable Debug Logging", TEXT_DOMAIN)}
                       scrollToId="enable-debug-logging"
+                      onOpen={openInfo}
                     />
                   }
                   description={__(
@@ -978,9 +999,10 @@ const Main = (props: MainProps) => {
           {activePage === "api-settings" && (
             <>
               <Title order={2} mb="md">
-                <InfoLabelComponent
+                <InfoLabel
                   text="API Settings"
                   scrollToId="api-settings"
+                  onOpen={openInfo}
                 />
               </Title>
 
@@ -1013,7 +1035,8 @@ const Main = (props: MainProps) => {
                     siteId={siteId!}
                     siteKey={siteKey!}
                     onSave={handleConfigSave}
-                    InfoLabelComponent={InfoLabelComponent}
+                    InfoLabel={InfoLabel}
+                    openInfo={openInfo}
                   />
                 </Suspense>
               )}
@@ -1022,9 +1045,10 @@ const Main = (props: MainProps) => {
           {activePage === "chatbot-settings" && (
             <>
               <Title order={2} mb="md">
-                <InfoLabelComponent
+                <InfoLabel
                   text="Chatbot Settings"
                   scrollToId="chatbot-settings"
+                  onOpen={openInfo}
                 />
               </Title>
 
@@ -1063,7 +1087,8 @@ const Main = (props: MainProps) => {
                     siteId={siteId!}
                     siteKey={siteKey!}
                     onSave={handleConfigSave}
-                    InfoLabelComponent={InfoLabelComponent}
+                    InfoLabel={InfoLabel}
+                    openInfo={openInfo}
                     store={store}
                   />
                 </Suspense>
@@ -1073,9 +1098,10 @@ const Main = (props: MainProps) => {
           {activePage === "kb-admin" && (
             <>
               <Title order={2} mb="md">
-                <InfoLabelComponent
+                <InfoLabel
                   text="Knowledge Base Admin"
                   scrollToId="kb-admin"
+                  onOpen={openInfo}
                 />
               </Title>
 
@@ -1108,7 +1134,8 @@ const Main = (props: MainProps) => {
                     siteId={siteId!}
                     siteKey={siteKey!}
                     onSave={handleConfigSave}
-                    InfoLabelComponent={InfoLabelComponent}
+                    InfoLabel={InfoLabel}
+                    openInfo={openInfo}
                   />
                 </Suspense>
               )}
