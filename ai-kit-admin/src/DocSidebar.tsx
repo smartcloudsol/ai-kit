@@ -343,6 +343,16 @@ const pages = {
         translation for the selected language.
       </Text>
 
+      <Title order={3} mt="md" id="chatbot-max-tokens">
+        <span className="highlightable">Max output tokens</span>
+      </Title>
+      <Text>
+        Optional per-reply output cap for backend chatbot responses. Leave it
+        empty to use the backend default. Lower values reduce response length
+        and cost; higher values allow longer answers before the model hits a
+        <Code>max_tokens</Code> stop reason.
+      </Text>
+
       <Title order={3} mt="md" id="chatbot-max-images">
         <span className="highlightable">Max images</span>
       </Title>

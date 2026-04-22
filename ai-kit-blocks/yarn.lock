@@ -3590,24 +3590,24 @@
   dependencies:
     "@sinonjs/commons" "^3.0.1"
 
-"@smart-cloud/ai-kit-core@^1.4.8":
-  version "1.4.8"
-  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-core/-/ai-kit-core-1.4.8.tgz#da35d7ac0400b39ddb6e92eeb9b864051374db3a"
-  integrity sha512-Ydd4+mpEU8fXgUlcnjwdTL8K1BYBnBDHyTLy45+PBJawI7YaZAvScnqYCEIfcs5ooakcwxioUjmHr8rzCb0mgw==
+"@smart-cloud/ai-kit-core@^1.4.11":
+  version "1.4.11"
+  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-core/-/ai-kit-core-1.4.11.tgz#abdf3c9e96f5ad1a83819fc56f31112e30629b13"
+  integrity sha512-SVUD1D08ZoLWfu4Foqpuq5hinoWyCMM689NuCkaO02UzHPBjerOVSUakzCiS3bVHHBHamzX9iTMhsON2g7kFdw==
   dependencies:
-    "@smart-cloud/gatey-core" "^2.2.2"
+    "@smart-cloud/gatey-core" "^2.2.9"
     "@smart-cloud/wpsuite-core" "^2.2.11"
     aws-amplify "^6.16.4"
 
-"@smart-cloud/ai-kit-ui@^1.4.13":
-  version "1.4.13"
-  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-ui/-/ai-kit-ui-1.4.13.tgz#bec905974598608aa0477cf01982292be3fb21a4"
-  integrity sha512-9f7+4A4tLAwHXWR45uypkocowo5hg4zd8ecxuiZE8oqS5vSSOKDL0I09ihrWJxQo0MbQSsNcoFBftcx69Ur9yg==
+"@smart-cloud/ai-kit-ui@^1.4.16":
+  version "1.4.16"
+  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-ui/-/ai-kit-ui-1.4.16.tgz#08f0dcac75b6aa7fa8b6c393910132c6f1aa0e8a"
+  integrity sha512-3lsY5MqfEpQnbMmlFNlbnB3FnEql2jdQj8ubGIWK/fF/wdTpFscjL5NzKRZMase+RCXKKqWLUV7A3QQGbWptuw==
   dependencies:
     "@emotion/cache" "^11.14.0"
     "@emotion/react" "^11.14.0"
     "@mantine/colors-generator" "^8.3.18"
-    "@smart-cloud/ai-kit-core" "^1.4.8"
+    "@smart-cloud/ai-kit-core" "^1.4.11"
     "@smart-cloud/wpsuite-core" "^2.2.11"
     "@tabler/icons-react" "^3.41.1"
     chroma-js "^3.2.0"
@@ -3624,19 +3624,12 @@
     remark-stringify "^11.0.0"
     unified "^11.0.5"
 
-"@smart-cloud/gatey-core@^2.2.2":
-  version "2.2.2"
-  resolved "https://registry.npmjs.org/@smart-cloud/gatey-core/-/gatey-core-2.2.2.tgz#518b6ed4112e11fece3213cfe3a58c9e203b0e67"
-  integrity sha512-bC5A6OBNEUUFDp3v+onw88WKSRdpVV4v7JY2/MVnKds2ore1wJNhDcoRmkSyPo2yfuHJ214sJOLxTjRozOairg==
+"@smart-cloud/gatey-core@^2.2.9":
+  version "2.2.9"
+  resolved "https://registry.npmjs.org/@smart-cloud/gatey-core/-/gatey-core-2.2.9.tgz#cbd76cebdec5198207fe5c5da16cc8f79811e4ba"
+  integrity sha512-jNKDDrksdU+rjnou9Ir4xf6JF0yzCD0KaeDiovDgUbk0WRFN3GL1Rp/Rfj9Ig9uTsuPzrr/Oa6WagGukvUIhXw==
   dependencies:
-    "@smart-cloud/wpsuite-core" "^2.2.10"
-
-"@smart-cloud/wpsuite-core@^2.2.10":
-  version "2.2.10"
-  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.2.10.tgz#2f2f7eee9954605b402452002e57d86c8f88bca0"
-  integrity sha512-KzUB1DIyeb2zdiaZ/EUAxbnTsHBYbeoGUqH5rSrrViIx/hUSjpsh4LQ89tvaFhj7gx3/3qmFrhsfun+SvneIdQ==
-  dependencies:
-    tldts "^7.0.25"
+    "@smart-cloud/wpsuite-core" "^2.2.11"
 
 "@smart-cloud/wpsuite-core@^2.2.11":
   version "2.2.11"
@@ -15445,11 +15438,6 @@ tldts-core@^7.0.22:
   resolved "https://registry.npmjs.org/tldts-core/-/tldts-core-7.0.22.tgz#c446174555a1f38c166740934e5809a092b1d4c8"
   integrity sha512-KgbTDC5wzlL6j/x6np6wCnDSMUq4kucHNm00KXPbfNzmllCmtmvtykJHfmgdHntwIeupW04y8s1N/43S1PkQDw==
 
-tldts-core@^7.0.26:
-  version "7.0.26"
-  resolved "https://registry.npmjs.org/tldts-core/-/tldts-core-7.0.26.tgz#070f14bc7a4deabf115c6501bc5c0bae4da74d17"
-  integrity sha512-5WJ2SqFsv4G2Dwi7ZFVRnz6b2H1od39QME1lc2y5Ew3eWiZMAeqOAfWpRP9jHvhUl881406QtZTODvjttJs+ew==
-
 tldts-core@^7.0.28:
   version "7.0.28"
   resolved "https://registry.npmjs.org/tldts-core/-/tldts-core-7.0.28.tgz#28c256edae2ed177b2a8338a51caf81d41580ecf"
@@ -15468,13 +15456,6 @@ tldts@^6.1.32:
   integrity sha512-WMi/OQ2axVTf/ykqCQgXiIct+mSQDFdH2fkwhPwgEwvJ1kSzZRiinb0zF2Xb8u4+OqPChmyI6MEu4EezNJz+FQ==
   dependencies:
     tldts-core "^6.1.86"
-
-tldts@^7.0.25:
-  version "7.0.26"
-  resolved "https://registry.npmjs.org/tldts/-/tldts-7.0.26.tgz#bf2472ed84e55faaaff5c2424c03a6bab69b92c5"
-  integrity sha512-WiGwQjr0qYdNNG8KpMKlSvpxz652lqa3Rd+/hSaDcY4Uo6SKWZq2LAF+hsAhUewTtYhXlorBKgNF3Kk8hnjGoQ==
-  dependencies:
-    tldts-core "^7.0.26"
 
 tldts@^7.0.28:
   version "7.0.28"

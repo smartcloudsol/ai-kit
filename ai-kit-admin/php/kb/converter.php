@@ -242,6 +242,9 @@ class Converter
      */
     private function postprocessMarkdown(string $markdown): string
     {
+        $markdown = str_replace(["\r\n", "\r"], "\n", $markdown);
+        $markdown = $this->normalizeBlankLines($markdown);
+
         // Remove excessive blank lines (more than 2)
         $markdown = preg_replace('/\n{3,}/', "\n\n", $markdown);
 
@@ -252,6 +255,46 @@ class Converter
         $markdown = apply_filters('smartcloud_ai_kit_kb_markdown_postprocess', $markdown);
 
         return $markdown;
+    }
+
+    /**
+     * Collapse whitespace-only blank lines while preserving fenced code blocks.
+     */
+    private function normalizeBlankLines(string $markdown): string
+    {
+        $lines = explode("\n", $markdown);
+        $normalized = [];
+        $previousBlank = false;
+        $inFence = false;
+
+        foreach ($lines as $line) {
+            $trimmedRight = rtrim($line);
+
+            if (preg_match('/^\s*```/', $trimmedRight) === 1) {
+                $normalized[] = $trimmedRight;
+                $previousBlank = false;
+                $inFence = !$inFence;
+                continue;
+            }
+
+            if ($inFence) {
+                $normalized[] = $trimmedRight;
+                continue;
+            }
+
+            if (trim($trimmedRight) === '') {
+                if (!$previousBlank) {
+                    $normalized[] = '';
+                    $previousBlank = true;
+                }
+                continue;
+            }
+
+            $normalized[] = $trimmedRight;
+            $previousBlank = false;
+        }
+
+        return implode("\n", $normalized);
     }
 
     /**

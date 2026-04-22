@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,11 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.3.1 =
+* Feature: Added an admin-configurable chatbot `maxTokens` setting, which is now passed through by the frontend in chatbot requests.
+* Fix: Hardened client-side chatbot response handling for empty or truncated responses.
+* Fix: Improved KB source markdown conversion by normalizing whitespace-only empty lines, resulting in cleaner generated markdown with fewer unnecessary blank lines.
+
 = 1.3.0 =
 * Compatibility: Updated AI-Kit packages for TypeScript 6 and newer shared dependency versions.
 * Compatibility: Aligned admin and block code with current WordPress typings.
@@ -360,6 +365,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.3.1 =
+Adds a new admin setting for chatbot maxTokens, improves frontend handling of empty or truncated chatbot responses, and generates cleaner markdown from Knowledge Base sources by normalizing whitespace-only empty lines.
 
 = 1.3.0 =
 Recommended compatibility update. Modernizes AI-Kit admin and block packages for TypeScript 6 and current WordPress typings, and updates the admin help-label flow to the shared InfoLabelComponent pattern.

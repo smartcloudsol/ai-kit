@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/ai-kit-ui",
-  "version": "1.4.14",
+  "version": "1.4.16",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -22,7 +22,7 @@
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@mantine/colors-generator": "^8.3.18",
-    "@smart-cloud/ai-kit-core": "^1.4.9",
+    "@smart-cloud/ai-kit-core": "^1.4.11",
     "@smart-cloud/wpsuite-core": "^2.2.11",
     "@tabler/icons-react": "^3.41.1",
     "chroma-js": "^3.2.0",

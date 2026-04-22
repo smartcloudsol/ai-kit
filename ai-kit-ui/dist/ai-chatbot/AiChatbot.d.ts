@@ -6,6 +6,7 @@ export declare const AiChatbot: React.FC<import("@smart-cloud/ai-kit-core").AiWo
     placeholder?: string;
     maxImages?: number;
     maxImageBytes?: number;
+    maxTokens?: number;
     previewMode?: boolean;
     historyStorage?: HistoryStorageMode;
     emptyHistoryAfterDays?: number;

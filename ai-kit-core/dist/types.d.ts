@@ -164,6 +164,7 @@ export type AiChatbotProps = AiWorkerProps & {
     placeholder?: string;
     maxImages?: number;
     maxImageBytes?: number;
+    maxTokens?: number;
     previewMode?: boolean;
     /**
      * Chat history persistence:
@@ -341,12 +342,33 @@ export interface PromptArgs {
      */
     topK?: number;
     temperature?: number;
+    maxTokens?: number;
 }
 export interface PromptResult {
     result: string;
     sessionId?: string;
     metadata?: {
-        messageId: string;
+        messageId?: string;
+        requestId?: string;
+        modelId?: string;
+        inputTokens?: number;
+        outputTokens?: number;
+        maxTokens?: number;
+        stopReason?: string;
+        usedKB?: boolean;
+        kbId?: string;
+        citationCount?: number;
+        fallbackReason?: string;
+        usage?: {
+            queryInputTokens?: number;
+            queryOutputTokens?: number;
+            rerankInputTokens?: number;
+            rerankOutputTokens?: number;
+            summaryInputTokens?: number;
+            summaryOutputTokens?: number;
+            inferenceInputTokens?: number;
+            inferenceOutputTokens?: number;
+        };
     };
 }
 export interface RetrievedDoc {
@@ -381,6 +403,8 @@ export interface SearchResult {
         requestId?: string;
         inputTokens?: number;
         outputTokens?: number;
+        maxTokens?: number;
+        stopReason?: string;
         usedKB?: boolean;
         kbId?: string;
         citationCount?: number;
@@ -402,6 +426,7 @@ export interface SearchMessageArgs {
      */
     topK?: number;
     temperature?: number;
+    maxTokens?: number;
     /** User-selected category filters (when provided, skips model-based filter selection) */
     userSelectedCategories?: string[];
     /** User-selected subcategory filters */
@@ -420,6 +445,7 @@ export interface ChatMessageArgs {
      */
     topK?: number;
     temperature?: number;
+    maxTokens?: number;
 }
 export interface FeedbackMessageArgs {
     feedbackType: "accepted" | "rejected";
