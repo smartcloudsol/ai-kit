@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.3.1
+ * Version:           1.3.2
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.3.1';
+const VERSION = '1.3.2';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -260,6 +260,18 @@ final class AiKit
             'restUrl' => rest_url(SMARTCLOUD_AI_KIT_SLUG . '/v1'),
             'nonce' => wp_create_nonce('wp_rest'),
         );
+        $constants = array(
+            'mantineCssHref' => add_query_arg(
+                'ver',
+                \SmartCloud\WPSuite\Hub\SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION,
+                SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css'
+            ),
+            'aiKitUiCssHref' => add_query_arg(
+                'ver',
+                SMARTCLOUD_AI_KIT_VERSION,
+                SMARTCLOUD_AI_KIT_URL . 'main/index.css'
+            ),
+        );
         $js = 'const __aikitGlobal = (typeof globalThis !== "undefined") ? globalThis : window;
     __aikitGlobal.WpSuite = __aikitGlobal.WpSuite ?? {};
     __aikitGlobal.WpSuite.plugins = __aikitGlobal.WpSuite.plugins ?? {};
@@ -270,11 +282,8 @@ final class AiKit
     __aikitGlobal.WpSuite.plugins.aiKit = __aikitGlobal.WpSuite.plugins.aiKit ?? {};
 Object.assign(__aikitGlobal.WpSuite.plugins.aiKit, ' . wp_json_encode($data) . ');
 __aikitGlobal.WpSuite.constants = __aikitGlobal.WpSuite.constants ?? {};
-__aikitGlobal.WpSuite.constants.aiKit = {
-    mantineCssHref: "' . esc_url(SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css') . '",
-    aiKitUiCssHref: "' . esc_url(SMARTCLOUD_AI_KIT_URL . 'main/index.css') . '"
-};
-    var WpSuite = __aikitGlobal.WpSuite;
+__aikitGlobal.WpSuite.constants.aiKit = ' . wp_json_encode($constants) . ';
+var WpSuite = __aikitGlobal.WpSuite;
 ';
         wp_add_inline_script('smartcloud-ai-kit-main-script', $js, 'before');
     }
