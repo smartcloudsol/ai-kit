@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      6.9
  * Requires PHP:      8.1
- * Version:           1.3.2
+ * Version:           1.3.3
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.3.2';
+const VERSION = '1.3.3';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -263,7 +263,7 @@ final class AiKit
         $constants = array(
             'mantineCssHref' => add_query_arg(
                 'ver',
-                \SmartCloud\WPSuite\Hub\SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION,
+                \SmartCloud\WPSuite\Hub\VERSION_MANTINE,
                 SMARTCLOUD_WPSUITE_URL . 'assets/css/mantine-vendor.css'
             ),
             'aiKitUiCssHref' => add_query_arg(

@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.3.2
+Stable tag: 1.3.3
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,9 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.3.3 =
+* Fixed Mantine CSS versioning to use the dedicated Mantine asset version for more accurate cache handling.
+
 = 1.3.2 =
 * Updated project dependencies.
 * Improved site settings saving so global reCAPTCHA settings are no longer overwritten accidentally.
@@ -370,6 +373,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.3.3 =
+This release fixes Mantine CSS versioning so the correct asset-specific version is used, improving cache invalidation for rendered styles.
 
 = 1.3.2 =
 This release updates dependencies, fixes site settings persistence so shared global reCAPTCHA settings are preserved correctly, and improves cache handling by versioning CSS files loaded into rendered shadow roots.
