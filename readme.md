@@ -69,39 +69,48 @@ For full backend installation and parameters, follow the SAR documentation from 
 
 ## Project Structure
 
-- `ai-kit-core/`  
+- `core/`  
   Shared JavaScript modules and feature logic.  
   **Premium build:** `@smart-cloud/ai-kit-core`
 
-- `ai-kit-ui/`  
+- `ui/`  
   Shared UI kit (Mantine components, modals, editors, onboarding assets, etc.).  
   **Premium build:** `@smart-cloud/ai-kit-ui`
 
-- `ai-kit-main/`  
-  Base runtime JavaScript and CSS features loaded where needed (plugin “main” entry point).
+- `main/`  
+  Base runtime JavaScript and CSS features loaded where needed (plugin “main” entry point); build here and copy the generated assets from `main/dist/` into the final plugin layout.
 
-- `ai-kit-admin/`  
-  WordPress admin interface (settings, diagnostics, onboarding UI, etc.).
+- `admin/`  
+  WordPress admin interface (settings, diagnostics, onboarding UI, etc.); build here and copy the generated assets from `admin/dist/` and `admin/php/` into the final plugin layout.
 
-- `ai-kit-blocks/`  
-  Gutenberg integrations (sidebar, toolbar tools, inspector panels, Pro feature block integration).
+- `blocks/`  
+  Gutenberg integrations (sidebar, toolbar tools, inspector panels, Pro feature block integration); build here and copy the generated assets from `blocks/dist/` into the final plugin layout.
 
-- `wpsuite-admin/`  
-  Shared WP Suite admin interface used across WP Suite plugins.  
-  Source repo: https://github.com/smartcloudsol/hub-for-wpsuiteio  
-  (Build and linking workflow matches the Gatey repository.)
+- `wpsuite-main/` (in the Hub repository)  
+  Shared frontend bundle copied into `hub-for-wpsuiteio/`; its `dist/` output provides the script loaded on every page to initialize WPSuite reCAPTCHA v3 when needed.
+
+- `wpsuite-admin/` (in the Hub repository)  
+  Shared WP Suite admin interface used across WP Suite plugins.
+
+- `wpsuite-*-vendor/` (in the Hub repository)  
+  Shared vendor bundles whose `dist/` outputs are copied into `hub-for-wpsuiteio/assets/js/` and `hub-for-wpsuiteio/assets/css/`.
 
 - `assets/`  
   Static plugin assets.
 
-- `dist/` folders  
+- `dist/` folders under `main/`, `admin/`, and `blocks/`  
   Compiled and minified frontend output used by the WordPress plugin.
 
 - Plugin PHP code and metadata (e.g. `ai-kit.php`, `readme.txt`) are located in the **project root**.
 
 ⚠️ **Note:**  
 `wpsuite-core` is published on npm as `@smart-cloud/wpsuite-core`.  
-If you also work on the Hub codebase, you may build and link a local version instead (same workflow as Gatey).
+If you also work on the Hub codebase, you may build and link a local version instead. Shared Hub assets such as `wpsuite-admin/`, `wpsuite-main/`, and `wpsuite-*-vendor/` also live in that separate repository.
+
+### Source of Shared WPSuite Hub Code
+
+The shared WordPress Hub code lives in the `wpsuite-admin/`, `wpsuite-main/`, and `wpsuite-*-vendor/` directories of the [Hub for WPSuite.io](https://github.com/smartcloudsol/hub-for-wpsuiteio) repository.  
+That repository hosts the shared administrative interface, global frontend assets, and vendor bundles used across WPSuite plugins, including AI-Kit.
 
 ---
 
@@ -115,7 +124,7 @@ If you also work on the Hub codebase, you may build and link a local version ins
 
 ### 1) Clone the repositories
 
-You typically want AI-Kit **and** the Hub repository (for `wpsuite-core` and `wpsuite-admin`) side-by-side:
+You typically want AI-Kit **and** the Hub repository (for `wpsuite-core`, `wpsuite-admin`, `wpsuite-main`, and the shared vendor bundles) side-by-side:
 
 ```bash
 git clone https://github.com/smartcloudsol/hub-for-wpsuiteio.git
@@ -126,41 +135,57 @@ Suggested structure:
 
 ```
 /projects/
-  wpsuite/
+  hub-for-wpsuiteio/
     wpsuite-core/
     wpsuite-admin/
+    wpsuite-main/
+    wpsuite-amplify-vendor/
+    wpsuite-mantine-vendor/
+    wpsuite-webcrypto-vendor/
   ai-kit/
-    ai-kit-core/
-    ai-kit-ui/
-    ai-kit-main/
-    ai-kit-admin/
-    ai-kit-blocks/
+    core/
+    ui/
+    main/
+    admin/
+    blocks/
 ```
 
 ### 2) Install JavaScript dependencies
 
 ```bash
 # Hub repo
-cd wpsuite/wpsuite-core
+cd hub-for-wpsuiteio/wpsuite-core
 yarn install
 
 cd ../wpsuite-admin
 yarn install
 
+cd ../wpsuite-main
+yarn install
+
+cd ../wpsuite-amplify-vendor
+yarn install
+
+cd ../wpsuite-mantine-vendor
+yarn install
+
+cd ../wpsuite-webcrypto-vendor
+yarn install
+
 # AI-Kit repo
-cd ../../ai-kit/ai-kit-core
+cd ../../ai-kit/core
 yarn install
 
-cd ../ai-kit-ui
+cd ../ui
 yarn install
 
-cd ../ai-kit-main
+cd ../main
 yarn install
 
-cd ../ai-kit-admin
+cd ../admin
 yarn install
 
-cd ../ai-kit-blocks
+cd ../blocks
 yarn install
 ```
 
@@ -181,7 +206,7 @@ Useful if you actively modify `wpsuite-core`, `ai-kit-core`, or `ai-kit-ui`.
 Build/link `wpsuite-core` from the Hub repo:
 
 ```bash
-cd ../wpsuite/wpsuite-core
+cd ../hub-for-wpsuiteio/wpsuite-core
 yarn run build
 npm link
 ```
@@ -189,7 +214,7 @@ npm link
 Build/link `ai-kit-core` (depends on `wpsuite-core`):
 
 ```bash
-cd ../../ai-kit/ai-kit-core
+cd ../../ai-kit/core
 yarn run build
 npm link @smart-cloud/wpsuite-core
 npm link
@@ -198,7 +223,7 @@ npm link
 Build/link `ai-kit-ui` (often depends on `ai-kit-core` + `wpsuite-core`):
 
 ```bash
-cd ../ai-kit-ui
+cd ../ui
 yarn run build
 npm link @smart-cloud/wpsuite-core
 npm link @smart-cloud/ai-kit-core
@@ -208,7 +233,7 @@ npm link
 Then link the packages into other AI-Kit projects:
 
 ```bash
-# e.g. ai-kit-admin / ai-kit-blocks / ai-kit-main
+# e.g. admin / blocks / main
 npm link @smart-cloud/ai-kit-core
 npm link @smart-cloud/ai-kit-ui
 ```
@@ -218,21 +243,24 @@ npm link @smart-cloud/ai-kit-ui
 Each module that ships WordPress bundles should build into its own `dist/` folder:
 
 ```bash
-cd ai-kit-main
+cd main
 yarn run build-wp dist
 
-cd ../ai-kit-admin
+cd ../admin
 yarn run build-wp dist
 
-cd ../ai-kit-blocks
+cd ../blocks
 yarn run build-wp dist
 ```
 
-If you build `wpsuite-admin` locally, do it from the Hub repository using the same approach as in the Gatey build guide.
+After building `main/`, `admin/`, and `blocks/`, copy the generated assets from each module's `dist/` directory into the matching plugin directory. For `admin/`, copy the PHP files from `admin/php/` as well.
+
+If you build shared Hub assets locally, run `yarn run build-wp dist` in `hub-for-wpsuiteio/wpsuite-main` and `hub-for-wpsuiteio/wpsuite-admin`, and run `yarn run build` in any touched `hub-for-wpsuiteio/wpsuite-*-vendor` workspace before packaging.
 
 ### 5) Development workflow
-- Rebuild the module you changed (`yarn run build` / `yarn run build-wp dist`).
-- If you changed `wpsuite-core`, `ai-kit-core`, or `ai-kit-ui`, re-build and re-link as needed.
+- Rebuild `core/` and `ui/` after shared package changes (`yarn run build`), and rebuild `main/`, `admin/`, or `blocks/` with `yarn run build-wp dist` after WordPress bundle changes.
+- If you changed `wpsuite-core`, `wpsuite-main`, `wpsuite-admin`, or any `wpsuite-*-vendor` workspace in the Hub repo, rebuild those outputs before local testing or packaging.
+- If you changed `ai-kit-core` or `ai-kit-ui`, re-build and re-link as needed.
 - PHP changes are loaded by WordPress immediately.
 
 ---
@@ -241,10 +269,18 @@ If you build `wpsuite-admin` locally, do it from the Hub repository using the sa
 
 Ensure the built assets are copied into the simplified plugin layout:
 
-- `ai-kit-main/dist/*` → `main/`
-- `ai-kit-blocks/dist/*` → `blocks/`
-- `ai-kit-admin/php/*` and `ai-kit-admin/dist/*` → `admin/`
-- `wpsuite-admin/php/*` and `wpsuite-admin/dist/*` → `wpsuite/`
+- `main/dist/*` → `main/`
+- `blocks/dist/*` → `blocks/`
+- `admin/php/*` and `admin/dist/*` → `admin/`
+
+If you rebuild the shared Hub assets in the separate Hub repository, copy the following outputs into the plugin's `hub-for-wpsuiteio/` directory according to that repository's instructions:
+
+- `wpsuite-main/dist/*` → `hub-for-wpsuiteio/`
+- `wpsuite-admin/php/*` and `wpsuite-admin/dist/*` → `hub-for-wpsuiteio/`
+- `wpsuite-*-vendor/dist/*.js` → `hub-for-wpsuiteio/assets/js/`
+- `wpsuite-*-vendor/dist/*.css` → `hub-for-wpsuiteio/assets/css/`
+
+The `wpsuite-main/dist/` bundle provides the script that loads on every page and initializes the reCAPTCHA v3 flow used by WPSuite plugins whenever it is needed.
 
 Once the structure matches the layout above, create the distributable ZIP:
 
