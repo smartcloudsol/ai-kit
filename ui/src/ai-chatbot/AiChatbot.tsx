@@ -563,8 +563,14 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   }, [question, isChatBusy, composerAudio]);
 
   const openButtonLabel = useMemo(() => {
-    const raw = openButtonTitle ? openButtonTitle : labels.askMeLabel;
-    return I18n.get(raw);
+    const resolvedOpenButtonTitle = openButtonTitle?.trim();
+    const resolvedAskMeLabel = labels.askMeLabel?.trim();
+    const raw =
+      resolvedOpenButtonTitle ||
+      resolvedAskMeLabel ||
+      DEFAULT_CHATBOT_LABELS.askMeLabel;
+    const translated = I18n.get(raw).trim();
+    return translated || I18n.get(DEFAULT_CHATBOT_LABELS.askMeLabel);
   }, [openButtonTitle, labels.askMeLabel, language]);
 
   const modalTitle = useMemo(() => {

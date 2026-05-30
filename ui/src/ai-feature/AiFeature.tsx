@@ -1424,6 +1424,8 @@ Follow these additional instructions: ${instructions}`
     };
   }, [close, variation]);
 
+  const openButtonAccessibleLabel = I18n.get(openButtonTitle || defaultTitle);
+
   return (
     <>
       {showOpenButton && (
@@ -1444,6 +1446,7 @@ Follow these additional instructions: ${instructions}`
           variant={"filled"}
           disabled={featureOpen}
           onClick={() => setFeatureOpen(true)}
+          aria-label={openButtonAccessibleLabel}
           data-ai-kit-open-button
         >
           {showOpenButtonTitle && I18n.get(openButtonTitle || defaultTitle)}

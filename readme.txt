@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,10 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.4.1 =
+* Performance: Moved frontend runtime scripts and shared vendor assets to the footer and enabled deferred loading where safe, reducing render-blocking work during initial page load.
+* Internal: Improved script loading order so lightweight bootstrap data can be available early without forcing heavier frontend dependencies into the page head.
+
 = 1.4.0 =
 * Maintenance: Updated the admin UI dependency stack, including the shared UI React packages used by WPSuite admin screens.
 * Maintenance: Updated shared Gatey Core and WPSuite Core dependencies used by AI-Kit integrations.
@@ -379,6 +383,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.1 =
+Recommended performance update. Frontend scripts now load later and defer where safe, reducing render-blocking work while preserving existing plugin behavior.
 
 = 1.4.0 =
 Recommended update. Refreshes AI-Kit’s shared admin UI and WPSuite runtime dependencies, and marks compatibility with WordPress 7.0. No configuration changes are required.

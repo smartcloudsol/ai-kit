@@ -271,6 +271,9 @@ const DocSearchBase: FC<Props> = (props) => {
     return I18n.get(title || "Search with AI-Kit");
   }, [language]);
 
+  const openButtonAccessibleLabel = I18n.get(openButtonTitle || defaultTitle);
+  const searchButtonAccessibleLabel = I18n.get("Search");
+
   const statusText = useMemo(() => {
     const e: AiKitStatusEvent | null = statusEvent;
     if (!e) return null;
@@ -690,6 +693,7 @@ const DocSearchBase: FC<Props> = (props) => {
           variant={"filled"}
           disabled={featureOpen}
           onClick={() => setFeatureOpen(true)}
+          aria-label={openButtonAccessibleLabel}
           data-ai-kit-open-button
         >
           {showOpenButtonTitle && I18n.get(openButtonTitle || defaultTitle)}
@@ -851,6 +855,7 @@ const DocSearchBase: FC<Props> = (props) => {
                         leftSection={buttonLeftIcon}
                         onClick={() => void onSearch()}
                         disabled={!canSearch}
+                        aria-label={searchButtonAccessibleLabel}
                         className={
                           showSearchButtonTitle
                             ? "doc-search-button"
