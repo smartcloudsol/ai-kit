@@ -33,6 +33,10 @@ import { translations } from "@smart-cloud/ai-kit-ui";
 import { useSelect } from "@wordpress/data";
 import { I18n } from "aws-amplify/utils";
 import { COLOR_MODE_OPTIONS, DIRECTION_OPTIONS } from "../index";
+import {
+  type BlockMetadata,
+  usePatternOverrideEditingSupport,
+} from "../shared/patternOverrides";
 import { App } from "./app";
 
 I18n.putVocabularies(translations);
@@ -74,6 +78,7 @@ export type EditorBlockProps = {
   themeOverrides?: string;
   topK?: number;
   snippetMaxChars?: number;
+  metadata?: BlockMetadata;
 } & Record<string, unknown>;
 
 const Divider = () => (
@@ -83,7 +88,7 @@ const Divider = () => (
 export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
   props: BlockEditProps<EditorBlockProps>,
 ) => {
-  const { clientId, attributes, setAttributes } = props;
+  const { clientId, attributes, isSelected, setAttributes } = props;
   const {
     inputSelector,
     variation,
@@ -108,7 +113,14 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
     uid,
     topK,
     snippetMaxChars,
+    metadata,
   } = attributes;
+
+  usePatternOverrideEditingSupport({
+    clientId,
+    isSelected,
+    metadata,
+  });
 
   const [fulfilledStore, setFulfilledStore] = useState<Store>();
   const [themeDirection, setThemeDirection] =

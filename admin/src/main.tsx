@@ -44,7 +44,6 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 
-import { __experimentalHeading as Heading } from "@wordpress/components";
 import { useSelect } from "@wordpress/data";
 import { __ } from "@wordpress/i18n";
 import { useCallback, useEffect, useState } from "react";
@@ -176,8 +175,8 @@ const SettingsTitle = () => {
           width: "100%",
         }}
       >
-        <Heading
-          level={1}
+        <Title
+          order={1}
           style={{
             display: "flex",
             alignItems: "center",
@@ -189,7 +188,7 @@ const SettingsTitle = () => {
             isMobile ? "AI-Kit" : "AI-Kit — On-Device AI Tools for WordPress",
             TEXT_DOMAIN,
           )}
-        </Heading>
+        </Title>
         <Text>
           This interface allows you to configure how AI-Kit behaves on your
           WordPress site.

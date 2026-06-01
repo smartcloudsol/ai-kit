@@ -6,7 +6,7 @@
  * Requires at least: 6.2
  * Tested up to:      7.0
  * Requires PHP:      8.1
- * Version:           1.4.1
+ * Version:           1.4.2
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.4.1';
+const VERSION = '1.4.2';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -86,6 +86,10 @@ final class AiKit
      */
     public function init(): void
     {
+        add_filter('block_bindings_supported_attributes', array($this, 'filterBlockBindingsSupportedAttributes'), 20, 2);
+        add_filter('block_bindings_supported_attributes_smartcloud-ai-kit/feature', array($this, 'filterAiFeatureBlockBindingsSupportedAttributes'), 20, 1);
+        add_filter('block_bindings_supported_attributes_smartcloud-ai-kit/doc-search', array($this, 'filterDocSearchBlockBindingsSupportedAttributes'), 20, 1);
+
         add_action('add_meta_boxes', array($this, 'registerAttachmentMetabox'), 10);
         add_filter('bulk_actions-upload', array($this, 'registerMediaBulkActions'), 10, 1);
         add_filter('handle_bulk_actions-upload', array($this, 'handleMediaBulkAction'), 10, 3);
@@ -231,6 +235,105 @@ final class AiKit
         }
     }
 
+    public function filterAiFeatureBlockBindingsSupportedAttributes(array $supported_attributes): array
+    {
+        return array_values(array_unique(array_merge($supported_attributes, $this->getAiFeatureBindableAttributes())));
+    }
+
+    public function filterDocSearchBlockBindingsSupportedAttributes(array $supported_attributes): array
+    {
+        return array_values(array_unique(array_merge($supported_attributes, $this->getDocSearchBindableAttributes())));
+    }
+
+    public function filterBlockBindingsSupportedAttributes(array $supported_attributes, ?string $block_type_name = null): array
+    {
+        if ($block_type_name === 'smartcloud-ai-kit/feature') {
+            return $this->filterAiFeatureBlockBindingsSupportedAttributes($supported_attributes);
+        }
+
+        if ($block_type_name === 'smartcloud-ai-kit/doc-search') {
+            return $this->filterDocSearchBlockBindingsSupportedAttributes($supported_attributes);
+        }
+
+        return $supported_attributes;
+    }
+
+    private function getAiFeatureBindableAttributes(): array
+    {
+        return array(
+            'style',
+            'mode',
+            'editable',
+            'autoRun',
+            'onDeviceTimeout',
+            'default',
+            'allowOverride',
+            'optionsDisplay',
+            'inputSelector',
+            'outputSelector',
+            'variation',
+            'title',
+            'openButtonTitle',
+            'openButtonIcon',
+            'showOpenButtonTitle',
+            'showOpenButtonIcon',
+            'showRegenerateOnBackendButton',
+            'acceptButtonTitle',
+            'language',
+            'direction',
+            'colorMode',
+            'primaryColor',
+            'primaryShade',
+            'colors',
+            'themeOverrides',
+        );
+    }
+
+    private function getDocSearchBindableAttributes(): array
+    {
+        return array(
+            'variation',
+            'autoRun',
+            'enableUserFilters',
+            'title',
+            'inputSelector',
+            'showOpenButton',
+            'openButtonTitle',
+            'showOpenButtonTitle',
+            'openButtonIcon',
+            'showOpenButtonIcon',
+            'searchButtonIcon',
+            'showSearchButtonTitle',
+            'showSearchButtonIcon',
+            'language',
+            'direction',
+            'colorMode',
+            'primaryColor',
+            'themeOverrides',
+            'topK',
+            'snippetMaxChars',
+        );
+    }
+
+    private function getWpsuiteThemeCssHref(): ?string
+    {
+        if (!defined('SMARTCLOUD_WPSUITE_SLUG')) {
+            return null;
+        }
+
+        $upload_dir_info = wp_upload_dir();
+        $css_path = trailingslashit($upload_dir_info['basedir']) . SMARTCLOUD_WPSUITE_SLUG . '/wpsuite-theme.css';
+
+        if (!file_exists($css_path)) {
+            return null;
+        }
+
+        $css_url = trailingslashit($upload_dir_info['baseurl']) . SMARTCLOUD_WPSUITE_SLUG . '/wpsuite-theme.css';
+        $version = filemtime($css_path) ?: SMARTCLOUD_AI_KIT_VERSION;
+
+        return add_query_arg('ver', (string) $version, $css_url);
+    }
+
     /**
      * Enqueue inline scripts that expose PHP constants to JS.
      */
@@ -297,6 +400,7 @@ final class AiKit
                 SMARTCLOUD_AI_KIT_VERSION,
                 SMARTCLOUD_AI_KIT_URL . 'main/index.css'
             ),
+            'wpsuiteThemeCssHref' => $this->getWpsuiteThemeCssHref(),
         );
 
         $js = 'const __aikitGlobal = (typeof globalThis !== "undefined") ? globalThis : window;

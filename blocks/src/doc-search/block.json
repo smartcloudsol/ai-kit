@@ -2,82 +2,102 @@
   "$schema": "https://schemas.wp.org/trunk/block.json",
   "apiVersion": 3,
   "name": "smartcloud-ai-kit/doc-search",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "title": "AI-Kit Doc Search (PRO)",
   "category": "smartcloud-ai-kit",
   "description": "AI-Kit Doc Search - knowledge base search summary with sources",
   "attributes": {
     "variation": {
       "type": "string",
+      "role": "content",
       "default": "default"
     },
     "autoRun": {
       "type": "boolean",
+      "role": "content",
       "default": true
     },
     "enableUserFilters": {
       "type": "boolean",
+      "role": "content",
       "default": false
     },
     "title": {
-      "type": "string"
+      "type": "string",
+      "role": "content"
     },
     "inputSelector": {
-      "type": "string"
+      "type": "string",
+      "role": "content"
     },
     "showOpenButton": {
       "type": "boolean",
+      "role": "content",
       "default": false
     },
     "openButtonTitle": {
-      "type": "string"
+      "type": "string",
+      "role": "content"
     },
     "showOpenButtonTitle": {
       "type": "boolean",
+      "role": "content",
       "default": true
     },
     "openButtonIcon": {
-      "type": "string"
+      "type": "string",
+      "role": "content"
     },
     "showOpenButtonIcon": {
       "type": "boolean",
+      "role": "content",
       "default": true
     },
     "searchButtonIcon": {
-      "type": "string"
+      "type": "string",
+      "role": "content"
     },
     "showSearchButtonTitle": {
       "type": "boolean",
+      "role": "content",
       "default": true
     },
     "showSearchButtonIcon": {
       "type": "boolean",
+      "role": "content",
       "default": true
     },
     "language": {
       "type": "string",
+      "role": "content",
       "default": "system"
     },
     "direction": {
       "type": "string",
+      "role": "content",
       "default": "auto"
     },
     "colorMode": {
       "type": "string",
+      "role": "content",
       "default": "light"
     },
     "primaryColor": {
-      "type": "string"
+      "type": "string",
+      "role": "content"
     },
     "themeOverrides": {
-      "type": "string"
+      "type": "string",
+      "role": "content"
     },
     "topK": {
       "type": "number",
+      "role": "content",
       "default": 10
     },
     "snippetMaxChars": {
       "type": "number",
+      "role": "content",
       "default": 160
     }
   },

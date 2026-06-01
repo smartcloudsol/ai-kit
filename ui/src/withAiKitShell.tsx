@@ -96,18 +96,26 @@ export function withAiKitShell<P extends object>(
     }, [currentLanguage, direction, directionInStore, directionOverride]);
 
     const stylesheets = useMemo(
-      () => [
-        (
-          WpSuite as never as {
-            constants: { aiKit: { mantineCssHref: string } };
-          }
-        )?.constants?.aiKit?.mantineCssHref,
-        (
-          WpSuite as never as {
-            constants: { aiKit: { aiKitUiCssHref: string } };
-          }
-        )?.constants?.aiKit?.aiKitUiCssHref,
-      ],
+      () =>
+        [
+          (
+            WpSuite as never as {
+              constants: { aiKit: { mantineCssHref: string } };
+            }
+          )?.constants?.aiKit?.mantineCssHref,
+          (
+            WpSuite as never as {
+              constants: { aiKit: { aiKitUiCssHref: string } };
+            }
+          )?.constants?.aiKit?.aiKitUiCssHref,
+          (
+            WpSuite as never as {
+              constants: { aiKit: { wpsuiteThemeCssHref?: string } };
+            }
+          )?.constants?.aiKit?.wpsuiteThemeCssHref,
+        ].filter(
+          (href): href is string => typeof href === "string" && href.length > 0,
+        ),
       [WpSuite],
     );
 

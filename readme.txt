@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.1
+Stable tag: 1.4.2
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,11 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.4.2 =
+* Performance: Added schedule-after-initial-paint mounting so frontend UI yields the main thread sooner and improves early paint metrics where supported.
+* Feature: AI-Kit now loads shared WPSuite Theme CSS inside supported shadow-root UI, making site-wide reusable component styling available alongside block-level overrides.
+* Feature: Added pattern override support so synced patterns can override selected original block attributes without forking the source block structure.
+
 = 1.4.1 =
 * Performance: Moved frontend runtime scripts and shared vendor assets to the footer and enabled deferred loading where safe, reducing render-blocking work during initial page load.
 * Internal: Improved script loading order so lightweight bootstrap data can be available early without forcing heavier frontend dependencies into the page head.
@@ -384,6 +389,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 
 == Upgrade Notice ==
 
+= 1.4.2 =
+Recommended feature update. Improves initial paint timing, adds shared WPSuite Theme CSS support for shadow-root UI, and lets synced patterns override selected block attributes.
+
 = 1.4.1 =
 Recommended performance update. Frontend scripts now load later and defer where safe, reducing render-blocking work while preserving existing plugin behavior.
 
@@ -430,7 +438,7 @@ This release improves how AI-Kit loads scripts and resolves dependencies, with b
 Improves AI Feature language switching. The UI language can now be changed even while the component is already running. The change takes effect immediately in the interface, while the current in-progress task continues uninterrupted with its original settings.
 
 = 1.2.7 =
-Recommended update. Improves startup reliability when multiple WP Suite plugins are active, preventing AI-Kit from initializing before the shared hub. Also adds a per-component UI language switcher to AI Feature, which updates the component language together with `outputLanguage` for a smoother front-end user experience.
+Recommended update. Improves startup reliability when multiple WP Suite plugins are active, preventing AI-Kit from initializing before the shared hub. Also adds a per-component UI language switcher to AI Feature, which updates the component language together with `outputLanguage`.
 
 = 1.2.6 =
 Improves how WP Suite site settings are loaded in the admin UI.

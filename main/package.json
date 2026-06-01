@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/ai-kit-main",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "type": "module",
   "license": "ISC",
   "scripts": {
@@ -18,12 +18,12 @@
     "check-licenses": "wp-scripts check-licenses --prod"
   },
   "dependencies": {
-    "@smart-cloud/ai-kit-core": "^1.5.0",
-    "@smart-cloud/ai-kit-ui": "^1.5.1",
-    "@smart-cloud/wpsuite-core": "^2.3.0"
+    "@smart-cloud/ai-kit-core": "^1.5.1",
+    "@smart-cloud/ai-kit-ui": "^1.5.2",
+    "@smart-cloud/wpsuite-core": "^2.3.1"
   },
   "peerDependencies": {
-    "@wordpress/data": "^10.46.0",
+    "@wordpress/data": "^10.47.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -33,18 +33,18 @@
     "@types/jquery": "^4.0.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@typescript-eslint/eslint-plugin": "^8.59.4",
-    "@typescript-eslint/parser": "^8.59.4",
-    "@wordpress/data": "^10.46.0",
-    "@wordpress/scripts": "^32.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "@wordpress/data": "^10.47.0",
+    "@wordpress/scripts": "^32.3.0",
     "ajv": "^8.20.0",
-    "eslint": "^10.4.0",
+    "eslint": "^10.4.1",
     "globals": "^17.6.0",
     "jquery": "^4.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.4"
+    "typescript-eslint": "^8.60.0"
   }
 }
