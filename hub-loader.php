@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
 
 use SmartCloud\WPSuite\AiKit\Logger;
 
-const SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION = '2.5.2';
+const SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION = '2.5.3';
 
 final class AiKitHubLoader
 {
@@ -86,7 +86,7 @@ final class AiKitHubLoader
 
         $connect_suffix = add_submenu_page(
             SMARTCLOUD_WPSUITE_SLUG,
-            __('Connect your Site to WPSuite', 'smartcloud-ai-kit'),
+            __('Connect your Site to WP Suite', 'smartcloud-ai-kit'),
             __('Connect your Site', 'smartcloud-ai-kit'),
             'manage_options',
             SMARTCLOUD_WPSUITE_SLUG,

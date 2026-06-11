@@ -104,7 +104,13 @@ class Parser
      */
     private function isElementorPost(\WP_Post $post): bool
     {
-        // Check if Elementor data exists
+        // Elementor data can remain after a page is migrated back to Gutenberg.
+        // Treat it as active Elementor content only when Elementor marks the post as builder-managed.
+        $edit_mode = get_post_meta($post->ID, '_elementor_edit_mode', true);
+        if ($edit_mode !== 'builder') {
+            return false;
+        }
+
         $elementor_data = get_post_meta($post->ID, '_elementor_data', true);
         return !empty($elementor_data);
     }

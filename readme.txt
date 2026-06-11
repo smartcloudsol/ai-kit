@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.2
+Stable tag: 1.4.3
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -15,7 +15,7 @@ Add private, on-device AI to WordPress (write, translate, rewrite, proofread, su
 
 AI-Kit brings practical AI helpers to WordPress while keeping privacy first.
 
-WPSuite is a commercial platform by Smart Cloud Solutions, Inc., providing optional shared services for SmartCloud WordPress plugins.
+AI-Kit is part of the WP Suite product family by Smart Cloud Solutions, Inc. WP Suite keeps WordPress as the CMS and editing layer, while optional connected features can extend selected workflows into modular AWS-backed services for identity, AI, APIs, workflows, protected routes, and static delivery. The free AI-Kit features described here do not require a WP Suite account, subscription, or AWS backend unless you explicitly configure an external service or upgrade-only backend feature.
 
 **Free (local-only) mode**
 AI-Kit uses Chrome’s built-in on-device AI capabilities (when available). In this mode, content is processed locally in the browser.
@@ -54,7 +54,7 @@ This plugin is not affiliated with or endorsed by Google, Amazon Web Services, o
 
 AI-Kit works in **Free mode** without registration or subscription, using **local-only (on-device) AI** inside supported desktop Chrome browsers.
 
-**Pro features** are optional and become available after connecting your WordPress site to a WPSuite.io workspace:
+**Pro features** are optional and become available after connecting your WordPress site to a WP Suite workspace:
 * **AI-Kit Chatbot** (on-site widget + customizable settings + Preview)
 * Front-end **AI-Kit Feature** Gutenberg block
 * Front-end **smartcloud-** shortcode
@@ -129,7 +129,7 @@ This plugin may integrate with the following external services, depending on con
    - **What data is sent & when:**
      The browser may contact Google to retrieve a reCAPTCHA token (client-side).
    - **Configuration in WordPress:**
-     Enter your reCAPTCHA site key in **AI-Kit → Settings** (or the relevant WPSuite settings screen, depending on your setup).
+     Enter your reCAPTCHA site key in **AI-Kit → Settings** (or the relevant WP Suite settings screen, depending on your setup).
    - **Links:**
      - About reCAPTCHA: https://www.google.com/recaptcha/about/
      - Google Terms: https://policies.google.com/terms
@@ -145,9 +145,9 @@ This plugin may integrate with the following external services, depending on con
    - **How it’s called:**
      Standard HTTPS requests (fetch) from the browser.
 
-3. **WPSuite platform connection (optional; site/workspace linking & shared features)**
+3. **WP Suite platform connection (optional; site/workspace linking & shared features)**
    - **When it applies:**
-     When you use **WP Admin → SmartCloud → Connect your Site to WPSuite** to link this WordPress site to a WPSuite workspace, or to switch/disconnect later.
+     When you use **WP Admin → SmartCloud → Connect your Site to WP Suite** to link this WordPress site to a WP Suite workspace, or to switch/disconnect later.
    - **What it’s used for:**
      Storing and retrieving Pro feature configuration (e.g., API/chatbot/feature settings) and enabling an admin-side preview experience so you can try Pro features in WP Admin before enabling them on the live site.
    - **What data may be sent:**
@@ -158,9 +158,9 @@ This plugin may integrate with the following external services, depending on con
      - WPSuite.io Privacy Policy: https://wpsuite.io/privacy-policy
      - WPSuite.io Terms of Use: https://wpsuite.io/terms-of-use
 
-4. **Amazon Cognito (optional; authentication for WPSuite Hub and/or protected APIs)**
+4. **Amazon Cognito (optional; authentication for WP Suite Hub and/or protected APIs)**
    - **When it applies:**
-     - When using the **WPSuite.io Hub**, users authenticate (sign in / sign up) before creating/selecting a workspace and linking a site.
+     - When using the **WP Suite Hub**, users authenticate (sign in / sign up) before creating/selecting a workspace and linking a site.
      - If a plugin is configured to access protected endpoints that rely on Cognito, authentication/token flows may also be used for those requests.
    - **What it’s used for:**
      User authentication and token-based authorization for subsequent API calls (e.g., to WPSuite.io APIs).
@@ -169,7 +169,7 @@ This plugin may integrate with the following external services, depending on con
      - AWS Privacy: https://aws.amazon.com/privacy/
 
 5. **Stripe (optional; subscription/purchase flow)**
-   - **When it applies:** Only when the user opens the optional WPSuite subscription / purchase flow in the shared admin component.
+   - **When it applies:** Only when the user opens the optional WP Suite subscription / purchase flow in the shared admin component.
    - **What it’s used for:** Displaying hosted pricing/subscription UI for optional paid features.
    - **What data may be sent:** Browser/session data required by Stripe to render the hosted purchase UI and process the purchase flow.
    - **Links:**
@@ -191,7 +191,7 @@ All code that ships in the public (free) version of AI-Kit is available here: ht
 **Build & distribution:**
 AI-Kit is shipped to WordPress.org as a pre-built distribution. Build steps and developer notes are maintained in the GitHub repository documentation.
 
-**Shared WPSuite components:**
+**Shared WP Suite components:**
 Some admin UI modules may originate from shared WP Suite components to support workspace linking, license validation, and subscription management across WP Suite plugins.
 
 **Pro-only features (source availability):**
@@ -199,9 +199,13 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.4.3 =
+* Docs: Updated WP Suite brand wording and platform positioning across the readme.
+* Fix: Improved Knowledge Base source parsing so posts are identified more accurately as Elementor-managed or Gutenberg content, including cases where stale Elementor metadata remains after a page is moved back to Gutenberg.
+
 = 1.4.2 =
 * Performance: Added schedule-after-initial-paint mounting so frontend UI yields the main thread sooner and improves early paint metrics where supported.
-* Feature: AI-Kit now loads shared WPSuite Theme CSS inside supported shadow-root UI, making site-wide reusable component styling available alongside block-level overrides.
+* Feature: AI-Kit now loads shared WP Suite Theme CSS inside supported shadow-root UI, making site-wide reusable component styling available alongside block-level overrides.
 * Feature: Added pattern override support so synced patterns can override selected original block attributes without forking the source block structure.
 
 = 1.4.1 =
@@ -209,10 +213,10 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 * Internal: Improved script loading order so lightweight bootstrap data can be available early without forcing heavier frontend dependencies into the page head.
 
 = 1.4.0 =
-* Maintenance: Updated the admin UI dependency stack, including the shared UI React packages used by WPSuite admin screens.
-* Maintenance: Updated shared Gatey Core and WPSuite Core dependencies used by AI-Kit integrations.
+* Maintenance: Updated the admin UI dependency stack, including the shared UI React packages used by WP Suite admin screens.
+* Maintenance: Updated shared Gatey Core and WP Suite Core dependencies used by AI-Kit integrations.
 * Compatibility: Updated the "Tested up to" value for WordPress 7.0.
-* Internal cleanup: Refreshed related frontend and shared runtime dependencies for better alignment across WPSuite plugins.
+* Internal cleanup: Refreshed related frontend and shared runtime dependencies for better alignment across WP Suite plugins.
 
 = 1.3.3 =
 * Fixed Mantine CSS versioning to use the dedicated Mantine asset version for more accurate cache handling.
@@ -389,14 +393,17 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 
 == Upgrade Notice ==
 
+= 1.4.3 =
+No urgent update required for the documentation change. Update when convenient if you use Knowledge Base ingestion on sites that mix or migrate between Elementor and Gutenberg content.
+
 = 1.4.2 =
-Recommended feature update. Improves initial paint timing, adds shared WPSuite Theme CSS support for shadow-root UI, and lets synced patterns override selected block attributes.
+Recommended feature update. Improves initial paint timing, adds shared WP Suite Theme CSS support for shadow-root UI, and lets synced patterns override selected block attributes.
 
 = 1.4.1 =
 Recommended performance update. Frontend scripts now load later and defer where safe, reducing render-blocking work while preserving existing plugin behavior.
 
 = 1.4.0 =
-Recommended update. Refreshes AI-Kit’s shared admin UI and WPSuite runtime dependencies, and marks compatibility with WordPress 7.0. No configuration changes are required.
+Recommended update. Refreshes AI-Kit’s shared admin UI and WP Suite runtime dependencies, and marks compatibility with WordPress 7.0. No configuration changes are required.
 
 = 1.3.3 =
 This release fixes Mantine CSS versioning so the correct asset-specific version is used, improving cache invalidation for rendered styles.
