@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.2
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.3
+Stable tag: 1.4.4
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,9 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.4.4 =
+* Compatibility: Refined paid-feature handling in preparation for upcoming WP Suite Agency subscriptions.
+
 = 1.4.3 =
 * Docs: Updated WP Suite brand wording and platform positioning across the readme.
 * Fix: Improved Knowledge Base source parsing so posts are identified more accurately as Elementor-managed or Gutenberg content, including cases where stale Elementor metadata remains after a page is moved back to Gutenberg.
@@ -392,6 +395,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.4 =
+Recommended compatibility update in preparation for upcoming WP Suite Agency subscriptions. No configuration changes are required.
 
 = 1.4.3 =
 No urgent update required for the documentation change. Update when convenient if you use Knowledge Base ingestion on sites that mix or migrate between Elementor and Gutenberg content.

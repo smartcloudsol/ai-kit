@@ -1009,8 +1009,7 @@ const Main = (props: MainProps) => {
                 (Amplify/Gatey or direct base URL).
               </Text>
 
-              {(formConfig ?? decryptedConfig)?.subscriptionType !==
-                "PROFESSIONAL" && (
+              {!(formConfig ?? decryptedConfig)?.subscriptionType && (
                 <Alert
                   variant="light"
                   color="yellow"
@@ -1061,8 +1060,7 @@ const Main = (props: MainProps) => {
                 site, enable the chatbot and Save your changes.
               </Text>
 
-              {(formConfig ?? decryptedConfig)?.subscriptionType !==
-                "PROFESSIONAL" && (
+              {!(formConfig ?? decryptedConfig)?.subscriptionType && (
                 <Alert
                   variant="light"
                   color="yellow"
@@ -1108,8 +1106,7 @@ const Main = (props: MainProps) => {
                 available for AI-powered search and assistance.
               </Text>
 
-              {(formConfig ?? decryptedConfig)?.subscriptionType !==
-                "PROFESSIONAL" && (
+              {!(formConfig ?? decryptedConfig)?.subscriptionType && (
                 <Alert
                   variant="light"
                   color="yellow"
