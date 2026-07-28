@@ -1,6 +1,7 @@
 import { Code, Drawer, List, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useRef } from "react";
 import classes from "./main.module.css";
+import "./doc-sidebar.css";
 
 const pages = {
   general: (
@@ -865,6 +866,7 @@ export default function DocSidebar({
 
   return (
     <Drawer
+      classNames={{ content: "wpsuite-doc-sidebar" }}
       opened={opened}
       onClose={close}
       position="right"

@@ -1,10 +1,10 @@
 === SmartCloud AI-Kit – On-Device AI Tools ===
 Contributors: smartcloud
 Tags: ai, chrome, seo, language, tools
-Requires at least: 6.2
+Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.4
+Stable tag: 1.4.5
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -198,6 +198,11 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.5 =
+* Feature: Added an optional native WordPress Abilities API provider for AI-Kit component discovery, schema inspection, validation, materialization, runtime capability reporting, and safe knowledge metadata listing.
+* Compatibility: The provider loads only when the WordPress Abilities API and the shared WP Suite Hub abilities layer are available, so existing AI-Kit behavior is unchanged on older WordPress runtimes.
+* Integration: Added a private provider profile for SmartCloud Agent Composer without adding a product-level MCP server or public MCP exposure.
 
 = 1.4.4 =
 * Compatibility: Refined paid-feature handling in preparation for upcoming WP Suite Agency subscriptions.
@@ -395,6 +400,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.5 =
+Recommended update for SmartCloud Agent Composer provider integration testing. No configuration changes are required, and the new Abilities provider remains inactive when the WordPress Abilities API is unavailable.
 
 = 1.4.4 =
 Recommended compatibility update in preparation for upcoming WP Suite Agency subscriptions. No configuration changes are required.

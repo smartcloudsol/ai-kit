@@ -3,10 +3,10 @@
  * Plugin Name:       SmartCloud AI-Kit – On-Device AI Tools
  * Plugin URI:        https://wpsuite.io/ai-kit/
  * Description:       Bring on-device, zero-cost AI directly into WordPress. Create, rewrite, translate, proofread, summarize, and SEO-optimize content using Chrome's built-in AI — no API keys, no cloud, no tokens, no data leaving the browser.
- * Requires at least: 6.2
+ * Requires at least: 6.9
  * Tested up to:      7.0
  * Requires PHP:      8.1
- * Version:           1.4.4
+ * Version:           1.4.5
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.4.4';
+const VERSION = '1.4.5';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -788,6 +788,13 @@ var WpSuite = __aikitGlobal.WpSuite;
         // Hub admin classes
         if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'hub-loader.php')) {
             require_once SMARTCLOUD_AI_KIT_PATH . 'hub-loader.php';
+        }
+
+        if (!class_exists('\SmartCloud\WPSuite\Hub\Abilities\Product_Provider_Base') && file_exists(SMARTCLOUD_AI_KIT_PATH . 'hub-for-wpsuiteio/abilities.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'hub-for-wpsuiteio/abilities.php';
+        }
+        if (class_exists('\SmartCloud\WPSuite\Hub\Abilities\Product_Provider_Base') && file_exists(SMARTCLOUD_AI_KIT_PATH . 'includes/abilities-provider.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'includes/abilities-provider.php';
         }
 
         // Admin classes
