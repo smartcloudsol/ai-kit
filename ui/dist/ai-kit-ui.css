@@ -49,6 +49,11 @@
   /* Useful “bridge” vars */
   --ai-kit-button-padding-x: var(--button-padding-x, 12px);
   --ai-kit-input-padding-x: var(--input-padding-x, 12px);
+  --ai-kit-action-transition:
+    background-color 160ms ease, border-color 160ms ease, color 160ms ease,
+    box-shadow 160ms ease, opacity 160ms ease, transform 160ms ease;
+  --ai-kit-action-focus-ring: var(--mantine-primary-color-filled, #1c7ed6);
+  --ai-kit-action-disabled-opacity: 0.6;
 
   /* ---------------------------
      1) Semantic color tokens
@@ -359,6 +364,31 @@
   min-width: var(--ai-kit-actions-button-min-width, 140px);
 }
 
+/* Leave action colors to Mantine's resolved primary palette and the shared
+   WP Suite Theme CSS; this layer only standardizes interaction states. */
+.ai-feature-root .mantine-Button-root,
+.doc-search-root .mantine-Button-root,
+.ai-docs-ask .mantine-Button-root,
+.ai-docs-ask .mantine-ActionIcon-root {
+  transition: var(--ai-kit-action-transition);
+}
+
+.ai-feature-root .mantine-Button-root:focus-visible,
+.doc-search-root .mantine-Button-root:focus-visible,
+.ai-docs-ask .mantine-Button-root:focus-visible,
+.ai-docs-ask .mantine-ActionIcon-root:focus-visible {
+  outline: 2px solid var(--ai-kit-action-focus-ring);
+  outline-offset: 2px;
+}
+
+.ai-feature-root .mantine-Button-root:disabled,
+.doc-search-root .mantine-Button-root:disabled,
+.ai-docs-ask .mantine-Button-root:disabled,
+.ai-docs-ask .mantine-ActionIcon-root:disabled {
+  cursor: not-allowed;
+  opacity: var(--ai-kit-action-disabled-opacity);
+}
+
 @media (max-width: var(--ai-kit-actions-breakpoint, 520px)) {
   .ai-kit-actions {
     flex-direction: column;
@@ -463,10 +493,7 @@
   gap: 2px;
 
   box-shadow: var(--ai-kit-launcher-shadow);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    background 0.2s ease;
+  transition: var(--ai-kit-action-transition);
 
   padding: var(--ai-kit-space-3);
   pointer-events: auto;

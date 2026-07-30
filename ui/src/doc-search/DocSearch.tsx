@@ -237,7 +237,7 @@ const DocSearchBase: FC<Props> = (props) => {
   } | null>(null);
   const AUDIO_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-  const { busy, error, statusEvent, result, run, cancel, reset } =
+  const { busy, error, errorDetails, statusEvent, result, run, cancel, reset } =
     useAiRun<SearchResult>();
 
   const autoRunOnceRef = useRef(false);
@@ -441,8 +441,8 @@ const DocSearchBase: FC<Props> = (props) => {
         const data = await loadMetadataOptionsFromBackend(effectiveContext);
 
         setMetadataOptions(data);
-      } catch (error) {
-        console.error("Failed to load metadata options:", error);
+      } catch {
+        // Search remains available when optional filter metadata is unavailable.
       } finally {
         setLoadingMetadata(false);
       }
@@ -487,29 +487,33 @@ const DocSearchBase: FC<Props> = (props) => {
     }
 
     reset();
-    await run(async ({ signal, onStatus }) => {
-      return await sendSearchMessage(
-        {
-          sessionId,
-          ...(q && { query: q }),
-          ...(audioBlob && { audio: audioBlob }), // Pass Blob directly
-          topK,
-          // Include user-selected filters if enabled
-          // Always send userSelectedCategories array when enableUserFilters is true (even if empty)
-          // to prevent backend from applying its own kb-filter
-          ...(enableUserFilters && {
-            userSelectedCategories: selectedCategories,
-          }),
-          ...(enableUserFilters &&
-            selectedSubcategories.length > 0 && {
-              userSelectedSubcategories: selectedSubcategories,
+    try {
+      await run(async ({ signal, onStatus }) => {
+        return await sendSearchMessage(
+          {
+            sessionId,
+            ...(q && { query: q }),
+            ...(audioBlob && { audio: audioBlob }), // Pass Blob directly
+            topK,
+            // Include user-selected filters if enabled
+            // Always send userSelectedCategories array when enableUserFilters is true (even if empty)
+            // to prevent backend from applying its own kb-filter
+            ...(enableUserFilters && {
+              userSelectedCategories: selectedCategories,
             }),
-          ...(enableUserFilters &&
-            selectedTags.length > 0 && { userSelectedTags: selectedTags }),
-        },
-        { signal, onStatus, context },
-      );
-    });
+            ...(enableUserFilters &&
+              selectedSubcategories.length > 0 && {
+                userSelectedSubcategories: selectedSubcategories,
+              }),
+            ...(enableUserFilters &&
+              selectedTags.length > 0 && { userSelectedTags: selectedTags }),
+          },
+          { signal, onStatus, context },
+        );
+      });
+    } catch {
+      // useAiRun stores a normalized, localized error for the accessible UI.
+    }
   }, [
     context,
     inputText,
@@ -1050,8 +1054,21 @@ const DocSearchBase: FC<Props> = (props) => {
                     )}
 
                     {error ? (
-                      <Alert color="red" title={I18n.get("Error")}>
-                        {error}
+                      <Alert
+                        color="red"
+                        title={I18n.get("Error")}
+                        role="alert"
+                        aria-live="assertive"
+                        data-ai-kit-error
+                      >
+                        <Stack gap={2}>
+                          <Text size="sm">{error}</Text>
+                          {errorDetails?.requestId ? (
+                            <Text size="xs" c="dimmed">
+                              {I18n.get("Request ID")}: {errorDetails.requestId}
+                            </Text>
+                          ) : null}
+                        </Stack>
                       </Alert>
                     ) : null}
 

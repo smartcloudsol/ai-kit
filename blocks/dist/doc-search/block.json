@@ -86,6 +86,16 @@
       "type": "string",
       "role": "content"
     },
+    "primaryShade": {
+      "type": "object",
+      "role": "content",
+      "default": {}
+    },
+    "colors": {
+      "type": "object",
+      "role": "content",
+      "default": {}
+    },
     "themeOverrides": {
       "type": "string",
       "role": "content"

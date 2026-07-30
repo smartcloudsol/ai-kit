@@ -1232,7 +1232,6 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       // mark last sent timestamp on successful request completion
       setLastUserSentAt(userMessageCreatedAt);
     } catch (e) {
-      console.error("Error during ask()", e);
       // Cancel: treat as not sent, no error bubble
       if (
         cancelRequestedRef.current ||
@@ -1244,6 +1243,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
       const msg =
         (e as Error)?.message?.trim() || I18n.get(labels.unexpectedErrorLabel);
+      setStatusLineError(msg);
 
       // show error inside chat (assistant side)
       setMessages((prev) => {
@@ -2012,7 +2012,11 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
             {/* Status line (below bubbles) */}
             {showStatusLine && (
-              <Group className="ai-status-line">
+              <Group
+                className="ai-status-line"
+                role={statusLineError ? "alert" : "status"}
+                aria-live={statusLineError ? "assertive" : "polite"}
+              >
                 <Text className="ai-status-text">
                   <em>{statusLineText}</em>
                 </Text>

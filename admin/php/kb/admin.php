@@ -2245,6 +2245,20 @@ class Admin
             return;
         }
 
+        // WordPress fires the legacy generic column hook as well as the
+        // post-type-specific hook for custom post types. The latter is the
+        // hook registered above for supported CPTs, so let the generic hooks
+        // render only their original post and page screens. Otherwise the KB
+        // status is printed twice in custom post type list tables.
+        $current_hook = current_filter();
+        $post_type = get_post_type($post_id);
+        if (
+            ('manage_posts_custom_column' === $current_hook && 'post' !== $post_type)
+            || ('manage_pages_custom_column' === $current_hook && 'page' !== $post_type)
+        ) {
+            return;
+        }
+
         $source = $this->sources->getByPostId($post_id);
         $enabled = $source && $source->enabled;
 
@@ -2443,4 +2457,3 @@ class Admin
         }
     }
 }
-

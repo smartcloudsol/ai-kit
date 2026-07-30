@@ -140,20 +140,14 @@
       "role": "content"
     },
     "primaryShade": {
-      "type": "string",
-      "role": "content"
+      "type": "object",
+      "role": "content",
+      "default": {}
     },
     "colors": {
       "type": "object",
       "role": "content",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "color": {
-          "type": "string"
-        }
-      }
+      "default": {}
     },
     "uid": {
       "type": "string"
