@@ -178,6 +178,21 @@ export const huDict: Record<string, string> = {
   shorter: "rövidebb",
   Show: "Mutat",
   "Something went wrong.": "Valami baj történt.",
+  "Something went wrong. Please try again.":
+    "Valami baj történt. Próbáld újra.",
+  "We couldn't verify that you're human. Please try again.":
+    "Nem sikerült az emberi felhasználót ellenőrizni. Próbáld újra.",
+  "You are not authorized to use this AI feature. Please sign in or contact the site owner.":
+    "Nincs jogosultságod ehhez az AI-funkcióhoz. Jelentkezz be, vagy fordulj a webhely gazdájához.",
+  "Too many requests. Please wait a moment and try again.":
+    "Túl sok kérés érkezett. Várj egy kicsit, majd próbáld újra.",
+  "The request could not be processed. Review your input and try again.":
+    "A kérést nem sikerült feldolgozni. Ellenőrizd a bevitt adatokat, majd próbáld újra.",
+  "We couldn't reach the AI service. Check your connection and try again.":
+    "Az AI-szolgáltatás nem érhető el. Ellenőrizd a kapcsolatot, majd próbáld újra.",
+  "The AI service is temporarily unavailable. Please try again.":
+    "Az AI-szolgáltatás átmenetileg nem érhető el. Próbáld újra.",
+  "Request ID": "Kérésazonosító",
   Sources: "Források",
   Spanish: "spanyol",
   Stop: "Stop",

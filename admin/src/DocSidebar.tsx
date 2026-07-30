@@ -671,13 +671,6 @@ const pages = {
       </Text>
 
       <Text mt="xs">
-        <strong>RERANK template:</strong> Used to rerank KB retrieval results.
-        Semantically evaluates which passages are most relevant to the
-        user&apos;s question, enabling more accurate answers. Output must be
-        JSON format with passage IDs and scores.
-      </Text>
-
-      <Text mt="xs">
         <strong>SUMMARY template:</strong> When conversation history grows too
         long, this template summarizes previous messages and context so the
         model can remember prior conversation without reprocessing every old

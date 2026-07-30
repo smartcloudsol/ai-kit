@@ -1,4 +1,3 @@
-import { ApiError } from "@aws-amplify/api";
 import {
   AiKitLanguageCode,
   AiKitPlugin,
@@ -9,11 +8,20 @@ import {
   type AiKitStatusEvent,
 } from "@smart-cloud/ai-kit-core";
 import { getWpSuite } from "@smart-cloud/wpsuite-core";
+import { I18n } from "aws-amplify/utils";
 import { useCallback, useRef, useState } from "react";
+import {
+  AiRunError,
+  type AiRunErrorDetails,
+  clearAiRunErrorFeedback,
+  createAiRunErrorFeedback,
+  isAiRunAbort,
+} from "./errorHandling";
 
 export type AiRunState<T> = {
   busy: boolean;
   error: string | null;
+  errorDetails: AiRunErrorDetails | null;
   statusEvent: AiKitStatusEvent | null;
   result: T | null;
   isCancelled: boolean;
@@ -33,27 +41,6 @@ export type UseAiRunResult<T> = AiRunState<T> & {
   /** Current AbortSignal, if a run is in-flight. */
   signal: AbortSignal | null;
 };
-
-function getErrorMessage(err: unknown): string {
-  if ((err as ApiError)?.response?.body) {
-    try {
-      return JSON.parse((err as ApiError)!.response!.body!).message;
-    } catch {
-      /* empty */
-    }
-  }
-  if (err instanceof Error) {
-    return err.message;
-  }
-  if (typeof err === "string") {
-    return err;
-  }
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return "Unknown error";
-  }
-}
 
 /**
  * Returns true if backend routing is configured in the current AiKit settings.
@@ -102,7 +89,7 @@ export function useAiRun<T>(): UseAiRunResult<T> {
   const lastSourceRef = useRef<"on-device" | "backend" | null>(null);
 
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorFeedback, setErrorFeedback] = useState(clearAiRunErrorFeedback);
   const [statusEvent, setStatusEvent] = useState<AiKitStatusEvent | null>(null);
   const [result, setResult] = useState<T | null>(null);
   const [isCancelled, setIsCancelled] = useState(false);
@@ -118,7 +105,7 @@ export function useAiRun<T>(): UseAiRunResult<T> {
     ctrlRef.current?.abort();
     ctrlRef.current = null;
     setBusy(false);
-    setError(null);
+    setErrorFeedback(clearAiRunErrorFeedback());
     setStatusEvent(null);
     setResult(null);
     setIsCancelled(false);
@@ -135,7 +122,7 @@ export function useAiRun<T>(): UseAiRunResult<T> {
       ctrlRef.current = ctrl;
 
       setBusy(true);
-      setError(null);
+      setErrorFeedback(clearAiRunErrorFeedback());
       setStatusEvent(null);
       setResult(null);
       setIsCancelled(false);
@@ -156,12 +143,18 @@ export function useAiRun<T>(): UseAiRunResult<T> {
         setResult(value);
         return value;
       } catch (err) {
-        if (ctrl.signal.aborted) {
+        if (ctrl.signal.aborted || isAiRunAbort(err)) {
           setIsCancelled(true);
-          setError(null);
+          setErrorFeedback(clearAiRunErrorFeedback());
           return null;
         }
-        throw new Error(getErrorMessage(err), { cause: err });
+        const feedback = createAiRunErrorFeedback(err, (message) =>
+          I18n.get(message),
+        );
+        setErrorFeedback(feedback);
+        throw new AiRunError(feedback.details!, feedback.message!, {
+          cause: err,
+        });
       } finally {
         setBusy(false);
         setStatusEvent(null);
@@ -175,7 +168,8 @@ export function useAiRun<T>(): UseAiRunResult<T> {
 
   return {
     busy,
-    error,
+    error: errorFeedback.message,
+    errorDetails: errorFeedback.details,
     statusEvent,
     result,
     isCancelled,

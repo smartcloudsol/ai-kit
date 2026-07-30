@@ -1,7 +1,9 @@
 import { AiKitLanguageCode, type AiKitStatusEvent } from "@smart-cloud/ai-kit-core";
+import { type AiRunErrorDetails } from "./errorHandling";
 export type AiRunState<T> = {
     busy: boolean;
     error: string | null;
+    errorDetails: AiRunErrorDetails | null;
     statusEvent: AiKitStatusEvent | null;
     result: T | null;
     isCancelled: boolean;

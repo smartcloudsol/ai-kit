@@ -177,6 +177,21 @@ export const enDict: Record<string, string> = {
   shorter: "shorter",
   Show: "Show",
   "Something went wrong.": "Something went wrong.",
+  "Something went wrong. Please try again.":
+    "Something went wrong. Please try again.",
+  "We couldn't verify that you're human. Please try again.":
+    "We couldn't verify that you're human. Please try again.",
+  "You are not authorized to use this AI feature. Please sign in or contact the site owner.":
+    "You are not authorized to use this AI feature. Please sign in or contact the site owner.",
+  "Too many requests. Please wait a moment and try again.":
+    "Too many requests. Please wait a moment and try again.",
+  "The request could not be processed. Review your input and try again.":
+    "The request could not be processed. Review your input and try again.",
+  "We couldn't reach the AI service. Check your connection and try again.":
+    "We couldn't reach the AI service. Check your connection and try again.",
+  "The AI service is temporarily unavailable. Please try again.":
+    "The AI service is temporarily unavailable. Please try again.",
+  "Request ID": "Request ID",
   Sources: "Sources",
   Spanish: "Spanish",
   Stop: "Stop",

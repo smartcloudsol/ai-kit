@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.6
+Stable tag: 1.4.7
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -198,6 +198,15 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.7 =
+* Fix: Prevented duplicate Knowledge Base Source status output on custom post type list tables.
+* Fix: Added visible, localized, and accessible frontend failure feedback for DocSearch, AI Feature, and Chatbot actions, including human-verification, authorization, throttling, network, and backend failures while preserving retry input.
+* Privacy: Retained only safe status, error-code, and request-ID diagnostics in frontend failure feedback without exposing verification tokens or request data.
+* Integration: Aligned AI Feature and DocSearch theming metadata with provider-based block materialization, including the historical AI Feature build-directory mapping.
+* Theming: Aligned action hover, focus-visible, and disabled states with each block's resolved Mantine primary color and shared WP Suite shadow-root styling.
+* Shared Hub: Added ownership-safe WP Suite Theme CSS fragment updates and hardened the frontend settings bootstrap for CSS-rich configuration values.
+* Compatibility: Updated the bundled shared Hub runtime to 2.5.6.
 
 = 1.4.6 =
 * Fix: Made the shared WP Suite Abilities foundation safe to load from multiple product plugin paths without redeclaring its base provider class.
@@ -404,6 +413,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.7 =
+Recommended update for actionable frontend AI errors, custom post type Knowledge Base screens, provider-based AI-Kit block theming, and safe shared WP Suite Theme CSS handling.
 
 = 1.4.6 =
 Recommended compatibility update for sites running multiple WP Suite plugins. It prevents a shared Abilities class redeclaration during plugin loading or updates.

@@ -1,8 +1,5 @@
 *.zip
+/*/node_modules
+/*/dist/
 /admin/public
-/**/node_modules
-/**/paid-features
-/**/protected
-/**/scripts
-/**/publish
-/**/index.html
+/vendor/

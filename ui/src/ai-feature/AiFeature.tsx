@@ -65,6 +65,11 @@ import {
 import { translations } from "../i18n";
 import { PoweredBy } from "../poweredBy";
 import {
+  getAiRunErrorMessage,
+  type AiRunErrorDetails,
+  normalizeAiRunError,
+} from "../errorHandling";
+import {
   isBackendConfigured,
   readDefaultOutputLanguage,
   stripCodeFence,
@@ -324,8 +329,7 @@ async function parseImageMetadataFromPromptResult(
             : parsed.description
           : "",
     };
-  } catch (e) {
-    console.warn("AI Kit: failed to parse JSON metadata output", e);
+  } catch {
     return {};
   }
 }
@@ -375,8 +379,7 @@ async function parsePostMetadataFromPromptResult(
             : parsed.excerpt
           : "",
     };
-  } catch (e) {
-    console.warn("AI Kit: failed to parse JSON metadata output", e);
+  } catch {
     return {};
   }
 }
@@ -467,6 +470,8 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
   const [optionsOpen, setOptionsOpen] = useState<boolean>(false);
   const [backendConfigured, setBackendConfigured] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] =
+    useState<AiRunErrorDetails | null>(null);
   const [generated, setGenerated] = useState<never | null>(null);
   const [text, setText] = useState<string | undefined>(defaults?.text);
   const [image] = useState<Blob | undefined>(defaults?.image);
@@ -664,6 +669,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
         setOptionsOpen(false);
       }
       setError(null);
+      setErrorDetails(null);
       setGenerated(null);
 
       const input = await inputText;
@@ -762,13 +768,6 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
                 setDetectedLanguage(inputLang);
               }
               if (outLang === inputLang) {
-                console.warn(
-                  "AI Kit: input and output languages are the same",
-                  {
-                    inputLang,
-                    outLang,
-                  },
-                );
                 setError(
                   I18n.get("Input and output languages cannot be the same."),
                 );
@@ -971,10 +970,9 @@ Follow these additional instructions: ${instructions}`
                 );
               })) as string | null;
               setGenerated(parsed as never);
-            } catch (e) {
+            } catch {
               // If parsing fails, keep raw in the modal. User can still copy/paste.
               setGenerated(cleaned as never);
-              console.warn("AI Kit: failed to parse SEO JSON", e);
             }
 
             break;
@@ -1057,21 +1055,22 @@ Follow these additional instructions: ${instructions}`
                   );
                 })) as string | null;
                 setGenerated(parsed as never);
-              } catch (e) {
+              } catch {
                 // If parsing fails, keep raw in the modal. User can still copy/paste.
                 setGenerated(cleaned as never);
-                console.warn("AI Kit: failed to parse SEO JSON", e);
               }
               break;
             }
           }
         }
       } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : I18n.get("An unknown error occurred."),
-        );
+        const details = normalizeAiRunError(e);
+        if (details.kind !== "cancelled") {
+          setErrorDetails(details);
+          setError(
+            getAiRunErrorMessage(details, (message) => I18n.get(message)),
+          );
+        }
       }
       setState(undefined);
     },
@@ -1158,6 +1157,7 @@ Follow these additional instructions: ${instructions}`
     setFeatureOpen(false);
     setGenerated(null);
     setError(null);
+    setErrorDetails(null);
     autoRunOnceRef.current = false;
     ai.reset();
     if (!showOpenButton) {
@@ -1213,8 +1213,7 @@ Follow these additional instructions: ${instructions}`
         await waitForAiKitReady();
         const v = await isBackendConfigured();
         if (alive) setBackendConfigured(v);
-      } catch (e) {
-        console.error(e);
+      } catch {
         if (alive) setBackendConfigured(false);
       }
     })();
@@ -1508,7 +1507,23 @@ Follow these additional instructions: ${instructions}`
                   )}
 
                   {/* ERROR */}
-                  {error && <Alert color="red">{I18n.get(error)}</Alert>}
+                  {error && (
+                    <Alert
+                      color="red"
+                      role="alert"
+                      aria-live="assertive"
+                      data-ai-kit-error
+                    >
+                      <Stack gap={2}>
+                        <Text size="sm">{I18n.get(error)}</Text>
+                        {errorDetails?.requestId ? (
+                          <Text size="xs" c="dimmed">
+                            {I18n.get("Request ID")}: {errorDetails.requestId}
+                          </Text>
+                        ) : null}
+                      </Stack>
+                    </Alert>
+                  )}
 
                   {/* OVERRIDABLE PARAMETERS */}
                   {allowOverrideParameters && mode !== "proofread" && (

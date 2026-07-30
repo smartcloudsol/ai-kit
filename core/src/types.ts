@@ -546,8 +546,6 @@ export interface PromptResult {
     usage?: {
       queryInputTokens?: number;
       queryOutputTokens?: number;
-      rerankInputTokens?: number;
-      rerankOutputTokens?: number;
       summaryInputTokens?: number;
       summaryOutputTokens?: number;
       inferenceInputTokens?: number;

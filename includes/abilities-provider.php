@@ -361,6 +361,22 @@ final class Provider extends Product_Provider_Base
     }
 
     /**
+     * Resolve the public feature block to its historical ai-feature build directory.
+     *
+     * The registered block name intentionally remains smartcloud-ai-kit/feature,
+     * while its source/build folder predates that public slug.
+     */
+    protected function block_attributes(string $plugin_path, string $block_name): array
+    {
+        if ($block_name === 'smartcloud-ai-kit/feature') {
+            $metadata = $this->block_metadata($plugin_path, 'ai-feature');
+            return is_array($metadata['attributes'] ?? null) ? $metadata['attributes'] : array();
+        }
+
+        return parent::block_attributes($plugin_path, $block_name);
+    }
+
+    /**
      * @return string[]
      */
     private function supported_feature_modes(): array
