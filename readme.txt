@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.7
+Stable tag: 1.4.8
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -198,6 +198,10 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.8 =
+* Maintenance: Refreshed the AI-Kit package chain, AWS Amplify UI integration, build tooling, and dependency security fixes.
+* Compatibility: Updated the bundled shared Hub runtime to 2.5.7.
 
 = 1.4.7 =
 * Fix: Prevented duplicate Knowledge Base Source status output on custom post type list tables.

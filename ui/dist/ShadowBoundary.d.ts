@@ -26,4 +26,4 @@ export type ShadowBoundaryProps = {
         shadowRoot: ShadowRoot;
     }) => React.ReactNode;
 };
-export declare function ShadowBoundary({ stylesheets, children, rootElementId, mode, overlayRootId, setHost, }: ShadowBoundaryProps): import("react/jsx-runtime").JSX.Element;
+export declare function ShadowBoundary({ stylesheets, children, rootElementId, mode, overlayRootId, setHost, }: ShadowBoundaryProps): import("react").JSX.Element;
