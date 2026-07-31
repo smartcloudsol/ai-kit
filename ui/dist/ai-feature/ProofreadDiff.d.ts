@@ -10,4 +10,4 @@ export type ProofreadDiffProps = {
     original: string;
     corrections: Correction[];
 };
-export declare function ProofreadDiff({ original, corrections }: ProofreadDiffProps): import("react/jsx-runtime").JSX.Element;
+export declare function ProofreadDiff({ original, corrections }: ProofreadDiffProps): import("react").JSX.Element;

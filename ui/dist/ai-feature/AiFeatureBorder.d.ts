@@ -2,4 +2,4 @@ export declare function AiFeatureBorder({ enabled, working, variation, children,
     enabled?: boolean;
     working?: boolean;
     variation?: string;
-}>): import("react/jsx-runtime").JSX.Element;
+}>): import("react").JSX.Element;
