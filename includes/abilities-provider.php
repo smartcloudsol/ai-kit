@@ -16,6 +16,8 @@ if (!defined('ABSPATH')) {
 
 final class Provider extends Product_Provider_Base
 {
+    private const REACT_FALLBACK_BLOCK = 'wpsuite/react-fallback';
+
     /** @var string[] */
     private array $components = array('feature', 'doc-search', 'kb-section');
 
@@ -185,7 +187,7 @@ final class Provider extends Product_Provider_Base
         );
     }
 
-    private function validate_nodes(array $blocks, string $path, array &$errors): void
+    private function validate_nodes(array $blocks, string $path, array &$errors, ?string $parent = null): void
     {
         if ($this->count_blocks($blocks) > 500) {
             $errors[] = $this->validation_issue('smartcloud_ai_kit_block_tree_too_large', 'The AI-Kit block tree exceeds the provider block limit.', $path);
@@ -200,6 +202,12 @@ final class Provider extends Product_Provider_Base
             }
 
             $name = (string) ($block['blockName'] ?? '');
+            if ($name === self::REACT_FALLBACK_BLOCK) {
+                if (!in_array($parent, array('smartcloud-ai-kit/feature', 'smartcloud-ai-kit/doc-search'), true)) {
+                    $errors[] = $this->validation_issue('smartcloud_ai_kit_fallback_parent_invalid', 'The React fallback block is accepted only as a direct AI Feature or Doc Search child.', $current_path);
+                }
+                continue;
+            }
             if (!in_array($name, $this->blocks, true)) {
                 $errors[] = $this->validation_issue('smartcloud_ai_kit_unknown_block', 'Only current AI-Kit blocks are accepted.', $current_path);
                 continue;
@@ -221,7 +229,7 @@ final class Provider extends Product_Provider_Base
                 $errors[] = $this->validation_issue($metadata_error->get_error_code(), $metadata_error->get_error_message(), $current_path . '/attrs');
             }
 
-            $this->validate_nodes(is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : array(), $current_path . '/innerBlocks', $errors);
+            $this->validate_nodes(is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : array(), $current_path . '/innerBlocks', $errors, $name);
         }
     }
 

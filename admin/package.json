@@ -1,7 +1,7 @@
 {
   "name": "@smart-cloud/ai-kit-admin",
   "private": true,
-  "version": "1.4.5",
+  "version": "1.4.6",
   "type": "module",
   "license": "ISC",
   "scripts": {

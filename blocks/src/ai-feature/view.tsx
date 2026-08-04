@@ -7,8 +7,6 @@ import YAML from "yaml";
 import { beginMount, endMount, resetMount } from "../shared/mountGuard";
 import { App } from "./app";
 
-const cache = new Map<string, string>();
-
 const decodeB64Utf8 = (b64: string): string => {
   const bin = atob(b64);
   const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
@@ -96,11 +94,6 @@ try {
         const isPreview = el.getAttribute("data-is-preview") === "true";
 
         const root = createRoot(el);
-        if (cache.has(id)) {
-          el.innerHTML = cache.get(id) || "";
-        } else {
-          cache.set(id, el.innerHTML || "");
-        }
         root.render(
           <StrictMode>
             <App isPreview={isPreview} store={store} {...config} />

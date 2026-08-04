@@ -17,9 +17,16 @@ $smartcloud_ai_kit_div_attrs[] = 'data-config="' . esc_attr($smartcloud_ai_kit_c
 
 // Add block wrapper attributes
 $smartcloud_ai_kit_div_attrs[] = get_block_wrapper_attributes();
+
+$smartcloud_ai_kit_fallback = '';
+if (isset($block) && is_object($block) && !empty($block->inner_blocks)) {
+  foreach ($block->inner_blocks as $smartcloud_ai_kit_inner_block) {
+    if (($smartcloud_ai_kit_inner_block->name ?? '') === 'wpsuite/react-fallback') {
+      $smartcloud_ai_kit_fallback .= $smartcloud_ai_kit_inner_block->render();
+    }
+  }
+}
 ?>
 <div <?php echo wp_kses_data(implode(' ', $smartcloud_ai_kit_div_attrs)); ?>>
-  <div style="display: none;">
-    <?php echo esc_html($content); ?>
-  </div>
+  <?php echo wp_kses_post($smartcloud_ai_kit_fallback); ?>
 </div>

@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.0
  * Requires PHP:      8.1
- * Version:           1.4.8
+ * Version:           1.4.9
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.4.8';
+const VERSION = '1.4.9';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -331,7 +331,10 @@ final class AiKit
 	/** @return array<string, string>|\WP_Error */
 	private function connectionSettings(): array|\WP_Error
 	{
-		$settings = get_option('hub-for-wpsuiteio/site-settings');
+		$settings = get_option('smartcloud-wpsuite/site-settings');
+		if (false === $settings) {
+			$settings = get_option('hub-for-wpsuiteio/site-settings');
+		}
 		$value = static function (mixed $source, string $key): string {
 			if (is_object($source)) {
 				return (string) ($source->{$key} ?? '');
@@ -357,13 +360,16 @@ final class AiKit
 	/** @return array<string, mixed>|\WP_Error */
 	private function refreshLocalLicenseConfig(): array|\WP_Error
 	{
-		$site_settings = get_option('hub-for-wpsuiteio/site-settings');
+		$site_settings = get_option('smartcloud-wpsuite/site-settings');
+		if (false === $site_settings) {
+			$site_settings = get_option('hub-for-wpsuiteio/site-settings');
+		}
 		$body = is_object($site_settings) ? get_object_vars($site_settings) : (is_array($site_settings) ? $site_settings : array());
 		if (empty($body['accountId']) || empty($body['siteId']) || empty($body['siteKey'])) {
 			return new \WP_Error('smartcloud_ai_kit_chatbot_site_not_connected', __('Connect this site to WP Suite before refreshing its runtime configuration.', 'smartcloud-ai-kit'));
 		}
 		$body['lastUpdate'] = (int) round(microtime(true) * 1000);
-		$request = new \WP_REST_Request('POST', '/hub-for-wpsuiteio/v1/update-site-settings');
+		$request = new \WP_REST_Request('POST', '/smartcloud-wpsuite/v1/update-site-settings');
 		$request->set_header('Content-Type', 'application/json');
 		$request->set_body((string) wp_json_encode($body));
 		$response = rest_do_request($request);
@@ -1029,8 +1035,8 @@ var WpSuite = __aikitGlobal.WpSuite;
             require_once SMARTCLOUD_AI_KIT_PATH . 'hub-loader.php';
         }
 
-        if (!class_exists('\SmartCloud\WPSuite\Hub\Abilities\Product_Provider_Base') && file_exists(SMARTCLOUD_AI_KIT_PATH . 'hub-for-wpsuiteio/abilities.php')) {
-            require_once SMARTCLOUD_AI_KIT_PATH . 'hub-for-wpsuiteio/abilities.php';
+        if (!class_exists('\SmartCloud\WPSuite\Hub\Abilities\Product_Provider_Base') && file_exists(SMARTCLOUD_AI_KIT_PATH . 'smartcloud-wpsuite/abilities.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'smartcloud-wpsuite/abilities.php';
         }
         if (class_exists('\SmartCloud\WPSuite\Hub\Abilities\Product_Provider_Base') && file_exists(SMARTCLOUD_AI_KIT_PATH . 'includes/abilities-provider.php')) {
             require_once SMARTCLOUD_AI_KIT_PATH . 'includes/abilities-provider.php';

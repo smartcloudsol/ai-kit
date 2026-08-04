@@ -1,4 +1,5 @@
 import { DEFAULT_THEME } from "@mantine/core";
+import { REACT_FALLBACK_BLOCK_NAME } from "@smart-cloud/wpsuite-blocks";
 import {
   CustomTranslations,
   DocSearchArgs,
@@ -141,7 +142,9 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
   const editorRef = createRef<HTMLDivElement>();
 
   const blockProps = useBlockProps();
-  const { ...innerBlocksProps } = useInnerBlocksProps(blockProps);
+  const { children, ...innerBlocksProps } = useInnerBlocksProps(blockProps, {
+    allowedBlocks: [REACT_FALLBACK_BLOCK_NAME],
+  });
 
   useEffect(() => {
     if (language) {
@@ -715,6 +718,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
           </>
         )}
       </div>
+      <div className="wpsuite-react-fallback-editor">{children}</div>
     </div>
   );
 };

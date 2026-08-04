@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.8
+Stable tag: 1.4.9
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -199,6 +199,16 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.4.9 =
+* Feature: Added native, server-rendered Gutenberg fallback content for AI Feature and Doc Search while their React interfaces initialize.
+* Performance: Kept authored fallback content visible until React commits, reducing layout shifts and avoiding empty roots for crawlers.
+* Compatibility: Preserved shortcode and Elementor rendering without requiring fallback content outside Gutenberg patterns.
+* Compatibility: Allowed authored React fallback blocks and their native Gutenberg content in AI Feature and Doc Search Abilities validation.
+* Safety: Kept fallback blocks restricted to their supported direct parent roots.
+* Packaging: Renamed the bundled shared runtime directory to `smartcloud-wpsuite`.
+* Migration: Made `smartcloud-wpsuite` the canonical admin, option, and REST namespace while retaining legacy aliases and synchronized site settings for rolling upgrades.
+* Cleanup: Added multisite-aware uninstall removal for AI-Kit settings, migration state, Knowledge Base tables, and cached discovery metadata without touching shared WP Suite licences.
+
 = 1.4.8 =
 * Maintenance: Refreshed the AI-Kit package chain, AWS Amplify UI integration, build tooling, and dependency security fixes.
 * Compatibility: Updated the bundled shared Hub runtime to 2.5.7.
@@ -339,7 +349,7 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 * Fixed missing kb-quick-edit.js
 
 = 1.2.0 =
-* Moved reCAPTCHA handling and script loading to the shared hub-for-wpsuiteio package.
+* Moved reCAPTCHA handling and script loading to the shared smartcloud-wpsuite package.
 * Added optional admin-side PHP debug logging. Requires WP_DEBUG and WP_DEBUG_LOG to be enabled.
 * Improved AiFeature input processing by converting selected HTML content to Markdown before AI handling.
 * Added quota-aware chunking and result merging for summarize, rewrite, and translate modes.
@@ -417,6 +427,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.9 =
+Recommended feature and compatibility update. Adds crawler-visible Gutenberg fallbacks, validates them through WordPress Abilities, migrates the shared runtime namespace, and adds plugin-owned uninstall cleanup while preserving shortcode, Elementor, and shared licence behavior.
 
 = 1.4.7 =
 Recommended update for actionable frontend AI errors, custom post type Knowledge Base screens, provider-based AI-Kit block theming, and safe shared WP Suite Theme CSS handling.
