@@ -51,7 +51,7 @@ class Admin
     public function addMenu()
     {
         $settings_page = add_submenu_page(
-            SMARTCLOUD_WPSUITE_SLUG,
+            SMARTCLOUD_WPSUITE_CANONICAL_SLUG,
             __('AI-Kit Settings', 'smartcloud-ai-kit'),
             __('AI-Kit Settings', 'smartcloud-ai-kit'),
             'manage_options',
@@ -60,7 +60,7 @@ class Admin
         );
 
         $diagnostics_page = add_submenu_page(
-            SMARTCLOUD_WPSUITE_SLUG,
+            SMARTCLOUD_WPSUITE_CANONICAL_SLUG,
             __('AI-Kit Diagnostics', 'smartcloud-ai-kit'),
             __('AI-Kit Diagnostics', 'smartcloud-ai-kit'),
             'manage_options',

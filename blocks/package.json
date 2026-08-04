@@ -1,13 +1,14 @@
 {
   "name": "@smart-cloud/ai-kit-blocks",
   "private": true,
-  "version": "1.4.4",
+  "version": "1.4.5",
   "type": "module",
   "license": "ISC",
   "scripts": {
     "dev": "vite --port 3000",
     "build": "tsc && vite build",
     "lint": "eslint 'src/**/*.ts' 'src/**/*.tsx' 'src/index.tsx' --report-unused-disable-directives --max-warnings 0",
+    "test": "php tests/fallback-compat.test.php",
     "preview": "vite preview",
     "build-wp": "wp-scripts build --config=webpack.config.cjs --webpack-copy-php --stats-error-details --output-path",
     "format": "wp-scripts format",
@@ -21,6 +22,7 @@
   "dependencies": {
     "@smart-cloud/ai-kit-core": "^1.5.2",
     "@smart-cloud/ai-kit-ui": "^1.5.4",
+    "@smart-cloud/wpsuite-blocks": "^1.0.0",
     "rehype-parse": "^9.0.1",
     "rehype-remark": "^10.0.1",
     "remark-gfm": "^4.0.1",
@@ -39,8 +41,8 @@
     "@wordpress/blocks": "^15.25.0",
     "@wordpress/components": "^38.0.0",
     "@wordpress/data": "^10.52.0",
-    "@wordpress/element": "^8.4.0",
     "@wordpress/editor": "^14.52.0",
+    "@wordpress/element": "^8.4.0",
     "@wordpress/i18n": "^6.25.0",
     "@wordpress/plugins": "^7.52.0",
     "aws-amplify": "^6.20.0",
@@ -69,8 +71,8 @@
     "@wordpress/blocks": "^15.25.0",
     "@wordpress/components": "^38.0.0",
     "@wordpress/data": "^10.52.0",
-    "@wordpress/element": "^8.4.0",
     "@wordpress/editor": "^14.52.0",
+    "@wordpress/element": "^8.4.0",
     "@wordpress/i18n": "^6.25.0",
     "@wordpress/plugins": "^7.52.0",
     "@wordpress/scripts": "^34.0.0",
@@ -88,6 +90,7 @@
     "vite": "^8.2.0"
   },
   "resolutions": {
+    "**/@babel/helper-compilation-targets/lru-cache": "5.1.1",
     "@wordpress/upload-media": "0.37.0",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
