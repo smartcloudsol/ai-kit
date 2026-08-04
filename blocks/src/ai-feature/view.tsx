@@ -1,6 +1,11 @@
 import "jquery";
 
 import { getStore } from "@smart-cloud/ai-kit-core";
+import {
+  dismissReactFallbackWhenMounted,
+  showReactFallback,
+  type ReactFallbackHandoff,
+} from "@smart-cloud/wpsuite-blocks";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import YAML from "yaml";
@@ -22,6 +27,7 @@ try {
       }
 
       try {
+        showReactFallback(el);
         const store = await getStore();
 
         // Simple decode of single data-config attribute
@@ -93,13 +99,33 @@ try {
 
         const isPreview = el.getAttribute("data-is-preview") === "true";
 
-        const root = createRoot(el);
+        const mountTarget = el.querySelector<HTMLElement>(
+          ".smartcloud-ai-kit-feature__mount",
+        );
+        if (!mountTarget) {
+          throw new Error("AI Kit feature mount target is missing.");
+        }
+
+        let fallbackHandoff: ReactFallbackHandoff | undefined;
+        const root = createRoot(mountTarget);
         root.render(
           <StrictMode>
-            <App isPreview={isPreview} store={store} {...config} />
+            <App
+              isPreview={isPreview}
+              store={store}
+              {...config}
+              onUiMountTarget={(uiMountTarget) => {
+                fallbackHandoff?.cancel();
+                fallbackHandoff = dismissReactFallbackWhenMounted(
+                  el,
+                  uiMountTarget,
+                );
+              }}
+            />
           </StrictMode>,
         );
       } catch (error) {
+        showReactFallback(el);
         resetMount(el);
         throw error;
       } finally {

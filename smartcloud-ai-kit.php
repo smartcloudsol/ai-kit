@@ -298,6 +298,7 @@ final class AiKit
 		$status = wp_remote_retrieve_response_code($response);
 		$data = json_decode(wp_remote_retrieve_body($response), true);
 		if (200 !== $status || !is_array($data) || !is_array($data['settings'] ?? null)) {
+			/* translators: %d: HTTP response status code. */
 			return new \WP_Error('smartcloud_ai_kit_chatbot_settings_read_failed', sprintf(__('AI-Kit settings could not be read (HTTP %d).', 'smartcloud-ai-kit'), $status));
 		}
 		return $data['settings'];
@@ -323,6 +324,7 @@ final class AiKit
 		$status = wp_remote_retrieve_response_code($response);
 		$data = json_decode(wp_remote_retrieve_body($response), true);
 		if (200 !== $status || !is_array($data) || !is_array($data['settings'] ?? null)) {
+			/* translators: %d: HTTP response status code. */
 			return new \WP_Error('smartcloud_ai_kit_chatbot_settings_write_failed', sprintf(__('AI-Kit settings could not be updated (HTTP %d).', 'smartcloud-ai-kit'), $status));
 		}
 		return $data['settings'];
@@ -378,6 +380,7 @@ final class AiKit
 		}
 		$status = $response->get_status();
 		if ($status < 200 || $status >= 300) {
+			/* translators: %d: HTTP response status code. */
 			return new \WP_Error('smartcloud_ai_kit_chatbot_runtime_refresh_failed', sprintf(__('AI-Kit runtime configuration could not be refreshed (HTTP %d).', 'smartcloud-ai-kit'), $status));
 		}
 		return array('refreshed' => true);

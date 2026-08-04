@@ -10,6 +10,7 @@ import {
   TEXT_DOMAIN,
 } from "@smart-cloud/ai-kit-core";
 import {
+  InnerBlocks,
   InspectorControls,
   useBlockProps,
   useInnerBlocksProps,
@@ -142,9 +143,13 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
   const editorRef = createRef<HTMLDivElement>();
 
   const blockProps = useBlockProps();
-  const { children, ...innerBlocksProps } = useInnerBlocksProps(blockProps, {
-    allowedBlocks: [REACT_FALLBACK_BLOCK_NAME],
-  });
+  const innerBlocksProps = useInnerBlocksProps(
+    { className: "wpsuite-react-fallback-editor" },
+    {
+      allowedBlocks: [REACT_FALLBACK_BLOCK_NAME],
+      renderAppender: InnerBlocks.ButtonBlockAppender,
+    },
+  );
 
   useEffect(() => {
     if (language) {
@@ -176,7 +181,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
   }, []);
 
   return (
-    <div {...innerBlocksProps}>
+    <div {...blockProps}>
       <div ref={editorRef}>
         <InspectorControls>
           <PanelBody title={__("Settings", TEXT_DOMAIN)}>
@@ -718,7 +723,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
           </>
         )}
       </div>
-      <div className="wpsuite-react-fallback-editor">{children}</div>
+      <div {...innerBlocksProps} />
     </div>
   );
 };

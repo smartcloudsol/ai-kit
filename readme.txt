@@ -204,6 +204,8 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 * Performance: Kept authored fallback content visible until React commits, reducing layout shifts and avoiding empty roots for crawlers.
 * Compatibility: Preserved shortcode and Elementor rendering without requiring fallback content outside Gutenberg patterns.
 * Compatibility: Allowed authored React fallback blocks and their native Gutenberg content in AI Feature and Doc Search Abilities validation.
+* Editor: Added a visible inner-block inserter for adding fallback content to AI Feature and Doc Search blocks.
+* Fix: Preserved native rendered Gutenberg child markup in fallback blocks and kept fallbacks visible until the actual React UI commits.
 * Safety: Kept fallback blocks restricted to their supported direct parent roots.
 * Packaging: Renamed the bundled shared runtime directory to `smartcloud-wpsuite`.
 * Migration: Made `smartcloud-wpsuite` the canonical admin, option, and REST namespace while retaining legacy aliases and synchronized site settings for rolling upgrades.
