@@ -81,6 +81,7 @@ export const App: FunctionComponent<
     outputSelector?: string;
     acceptButtonTitle?: string;
     showRegenerateOnBackendButton?: boolean;
+    onUiMountTarget?: (target: HTMLElement) => void;
   }
 > = (
   props: Partial<AiFeatureProps> & {
@@ -89,6 +90,7 @@ export const App: FunctionComponent<
     outputSelector?: string;
     acceptButtonTitle?: string;
     showRegenerateOnBackendButton?: boolean;
+    onUiMountTarget?: (target: HTMLElement) => void;
   },
 ) => {
   const {
@@ -118,6 +120,7 @@ export const App: FunctionComponent<
     allowOverride,
     themeOverrides,
     onDeviceTimeout,
+    onUiMountTarget,
   } = props;
   const {
     text,
@@ -217,6 +220,9 @@ export const App: FunctionComponent<
           setError(I18n.get(error.message || "An unknown error occurred."));
           return null;
         });
+      if (handle) {
+        onUiMountTarget?.(handle.container);
+      }
       return handle;
     };
     const handlePromise = render();
@@ -267,6 +273,7 @@ export const App: FunctionComponent<
     editable,
     themeOverrides,
     onDeviceTimeout,
+    onUiMountTarget,
   ]);
 
   return (

@@ -65,7 +65,7 @@ function expect(bool $condition, string $message): void
     }
 }
 
-$fallback = new TestInnerBlock('wpsuite/react-fallback', '<div data-wpsuite-react-fallback>Loading search</div>');
+$fallback = new TestInnerBlock('wpsuite/react-fallback', '<div data-wpsuite-react-fallback><fallback-placeholder data-fallback-marker></fallback-placeholder></div>');
 $other = new TestInnerBlock('core/paragraph', '<p>configuration child</p>');
 
 foreach (['ai-feature', 'doc-search'] as $blockName) {
@@ -74,6 +74,11 @@ foreach (['ai-feature', 'doc-search'] as $blockName) {
     $withoutFallback = renderTemplate($template, []);
 
     expect(str_contains($withFallback, 'data-wpsuite-react-fallback'), $blockName . ' must render its authored fallback.');
+    expect(str_contains($withFallback, 'data-fallback-marker'), $blockName . ' must preserve native rendered child-block markup without a second allowlist.');
+    $mountClass = $blockName === 'ai-feature'
+        ? 'smartcloud-ai-kit-feature__mount'
+        : 'smartcloud-ai-kit-doc-search__mount';
+    expect(str_contains($withFallback, $mountClass), $blockName . ' must expose a dedicated React mount.');
     expect(!str_contains($withFallback, 'configuration child'), $blockName . ' must not expose configuration children.');
     expect(str_contains($withoutFallback, 'data-config='), $blockName . ' must remain mountable without a fallback.');
 }

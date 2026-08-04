@@ -42,11 +42,13 @@ export const App: FunctionComponent<
   Partial<DocSearchProps> & {
     isPreview: boolean;
     inputSelector?: string;
+    onUiMountTarget?: (target: HTMLElement) => void;
   }
 > = (
   props: Partial<DocSearchProps> & {
     isPreview: boolean;
     inputSelector?: string;
+    onUiMountTarget?: (target: HTMLElement) => void;
   },
 ) => {
   const {
@@ -74,6 +76,7 @@ export const App: FunctionComponent<
     themeOverrides,
     topK,
     snippetMaxChars,
+    onUiMountTarget,
   } = props;
 
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +143,9 @@ export const App: FunctionComponent<
           setError(I18n.get(error.message || "An unknown error occurred."));
           return null;
         });
+      if (handle) {
+        onUiMountTarget?.(handle.container);
+      }
       return handle;
     };
     const handlePromise = render();
@@ -177,6 +183,7 @@ export const App: FunctionComponent<
     snippetMaxChars,
     autoRun,
     enableUserFilters,
+    onUiMountTarget,
   ]);
 
   return (
