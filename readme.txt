@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.10
+Stable tag: 1.4.11
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -198,6 +198,10 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.11 =
+* Dependency: Replaced the deprecated SmartCloud Amplify UI 6.16.0 package line with exact supported 6.15.5/3.6.5/6.15.5 versions and rebuilt the shared vendor runtime.
+* Reliability: Preserved reCAPTCHA classification and retryability metadata, and report temporary provider outages separately without exposing sensitive response data.
 
 = 1.4.10 =
 * Compatibility: Restored ownership-safe WP Suite Theme CSS fragment updates on WordPress-managed Custom CSS storage.
@@ -432,6 +436,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.11 =
+Recommended dependency refresh away from deprecated SmartCloud Amplify UI releases.
 
 = 1.4.10 =
 Recommended compatibility update for Starter-managed WP Suite Theme CSS.

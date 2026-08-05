@@ -8,12 +8,20 @@ export type AiRunErrorKind =
   | "server"
   | "general";
 
+export type HumanVerificationClassification =
+  | "TOKEN_REJECTED"
+  | "ACTION_REJECTED"
+  | "RISK_REJECTED"
+  | "PROVIDER_UNAVAILABLE";
+
 export type AiRunErrorDetails = {
   kind: AiRunErrorKind;
   status?: number;
   code?: string;
   safeMessage?: string;
   requestId?: string;
+  classification?: HumanVerificationClassification;
+  retryable?: boolean;
 };
 
 export type AiRunErrorFeedback = {
@@ -44,6 +52,17 @@ function asStatus(value: unknown): number | undefined {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isInteger(parsed) && parsed >= 100 && parsed <= 599
     ? parsed
+    : undefined;
+}
+
+function asHumanVerificationClassification(
+  value: unknown,
+): HumanVerificationClassification | undefined {
+  return value === "TOKEN_REJECTED" ||
+    value === "ACTION_REJECTED" ||
+    value === "RISK_REJECTED" ||
+    value === "PROVIDER_UNAVAILABLE"
+    ? value
     : undefined;
 }
 
@@ -169,6 +188,16 @@ export function normalizeAiRunError(error: unknown): AiRunErrorDetails {
         headerValue(record.headers ?? asRecord(record.response)?.headers, "x-request-id"),
       )
       .find(Boolean);
+  const classification = records
+    .map((record) =>
+      asHumanVerificationClassification(record.classification),
+    )
+    .find((value) => value !== undefined);
+  const retryable = records
+    .map((record) =>
+      typeof record.retryable === "boolean" ? record.retryable : undefined,
+    )
+    .find((value) => value !== undefined);
 
   const normalizedCode = (code ?? "").toUpperCase();
   const combined = `${normalizedCode} ${safeMessage ?? ""}`;
@@ -201,13 +230,26 @@ export function normalizeAiRunError(error: unknown): AiRunErrorDetails {
     kind = "server";
   }
 
-  return { kind, status, code, safeMessage, requestId };
+  return {
+    kind,
+    status,
+    code,
+    safeMessage,
+    requestId,
+    ...(classification ? { classification } : {}),
+    ...(retryable === undefined ? {} : { retryable }),
+  };
 }
 
 export function getAiRunErrorMessage(
   details: AiRunErrorDetails,
   translate: (message: string) => string = (message) => message,
 ): string {
+  if (details.classification === "PROVIDER_UNAVAILABLE") {
+    return translate(
+      "Human verification is temporarily unavailable. Please try again.",
+    );
+  }
   const messages: Record<AiRunErrorKind, string> = {
     cancelled: "",
     "human-verification":
