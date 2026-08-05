@@ -23,25 +23,66 @@ function backendError(status: number, body: Record<string, unknown>) {
 test("normalizes reCAPTCHA rejection without exposing request data", () => {
   const details = normalizeAiRunError(
     backendError(403, {
-      code: "HUMAN_VERIFICATION_ERROR",
-      message: "Assessment rejected",
-      requestId: "req-human-1",
-      token: "must-not-leak",
+      error: {
+        code: "HUMAN_VERIFICATION_FAILED",
+        classification: "RISK_REJECTED",
+        message: "reCAPTCHA verification failed",
+        retryable: true,
+        requestId: "req-human-1",
+        token: "must-not-leak",
+      },
     }),
   );
 
   assert.deepEqual(details, {
     kind: "human-verification",
     status: 403,
-    code: "HUMAN_VERIFICATION_ERROR",
-    safeMessage: "Assessment rejected",
+    code: "HUMAN_VERIFICATION_FAILED",
+    safeMessage: "reCAPTCHA verification failed",
     requestId: "req-human-1",
+    classification: "RISK_REJECTED",
+    retryable: true,
   });
   assert.equal(
     getAiRunErrorMessage(details),
     "We couldn't verify that you're human. Please try again.",
   );
   assert.doesNotMatch(JSON.stringify(details), /must-not-leak/);
+});
+
+test("normalizes a reCAPTCHA provider outage as retryable human verification", () => {
+  const details = normalizeAiRunError(
+    backendError(503, {
+      error: {
+        code: "HUMAN_VERIFICATION_UNAVAILABLE",
+        classification: "PROVIDER_UNAVAILABLE",
+        message: "reCAPTCHA verification is temporarily unavailable",
+        retryable: true,
+        requestId: "req-human-503",
+      },
+    }),
+  );
+
+  assert.equal(details.kind, "human-verification");
+  assert.equal(details.classification, "PROVIDER_UNAVAILABLE");
+  assert.equal(details.retryable, true);
+  assert.equal(
+    getAiRunErrorMessage(details),
+    "Human verification is temporarily unavailable. Please try again.",
+  );
+});
+
+test("continues to recognize the legacy AI Kit reCAPTCHA response during rollout", () => {
+  const details = normalizeAiRunError(
+    backendError(403, {
+      code: "HUMAN_VERIFICATION_ERROR",
+      message: "Assessment rejected",
+      requestId: "req-human-legacy",
+    }),
+  );
+
+  assert.equal(details.kind, "human-verification");
+  assert.equal(details.classification, undefined);
 });
 
 test("distinguishes authorization, throttling, network, and backend failures", () => {
