@@ -17,6 +17,7 @@ function smartcloud_ai_kit_uninstall_site(): void
         'smartcloud_ai_kit_db_migration_dismissed',
         'smartcloud_ai_kit_db_migration_status',
         'smartcloud_ai_kit_kb_base_url_override',
+        'smartcloud_ai_kit_kb_review_notice_pending',
     ) as $option) {
         delete_option($option);
     }
