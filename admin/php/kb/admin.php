@@ -21,6 +21,9 @@ if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repository.php')) {
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php';
 }
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/review-notice.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/review-notice.php';
+}
 
 use SmartCloud\WPSuite\AiKit\Logger;
 
@@ -54,6 +57,8 @@ class Admin
 
         // Admin notices for migration
         add_action('admin_notices', [$this, 'showMigrationNotice']);
+        add_action('admin_notices', [$this, 'showKbReviewNotice']);
+        add_action('admin_init', [$this, 'acknowledgeKbReviewNotice']);
 
         // AJAX handlers
         add_action('wp_ajax_smartcloud_ai_kit_run_db_migration', [$this, 'ajaxRunMigration']);
@@ -212,6 +217,70 @@ class Admin
             });
             </script>';
         }
+    }
+
+    /**
+     * Show one persistent, site-wide notice when KB content needs review.
+     */
+    public function showKbReviewNotice(): void
+    {
+        if (!current_user_can('manage_options') || !ReviewNotice::isPending()) {
+            return;
+        }
+
+        $review_url = wp_nonce_url(
+            add_query_arg(
+                [
+                    'page' => SMARTCLOUD_AI_KIT_SLUG,
+                    'aikit-page' => 'kb-admin',
+                    'smartcloud_ai_kit_kb_review_notice' => 'acknowledge',
+                ],
+                admin_url('admin.php')
+            ),
+            'smartcloud_ai_kit_kb_review_notice',
+            'smartcloud_ai_kit_kb_review_nonce'
+        );
+
+        echo '<div class="notice notice-warning smartcloud-ai-kit-kb-review-notice">';
+        echo '<p><strong>' . esc_html__('AI-Kit Knowledge Base review required', 'smartcloud-ai-kit') . '</strong></p>';
+        echo '<p>' . esc_html__('One or more previously reviewed Knowledge Base sources changed and need review again.', 'smartcloud-ai-kit') . '</p>';
+        echo '<p><a class="button button-primary" href="' . esc_url($review_url) . '">' . esc_html__('Review Knowledge Base', 'smartcloud-ai-kit') . '</a></p>';
+        echo '</div>';
+    }
+
+    /**
+     * Acknowledge the pending notice when an administrator opens KB Admin.
+     */
+    public function acknowledgeKbReviewNotice(): void
+    {
+        $action = isset($_GET['smartcloud_ai_kit_kb_review_notice'])
+            ? sanitize_text_field(wp_unslash($_GET['smartcloud_ai_kit_kb_review_notice']))
+            : '';
+
+        if ($action !== 'acknowledge' || !current_user_can('manage_options')) {
+            return;
+        }
+
+        $nonce = isset($_GET['smartcloud_ai_kit_kb_review_nonce'])
+            ? sanitize_text_field(wp_unslash($_GET['smartcloud_ai_kit_kb_review_nonce']))
+            : '';
+
+        if (!wp_verify_nonce($nonce, 'smartcloud_ai_kit_kb_review_notice')) {
+            return;
+        }
+
+        ReviewNotice::acknowledge();
+
+        wp_safe_redirect(
+            add_query_arg(
+                [
+                    'page' => SMARTCLOUD_AI_KIT_SLUG,
+                    'aikit-page' => 'kb-admin',
+                ],
+                admin_url('admin.php')
+            )
+        );
+        exit;
     }
 
     /**
@@ -420,7 +489,7 @@ class Admin
         // Check if this post is a KB source
         if ($this->sources->isEnabled($post_id)) {
             // This is a KB source - regenerate its content
-            $this->regeneratePost($post_id);
+            $this->regenerateChangedKbSource($post_id);
         } else {
             // This is NOT a KB source - check if any KB sources reference this post
             $dependent_sources = $this->dependencies->getSourcesReferencingPost($post_id);
@@ -439,27 +508,46 @@ class Admin
                 );
 
                 foreach ($dependent_sources as $source_post_id) {
-                    // Delete publish_state to mark as needs review
-                    $this->publish_state->deleteByPost($source_post_id);
+                    $source_post_id = (int) $source_post_id;
+                    $regenerated = $this->regenerateChangedKbSource($source_post_id);
 
-                    Logger::info(
-                        sprintf(
-                            'KB source %d invalidated (needs re-review) due to referenced post %d change',
-                            $source_post_id,
-                            $post_id
-                        ),
-                        [
-                            'kb_source_post_id' => $source_post_id,
-                            'referenced_post_id' => $post_id
-                        ]
+                    $message = sprintf(
+                        $regenerated
+                            ? 'KB source %d regenerated (needs re-review) due to referenced post %d change'
+                            : 'KB source %d could not be regenerated after referenced post %d changed',
+                        $source_post_id,
+                        $post_id
                     );
+                    $context = [
+                        'kb_source_post_id' => $source_post_id,
+                        'referenced_post_id' => $post_id
+                    ];
 
-                    // Optional: Auto-regenerate the dependent KB source
-                    // Uncomment if you want automatic regeneration instead of just invalidation
-                    $this->regeneratePost($source_post_id);
+                    if ($regenerated) {
+                        Logger::info($message, $context);
+                    } else {
+                        Logger::warning($message, $context);
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Regenerate a source after authored content changed and raise a single
+     * site-wide notice only for a real transition into needs_review.
+     */
+    private function regenerateChangedKbSource(int $post_id): bool
+    {
+        $previous_status = $this->calculate_kb_publish_status($post_id);
+        $success = $this->regeneratePost($post_id);
+        $current_status = $this->calculate_kb_publish_status($post_id);
+
+        if ($previous_status !== 'needs_review' && $current_status === 'needs_review') {
+            ReviewNotice::markPending();
+        }
+
+        return $success;
     }
 
     /**

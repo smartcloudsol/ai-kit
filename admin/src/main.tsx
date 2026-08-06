@@ -47,6 +47,10 @@ import { lazy, Suspense } from "react";
 import { useSelect } from "@wordpress/data";
 import { __ } from "@wordpress/i18n";
 import { useCallback, useEffect, useState } from "react";
+import {
+  type AiKitAdminPage,
+  resolveAiKitAdminPage,
+} from "./admin-page";
 import DocSidebar from "./DocSidebar";
 import { NoRegistrationRequiredBanner } from "./noregistration";
 import { AiKitOnboarding } from "./onboarding";
@@ -274,9 +278,9 @@ const Main = (props: MainProps) => {
   const [formConfig, setFormConfig] = useState<AiKitConfig>();
 
   const [savingSettings, setSavingSettings] = useState<boolean>(false);
-  const [activePage, setActivePage] = useState<
-    "general" | "api-settings" | "chatbot-settings" | "kb-admin"
-  >("general");
+  const [activePage, setActivePage] = useState<AiKitAdminPage>(() =>
+    resolveAiKitAdminPage(window.location.search),
+  );
 
   // Add media query for responsive design
   const isMobile = useMediaQuery(
@@ -503,7 +507,7 @@ const Main = (props: MainProps) => {
           disabled: paidSettingsDisabled,
         },
       ]);
-      if (paidSettingsDisabled) {
+      if (paidSettingsDisabled && resolvedConfig !== undefined) {
         setActivePage("general");
       }
     });
