@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.12
+Stable tag: 1.4.13
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -198,6 +198,9 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.13 =
+* Multisite: Store shared Hub ownership per site and recognize network-activated owners.
 
 = 1.4.12 =
 * Knowledge Base: Added one persistent, site-wide admin notice when previously reviewed or published source content changes and needs review again.
@@ -440,6 +443,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.13 =
+Recommended for multisite installations using the shared WP Suite Hub.
 
 = 1.4.12 =
 Recommended update for editors using Knowledge Base sources. Content changes that require renewed review now produce one deduplicated admin notice with a direct link to Knowledge Base Admin.
