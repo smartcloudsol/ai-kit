@@ -417,6 +417,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
     language,
     direction,
     rootElement,
+    modalRootElement,
   } = props;
 
   const [languageOverride, setLanguageOverride] = useState<
@@ -1462,7 +1463,10 @@ Follow these additional instructions: ${instructions}`
           size="md"
           portalProps={
             variation === "modal"
-              ? { target: rootElement, reuseTargetNode: true }
+              ? {
+                  target: modalRootElement ?? rootElement,
+                  reuseTargetNode: true,
+                }
               : undefined
           }
           data-ai-kit-theme={colorMode}

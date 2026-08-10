@@ -2279,4 +2279,5 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 export const AiChatbot = withAiKitShell(AiChatbotBase, {
   showOpenButton: true,
   variation: "modal",
+  overlayWholeComponent: true,
 });
