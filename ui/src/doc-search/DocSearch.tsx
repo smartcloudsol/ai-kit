@@ -201,6 +201,7 @@ const DocSearchBase: FC<Props> = (props) => {
 
     variation,
     rootElement,
+    modalRootElement,
     colorMode,
     language,
     onClose,
@@ -714,7 +715,10 @@ const DocSearchBase: FC<Props> = (props) => {
           size="xl"
           portalProps={
             variation === "modal"
-              ? { target: rootElement, reuseTargetNode: true }
+              ? {
+                  target: modalRootElement ?? rootElement,
+                  reuseTargetNode: true,
+                }
               : undefined
           }
           data-ai-kit-theme={colorMode}

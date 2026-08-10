@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.4.13
+Stable tag: 1.4.14
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -198,6 +198,9 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.14 =
+* Mobile: Mount modal AI Feature and DocSearch interfaces in the document-level overlay even when opened from a header button, so their backdrop covers the complete viewport rather than only a sticky-header stacking context.
 
 = 1.4.13 =
 * Multisite: Store shared Hub ownership per site and recognize network-activated owners.

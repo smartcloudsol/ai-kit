@@ -19,6 +19,8 @@ export type ShadowBoundaryProps = {
      */
     overlayRootId?: string;
     setHost: React.Dispatch<SetStateAction<HTMLElement | null>>;
+    /** Optional notification for consumers that need a distinct modal portal. */
+    setRootElement?: React.Dispatch<SetStateAction<HTMLDivElement | null>>;
     children: (api: {
         /** Portal target element inside the shadow root. */
         rootElement: HTMLDivElement;
@@ -26,4 +28,4 @@ export type ShadowBoundaryProps = {
         shadowRoot: ShadowRoot;
     }) => React.ReactNode;
 };
-export declare function ShadowBoundary({ stylesheets, children, rootElementId, mode, overlayRootId, setHost, }: ShadowBoundaryProps): import("react").JSX.Element;
+export declare function ShadowBoundary({ stylesheets, children, rootElementId, mode, overlayRootId, setHost, setRootElement, }: ShadowBoundaryProps): import("react").JSX.Element;

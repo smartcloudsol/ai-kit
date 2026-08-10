@@ -34,6 +34,8 @@ export type ShadowBoundaryProps = {
   overlayRootId?: string;
 
   setHost: React.Dispatch<SetStateAction<HTMLElement | null>>;
+  /** Optional notification for consumers that need a distinct modal portal. */
+  setRootElement?: React.Dispatch<SetStateAction<HTMLDivElement | null>>;
   children: (api: {
     /** Portal target element inside the shadow root. */
     rootElement: HTMLDivElement;
@@ -91,6 +93,7 @@ export function ShadowBoundary({
   mode = "local",
   overlayRootId = "ai-kit-overlay-root",
   setHost,
+  setRootElement,
 }: ShadowBoundaryProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
 
@@ -187,6 +190,7 @@ export function ShadowBoundary({
 
     setShadowRoot(shadow);
     setPortalTarget(rootEl);
+    setRootElement?.(rootEl);
 
     return () => {
       mo.disconnect();

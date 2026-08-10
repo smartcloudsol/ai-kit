@@ -20,6 +20,13 @@ import { ShadowBoundary } from "./ShadowBoundary";
 export type AiKitShellInjectedProps = {
   language?: string;
   rootElement: HTMLElement;
+  /** Global portal target for an opened modal; its trigger stays local. */
+  modalRootElement?: HTMLElement;
+};
+
+type AiKitShellOptions = Partial<AiWorkerProps> & {
+  /** Used only by intentionally floating components such as the chatbot. */
+  overlayWholeComponent?: boolean;
 };
 
 const hashStringDjb2 = (str: string): string => {
@@ -42,14 +49,13 @@ const STYLE_TEXT_ID = "ai-kit-style-text";
 
 export function withAiKitShell<P extends object>(
   RootComponent: ComponentType<P & AiKitShellInjectedProps>,
-  propOverrides?: Partial<AiWorkerProps>,
+  propOverrides?: AiKitShellOptions,
 ) {
   const Wrapped: React.FC<P & Partial<AiWorkerProps>> = (props) => {
     // Duck-typing merge: supports both explicit shell props or defaults.
     const {
       store,
       variation,
-      showOpenButton,
       colors,
       colorMode,
       primaryColor,
@@ -60,6 +66,9 @@ export function withAiKitShell<P extends object>(
     } = { ...props, ...propOverrides } as AiWorkerProps & P;
 
     const [host, setHost] = useState<HTMLElement | null>(null);
+    const [modalRootElement, setModalRootElement] =
+      useState<HTMLDivElement | null>(null);
+    const overlayWholeComponent = Boolean(propOverrides?.overlayWholeComponent);
     const languageInStore: string | undefined | null = useSelect(() =>
       getStoreSelect(store).getLanguage(),
     );
@@ -255,20 +264,38 @@ export function withAiKitShell<P extends object>(
       }
     }, [host, themeOverrides, themeOverridesHash]);
 
+    const usesSeparateModalPortal =
+      variation === "modal" && !overlayWholeComponent;
+
     return (
-      <ShadowBoundary
-        mode={variation === "modal" && !showOpenButton ? "overlay" : "local"}
-        variation={variation}
-        overlayRootId="ai-kit-overlay-root"
-        stylesheets={stylesheets}
-        setHost={setHost}
-        rootElementId={
-          variation === "modal" && !showOpenButton
-            ? "ai-kit-portal-root"
-            : "ai-kit-inline-root"
-        }
-      >
-        {({ rootElement }) => {
+      <>
+        {usesSeparateModalPortal ? (
+          <ShadowBoundary
+            mode="overlay"
+            overlayRootId="ai-kit-overlay-root"
+            stylesheets={stylesheets}
+            setHost={() => undefined}
+            setRootElement={setModalRootElement}
+            rootElementId="ai-kit-portal-root"
+          >
+            {() => null}
+          </ShadowBoundary>
+        ) : null}
+        <ShadowBoundary
+          // Header controls must remain in their authored block. Only the
+          // opened dialog belongs in the global, viewport-sized overlay.
+          mode={overlayWholeComponent && variation === "modal" ? "overlay" : "local"}
+          variation={variation}
+          overlayRootId="ai-kit-overlay-root"
+          stylesheets={stylesheets}
+          setHost={setHost}
+          rootElementId={
+            overlayWholeComponent && variation === "modal"
+              ? "ai-kit-portal-root"
+              : "ai-kit-inline-root"
+          }
+        >
+          {({ rootElement }) => {
           rootElement.setAttribute(
             "data-ai-kit-variation",
             variation || "default",
@@ -285,6 +312,23 @@ export function withAiKitShell<P extends object>(
                 : "light"
               : colorMode;
 
+          // Modal content is portalled into a different shadow tree. Mantine
+          // color-scheme attributes do not cross that boundary, so copy the
+          // contextual attributes that the global overlay needs explicitly.
+          if (usesSeparateModalPortal && modalRootElement) {
+            modalRootElement.setAttribute("data-ai-kit-variation", "modal");
+            modalRootElement.setAttribute(
+              "data-mantine-color-scheme",
+              resolved ?? "light",
+            );
+            modalRootElement.setAttribute("dir", currentDirection);
+            if (currentLanguage) {
+              modalRootElement.setAttribute("lang", currentLanguage);
+            } else {
+              modalRootElement.removeAttribute("lang");
+            }
+          }
+
           return (
             <DirectionProvider initialDirection={currentDirection}>
               <MantineProvider
@@ -297,12 +341,18 @@ export function withAiKitShell<P extends object>(
                   colorMode={resolved}
                   language={currentLanguage}
                   rootElement={rootElement}
+                  modalRootElement={
+                    usesSeparateModalPortal
+                      ? modalRootElement ?? rootElement
+                      : rootElement
+                  }
                 />
               </MantineProvider>
             </DirectionProvider>
           );
-        }}
-      </ShadowBoundary>
+          }}
+        </ShadowBoundary>
+      </>
     );
   };
 
