@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.15
+Stable tag: 1.4.16
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -198,6 +198,9 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.16 =
+* DocSearch: Added developer API options for initially selected categories, subcategories, and tags.
 
 = 1.4.15 =
 * Compatibility: Declared compatibility with WordPress 7.1.
@@ -449,6 +452,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.16 =
+Adds initial filter selection to the DocSearch JavaScript API.
 
 = 1.4.15 =
 Declares compatibility with WordPress 7.1.
