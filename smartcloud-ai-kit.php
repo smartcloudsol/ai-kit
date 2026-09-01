@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.4.15
+ * Version:           1.4.16
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.4.15';
+const VERSION = '1.4.16';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {

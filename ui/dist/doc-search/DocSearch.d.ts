@@ -15,4 +15,7 @@ export declare const DocSearch: FC<import("@smart-cloud/ai-kit-core").AiWorkerPr
     enableUserFilters?: boolean;
     availableCategories?: Record<string, string[]>;
     availableTags?: string[];
+    initialSelectedCategories?: string[];
+    initialSelectedSubcategories?: string[];
+    initialSelectedTags?: string[];
 } & Partial<import("@smart-cloud/ai-kit-core").AiWorkerProps>>;

@@ -676,6 +676,15 @@ export type DocSearchProps = AiWorkerProps & {
 
   /** Available tags for user selection */
   availableTags?: string[];
+
+  /** Categories selected when DocSearch first opens. */
+  initialSelectedCategories?: string[];
+
+  /** Subcategories selected when DocSearch first opens. */
+  initialSelectedSubcategories?: string[];
+
+  /** Tags selected when DocSearch first opens. */
+  initialSelectedTags?: string[];
 };
 
 export type DocSearchArgs = DocSearchProps & {

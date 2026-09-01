@@ -76,6 +76,9 @@ export const App: FunctionComponent<
     themeOverrides,
     topK,
     snippetMaxChars,
+    initialSelectedCategories,
+    initialSelectedSubcategories,
+    initialSelectedTags,
     onUiMountTarget,
   } = props;
 
@@ -136,6 +139,9 @@ export const App: FunctionComponent<
           themeOverrides,
           topK,
           snippetMaxChars,
+          initialSelectedCategories,
+          initialSelectedSubcategories,
+          initialSelectedTags,
           onClose,
         })
         .catch((error) => {
@@ -181,6 +187,9 @@ export const App: FunctionComponent<
     inputSelector,
     topK,
     snippetMaxChars,
+    initialSelectedCategories,
+    initialSelectedSubcategories,
+    initialSelectedTags,
     autoRun,
     enableUserFilters,
     onUiMountTarget,

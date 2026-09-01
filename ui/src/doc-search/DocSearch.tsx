@@ -47,6 +47,7 @@ import { translations } from "../i18n";
 import { PoweredBy } from "../poweredBy";
 import { useAiRun } from "../useAiRun";
 import { AiKitShellInjectedProps, withAiKitShell } from "../withAiKitShell";
+import { normalizeInitialFilterValues } from "./initialFilters";
 
 I18n.putVocabularies(translations);
 
@@ -198,6 +199,9 @@ const DocSearchBase: FC<Props> = (props) => {
     enableUserFilters = false,
     availableCategories,
     availableTags,
+    initialSelectedCategories,
+    initialSelectedSubcategories,
+    initialSelectedTags,
 
     variation,
     rootElement,
@@ -219,12 +223,21 @@ const DocSearchBase: FC<Props> = (props) => {
   const analyserRef = useRef<AnalyserNode | null>(null);
 
   // User filter states
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
-    [],
+  const [filtersOpen, setFiltersOpen] = useState(
+    () =>
+      normalizeInitialFilterValues(initialSelectedCategories).length > 0 ||
+      normalizeInitialFilterValues(initialSelectedSubcategories).length > 0 ||
+      normalizeInitialFilterValues(initialSelectedTags).length > 0,
   );
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() =>
+    normalizeInitialFilterValues(initialSelectedCategories),
+  );
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
+    () => normalizeInitialFilterValues(initialSelectedSubcategories),
+  );
+  const [selectedTags, setSelectedTags] = useState<string[]>(() =>
+    normalizeInitialFilterValues(initialSelectedTags),
+  );
   const [tagSearchValue, setTagSearchValue] = useState<string>("");
   const [metadataOptions, setMetadataOptions] =
     useState<MetadataOptions | null>(null);
