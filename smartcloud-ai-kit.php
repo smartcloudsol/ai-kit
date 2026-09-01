@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.4.16
+ * Version:           1.4.17
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.4.16';
+const VERSION = '1.4.17';
 const DB_VERSION = '1.3.1';
 
 if (!defined('ABSPATH')) {
@@ -86,8 +86,8 @@ final class AiKit
      */
     public function init(): void
     {
-		add_filter('smartcloud_ai_kit_apply_chatbot_presentation', array($this, 'applyChatbotPresentation'), 10, 2);
-		add_filter('smartcloud_ai_kit_restore_chatbot_presentation', array($this, 'restoreChatbotPresentation'), 10, 2);
+        add_filter('smartcloud_ai_kit_apply_chatbot_presentation', array($this, 'applyChatbotPresentation'), 10, 2);
+        add_filter('smartcloud_ai_kit_restore_chatbot_presentation', array($this, 'restoreChatbotPresentation'), 10, 2);
         add_filter('block_bindings_supported_attributes', array($this, 'filterBlockBindingsSupportedAttributes'), 20, 2);
         add_filter('block_bindings_supported_attributes_smartcloud-ai-kit/feature', array($this, 'filterAiFeatureBlockBindingsSupportedAttributes'), 20, 1);
         add_filter('block_bindings_supported_attributes_smartcloud-ai-kit/doc-search', array($this, 'filterDocSearchBlockBindingsSupportedAttributes'), 20, 1);
@@ -127,264 +127,264 @@ final class AiKit
         });
     }
 
-	/**
-	 * Apply only the presentation fields owned by an explicit Starter preset.
-	 * Functional Chatbot settings and the enabled flag remain provider-owned.
-	 *
-	 * @param mixed $previous_result Earlier filter result.
-	 * @param array<string, mixed> $spec Validated Starter presentation spec.
-	 * @return array<string, mixed>|\WP_Error
-	 */
-	public function applyChatbotPresentation(mixed $previous_result, array $spec): array|\WP_Error
-	{
-		if (is_array($previous_result) && !empty($previous_result['applied'])) {
-			return $previous_result;
-		}
-		if (!current_user_can('manage_options')) {
-			return new \WP_Error('smartcloud_ai_kit_chatbot_presentation_forbidden', __('You are not allowed to update Chatbot presentation settings.', 'smartcloud-ai-kit'));
-		}
+    /**
+     * Apply only the presentation fields owned by an explicit Starter preset.
+     * Functional Chatbot settings and the enabled flag remain provider-owned.
+     *
+     * @param mixed $previous_result Earlier filter result.
+     * @param array<string, mixed> $spec Validated Starter presentation spec.
+     * @return array<string, mixed>|\WP_Error
+     */
+    public function applyChatbotPresentation(mixed $previous_result, array $spec): array|\WP_Error
+    {
+        if (is_array($previous_result) && !empty($previous_result['applied'])) {
+            return $previous_result;
+        }
+        if (!current_user_can('manage_options')) {
+            return new \WP_Error('smartcloud_ai_kit_chatbot_presentation_forbidden', __('You are not allowed to update Chatbot presentation settings.', 'smartcloud-ai-kit'));
+        }
 
-		$presentation = $this->validateChatbotPresentation($spec);
-		if ($presentation instanceof \WP_Error) {
-			return $presentation;
-		}
+        $presentation = $this->validateChatbotPresentation($spec);
+        if ($presentation instanceof \WP_Error) {
+            return $presentation;
+        }
 
-		$current = $this->fetchRemoteSiteSettings();
-		if ($current instanceof \WP_Error) {
-			return $current;
-		}
-		$previous = $this->chatbotPresentationSnapshot($current);
-		$next = $this->mergeChatbotPresentation($current, $presentation);
-		$updated = $this->putRemoteSiteSettings($next);
-		if ($updated instanceof \WP_Error) {
-			return $updated;
-		}
+        $current = $this->fetchRemoteSiteSettings();
+        if ($current instanceof \WP_Error) {
+            return $current;
+        }
+        $previous = $this->chatbotPresentationSnapshot($current);
+        $next = $this->mergeChatbotPresentation($current, $presentation);
+        $updated = $this->putRemoteSiteSettings($next);
+        if ($updated instanceof \WP_Error) {
+            return $updated;
+        }
 
-		$refresh = $this->refreshLocalLicenseConfig();
-		if ($refresh instanceof \WP_Error) {
-			// Compensate the remote write if the local encrypted runtime config
-			// cannot be refreshed, so the explicit action remains atomic.
-			$this->putRemoteSiteSettings($current);
-			$this->refreshLocalLicenseConfig();
-			return $refresh;
-		}
+        $refresh = $this->refreshLocalLicenseConfig();
+        if ($refresh instanceof \WP_Error) {
+            // Compensate the remote write if the local encrypted runtime config
+            // cannot be refreshed, so the explicit action remains atomic.
+            $this->putRemoteSiteSettings($current);
+            $this->refreshLocalLicenseConfig();
+            return $refresh;
+        }
 
-		return array(
-			'applied' => true,
-			'enabled' => !empty($updated['enableChatbot']),
-			'previous' => $previous,
-			'presentation' => $presentation,
-		);
-	}
+        return array(
+            'applied' => true,
+            'enabled' => !empty($updated['enableChatbot']),
+            'previous' => $previous,
+            'presentation' => $presentation,
+        );
+    }
 
-	/**
-	 * Compensation hook used when a surrounding Starter transaction fails.
-	 *
-	 * @param mixed $previous_result Earlier filter result.
-	 * @param array<string, mixed> $snapshot Safe presentation-only snapshot.
-	 * @return array<string, mixed>|\WP_Error
-	 */
-	public function restoreChatbotPresentation(mixed $previous_result, array $snapshot): array|\WP_Error
-	{
-		if (!current_user_can('manage_options')) {
-			return new \WP_Error('smartcloud_ai_kit_chatbot_presentation_forbidden', __('You are not allowed to restore Chatbot presentation settings.', 'smartcloud-ai-kit'));
-		}
-		$current = $this->fetchRemoteSiteSettings();
-		if ($current instanceof \WP_Error) {
-			return $current;
-		}
-		$restored = $this->restoreChatbotPresentationSnapshot($current, $snapshot);
-		$updated = $this->putRemoteSiteSettings($restored);
-		if ($updated instanceof \WP_Error) {
-			return $updated;
-		}
-		$refresh = $this->refreshLocalLicenseConfig();
-		if ($refresh instanceof \WP_Error) {
-			return $refresh;
-		}
-		return array('restored' => true);
-	}
+    /**
+     * Compensation hook used when a surrounding Starter transaction fails.
+     *
+     * @param mixed $previous_result Earlier filter result.
+     * @param array<string, mixed> $snapshot Safe presentation-only snapshot.
+     * @return array<string, mixed>|\WP_Error
+     */
+    public function restoreChatbotPresentation(mixed $previous_result, array $snapshot): array|\WP_Error
+    {
+        if (!current_user_can('manage_options')) {
+            return new \WP_Error('smartcloud_ai_kit_chatbot_presentation_forbidden', __('You are not allowed to restore Chatbot presentation settings.', 'smartcloud-ai-kit'));
+        }
+        $current = $this->fetchRemoteSiteSettings();
+        if ($current instanceof \WP_Error) {
+            return $current;
+        }
+        $restored = $this->restoreChatbotPresentationSnapshot($current, $snapshot);
+        $updated = $this->putRemoteSiteSettings($restored);
+        if ($updated instanceof \WP_Error) {
+            return $updated;
+        }
+        $refresh = $this->refreshLocalLicenseConfig();
+        if ($refresh instanceof \WP_Error) {
+            return $refresh;
+        }
+        return array('restored' => true);
+    }
 
-	/** @return array<string, mixed>|\WP_Error */
-	private function validateChatbotPresentation(array $spec): array|\WP_Error
-	{
-		$language = sanitize_key((string) ($spec['language'] ?? ''));
-		$supported = array('ar', 'en', 'zh', 'nl', 'fr', 'de', 'he', 'hi', 'hu', 'id', 'it', 'ja', 'ko', 'nb', 'pl', 'pt', 'ru', 'es', 'sv', 'th', 'tr', 'ua');
-		$direction = (string) ($spec['direction'] ?? '');
-		$color_mode = (string) ($spec['colorMode'] ?? '');
-		$primary_color = sanitize_key((string) ($spec['primaryColor'] ?? ''));
-		$canvas = sanitize_hex_color((string) ($spec['colors']['canvas'] ?? ''));
-		if (!in_array($language, $supported, true) || !in_array($direction, array('ltr', 'rtl'), true) || !in_array($color_mode, array('light', 'dark'), true) || 'canvas' !== $primary_color || !$canvas) {
-			return new \WP_Error('smartcloud_ai_kit_chatbot_presentation_invalid', __('The Chatbot presentation preset is invalid.', 'smartcloud-ai-kit'));
-		}
-		return array(
-			'language' => $language,
-			'direction' => $direction,
-			'colorMode' => $color_mode,
-			'primaryColor' => 'canvas',
-			'colors' => array('canvas' => $canvas),
-		);
-	}
+    /** @return array<string, mixed>|\WP_Error */
+    private function validateChatbotPresentation(array $spec): array|\WP_Error
+    {
+        $language = sanitize_key((string) ($spec['language'] ?? ''));
+        $supported = array('ar', 'en', 'zh', 'nl', 'fr', 'de', 'he', 'hi', 'hu', 'id', 'it', 'ja', 'ko', 'nb', 'pl', 'pt', 'ru', 'es', 'sv', 'th', 'tr', 'ua');
+        $direction = (string) ($spec['direction'] ?? '');
+        $color_mode = (string) ($spec['colorMode'] ?? '');
+        $primary_color = sanitize_key((string) ($spec['primaryColor'] ?? ''));
+        $canvas = sanitize_hex_color((string) ($spec['colors']['canvas'] ?? ''));
+        if (!in_array($language, $supported, true) || !in_array($direction, array('ltr', 'rtl'), true) || !in_array($color_mode, array('light', 'dark'), true) || 'canvas' !== $primary_color || !$canvas) {
+            return new \WP_Error('smartcloud_ai_kit_chatbot_presentation_invalid', __('The Chatbot presentation preset is invalid.', 'smartcloud-ai-kit'));
+        }
+        return array(
+            'language' => $language,
+            'direction' => $direction,
+            'colorMode' => $color_mode,
+            'primaryColor' => 'canvas',
+            'colors' => array('canvas' => $canvas),
+        );
+    }
 
-	/** @param array<string, mixed> $settings @param array<string, mixed> $presentation @return array<string, mixed> */
-	private function mergeChatbotPresentation(array $settings, array $presentation): array
-	{
-		$chatbot = is_array($settings['chatbot'] ?? null) ? $settings['chatbot'] : array();
-		$colors = is_array($chatbot['colors'] ?? null) ? $chatbot['colors'] : array();
-		$colors['canvas'] = (string) $presentation['colors']['canvas'];
-		foreach (array('language', 'direction', 'colorMode', 'primaryColor') as $field) {
-			$chatbot[$field] = $presentation[$field];
-		}
-		$chatbot['colors'] = $colors;
-		$settings['chatbot'] = $chatbot;
-		unset($settings['subscriptionType']);
-		return $settings;
-	}
+    /** @param array<string, mixed> $settings @param array<string, mixed> $presentation @return array<string, mixed> */
+    private function mergeChatbotPresentation(array $settings, array $presentation): array
+    {
+        $chatbot = is_array($settings['chatbot'] ?? null) ? $settings['chatbot'] : array();
+        $colors = is_array($chatbot['colors'] ?? null) ? $chatbot['colors'] : array();
+        $colors['canvas'] = (string) $presentation['colors']['canvas'];
+        foreach (array('language', 'direction', 'colorMode', 'primaryColor') as $field) {
+            $chatbot[$field] = $presentation[$field];
+        }
+        $chatbot['colors'] = $colors;
+        $settings['chatbot'] = $chatbot;
+        unset($settings['subscriptionType']);
+        return $settings;
+    }
 
-	/** @param array<string, mixed> $settings @return array<string, mixed> */
-	private function chatbotPresentationSnapshot(array $settings): array
-	{
-		$chatbot = is_array($settings['chatbot'] ?? null) ? $settings['chatbot'] : array();
-		$fields = array();
-		foreach (array('language', 'direction', 'colorMode', 'primaryColor') as $field) {
-			$fields[$field] = array('present' => array_key_exists($field, $chatbot), 'value' => $chatbot[$field] ?? null);
-		}
-		$colors = is_array($chatbot['colors'] ?? null) ? $chatbot['colors'] : array();
-		return array(
-			'fields' => $fields,
-			'canvas' => array('present' => array_key_exists('canvas', $colors), 'value' => $colors['canvas'] ?? null),
-		);
-	}
+    /** @param array<string, mixed> $settings @return array<string, mixed> */
+    private function chatbotPresentationSnapshot(array $settings): array
+    {
+        $chatbot = is_array($settings['chatbot'] ?? null) ? $settings['chatbot'] : array();
+        $fields = array();
+        foreach (array('language', 'direction', 'colorMode', 'primaryColor') as $field) {
+            $fields[$field] = array('present' => array_key_exists($field, $chatbot), 'value' => $chatbot[$field] ?? null);
+        }
+        $colors = is_array($chatbot['colors'] ?? null) ? $chatbot['colors'] : array();
+        return array(
+            'fields' => $fields,
+            'canvas' => array('present' => array_key_exists('canvas', $colors), 'value' => $colors['canvas'] ?? null),
+        );
+    }
 
-	/** @param array<string, mixed> $settings @param array<string, mixed> $snapshot @return array<string, mixed> */
-	private function restoreChatbotPresentationSnapshot(array $settings, array $snapshot): array
-	{
-		$chatbot = is_array($settings['chatbot'] ?? null) ? $settings['chatbot'] : array();
-		foreach (array('language', 'direction', 'colorMode', 'primaryColor') as $field) {
-			$state = is_array($snapshot['fields'][$field] ?? null) ? $snapshot['fields'][$field] : array();
-			if (!empty($state['present'])) {
-				$chatbot[$field] = $state['value'] ?? null;
-			} else {
-				unset($chatbot[$field]);
-			}
-		}
-		$colors = is_array($chatbot['colors'] ?? null) ? $chatbot['colors'] : array();
-		$canvas = is_array($snapshot['canvas'] ?? null) ? $snapshot['canvas'] : array();
-		if (!empty($canvas['present'])) {
-			$colors['canvas'] = $canvas['value'] ?? null;
-		} else {
-			unset($colors['canvas']);
-		}
-		$chatbot['colors'] = $colors;
-		$settings['chatbot'] = $chatbot;
-		unset($settings['subscriptionType']);
-		return $settings;
-	}
+    /** @param array<string, mixed> $settings @param array<string, mixed> $snapshot @return array<string, mixed> */
+    private function restoreChatbotPresentationSnapshot(array $settings, array $snapshot): array
+    {
+        $chatbot = is_array($settings['chatbot'] ?? null) ? $settings['chatbot'] : array();
+        foreach (array('language', 'direction', 'colorMode', 'primaryColor') as $field) {
+            $state = is_array($snapshot['fields'][$field] ?? null) ? $snapshot['fields'][$field] : array();
+            if (!empty($state['present'])) {
+                $chatbot[$field] = $state['value'] ?? null;
+            } else {
+                unset($chatbot[$field]);
+            }
+        }
+        $colors = is_array($chatbot['colors'] ?? null) ? $chatbot['colors'] : array();
+        $canvas = is_array($snapshot['canvas'] ?? null) ? $snapshot['canvas'] : array();
+        if (!empty($canvas['present'])) {
+            $colors['canvas'] = $canvas['value'] ?? null;
+        } else {
+            unset($colors['canvas']);
+        }
+        $chatbot['colors'] = $colors;
+        $settings['chatbot'] = $chatbot;
+        unset($settings['subscriptionType']);
+        return $settings;
+    }
 
-	/** @return array<string, mixed>|\WP_Error */
-	private function fetchRemoteSiteSettings(): array|\WP_Error
-	{
-		$connection = $this->connectionSettings();
-		if ($connection instanceof \WP_Error) {
-			return $connection;
-		}
-		$response = wp_remote_get($connection['endpoint'], array(
-			'headers' => array('X-Site-Key' => $connection['siteKey'], 'X-Plugin' => 'ai-kit'),
-			'timeout' => 15,
-		));
-		if (is_wp_error($response)) {
-			return $response;
-		}
-		$status = wp_remote_retrieve_response_code($response);
-		$data = json_decode(wp_remote_retrieve_body($response), true);
-		if (200 !== $status || !is_array($data) || !is_array($data['settings'] ?? null)) {
-			/* translators: %d: HTTP response status code. */
-			return new \WP_Error('smartcloud_ai_kit_chatbot_settings_read_failed', sprintf(__('AI-Kit settings could not be read (HTTP %d).', 'smartcloud-ai-kit'), $status));
-		}
-		return $data['settings'];
-	}
+    /** @return array<string, mixed>|\WP_Error */
+    private function fetchRemoteSiteSettings(): array|\WP_Error
+    {
+        $connection = $this->connectionSettings();
+        if ($connection instanceof \WP_Error) {
+            return $connection;
+        }
+        $response = wp_remote_get($connection['endpoint'], array(
+            'headers' => array('X-Site-Key' => $connection['siteKey'], 'X-Plugin' => 'ai-kit'),
+            'timeout' => 15,
+        ));
+        if (is_wp_error($response)) {
+            return $response;
+        }
+        $status = wp_remote_retrieve_response_code($response);
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        if (200 !== $status || !is_array($data) || !is_array($data['settings'] ?? null)) {
+            /* translators: %d: HTTP response status code. */
+            return new \WP_Error('smartcloud_ai_kit_chatbot_settings_read_failed', sprintf(__('AI-Kit settings could not be read (HTTP %d).', 'smartcloud-ai-kit'), $status));
+        }
+        return $data['settings'];
+    }
 
-	/** @param array<string, mixed> $settings @return array<string, mixed>|\WP_Error */
-	private function putRemoteSiteSettings(array $settings): array|\WP_Error
-	{
-		$connection = $this->connectionSettings();
-		if ($connection instanceof \WP_Error) {
-			return $connection;
-		}
-		unset($settings['subscriptionType']);
-		$response = wp_remote_request($connection['endpoint'], array(
-			'method' => 'PUT',
-			'headers' => array('Content-Type' => 'application/json', 'X-Site-Key' => $connection['siteKey'], 'X-Plugin' => 'ai-kit'),
-			'body' => wp_json_encode(array('settings' => $settings)),
-			'timeout' => 15,
-		));
-		if (is_wp_error($response)) {
-			return $response;
-		}
-		$status = wp_remote_retrieve_response_code($response);
-		$data = json_decode(wp_remote_retrieve_body($response), true);
-		if (200 !== $status || !is_array($data) || !is_array($data['settings'] ?? null)) {
-			/* translators: %d: HTTP response status code. */
-			return new \WP_Error('smartcloud_ai_kit_chatbot_settings_write_failed', sprintf(__('AI-Kit settings could not be updated (HTTP %d).', 'smartcloud-ai-kit'), $status));
-		}
-		return $data['settings'];
-	}
+    /** @param array<string, mixed> $settings @return array<string, mixed>|\WP_Error */
+    private function putRemoteSiteSettings(array $settings): array|\WP_Error
+    {
+        $connection = $this->connectionSettings();
+        if ($connection instanceof \WP_Error) {
+            return $connection;
+        }
+        unset($settings['subscriptionType']);
+        $response = wp_remote_request($connection['endpoint'], array(
+            'method' => 'PUT',
+            'headers' => array('Content-Type' => 'application/json', 'X-Site-Key' => $connection['siteKey'], 'X-Plugin' => 'ai-kit'),
+            'body' => wp_json_encode(array('settings' => $settings)),
+            'timeout' => 15,
+        ));
+        if (is_wp_error($response)) {
+            return $response;
+        }
+        $status = wp_remote_retrieve_response_code($response);
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        if (200 !== $status || !is_array($data) || !is_array($data['settings'] ?? null)) {
+            /* translators: %d: HTTP response status code. */
+            return new \WP_Error('smartcloud_ai_kit_chatbot_settings_write_failed', sprintf(__('AI-Kit settings could not be updated (HTTP %d).', 'smartcloud-ai-kit'), $status));
+        }
+        return $data['settings'];
+    }
 
-	/** @return array<string, string>|\WP_Error */
-	private function connectionSettings(): array|\WP_Error
-	{
-		$settings = get_option('smartcloud-wpsuite/site-settings');
-		if (false === $settings) {
-			$settings = get_option('hub-for-wpsuiteio/site-settings');
-		}
-		$value = static function (mixed $source, string $key): string {
-			if (is_object($source)) {
-				return (string) ($source->{$key} ?? '');
-			}
-			return is_array($source) ? (string) ($source[$key] ?? '') : '';
-		};
-		$account_id = $value($settings, 'accountId');
-		$site_id = $value($settings, 'siteId');
-		$site_key = $value($settings, 'siteKey');
-		if ('' === $account_id || '' === $site_id || '' === $site_key) {
-			return new \WP_Error('smartcloud_ai_kit_chatbot_site_not_connected', __('Connect this site to WP Suite before applying the Chatbot preset.', 'smartcloud-ai-kit'));
-		}
-		$api_base = 'https://api.wpsuite.io';
-		if (str_contains((string) get_site_url(), 'dev.wpsuite.io')) {
-			$api_base .= '/dev';
-		}
-		return array(
-			'endpoint' => sprintf('%s/account/%s/site/%s/settings', $api_base, rawurlencode($account_id), rawurlencode($site_id)),
-			'siteKey' => $site_key,
-		);
-	}
+    /** @return array<string, string>|\WP_Error */
+    private function connectionSettings(): array|\WP_Error
+    {
+        $settings = get_option('smartcloud-wpsuite/site-settings');
+        if (false === $settings) {
+            $settings = get_option('hub-for-wpsuiteio/site-settings');
+        }
+        $value = static function (mixed $source, string $key): string {
+            if (is_object($source)) {
+                return (string) ($source->{$key} ?? '');
+            }
+            return is_array($source) ? (string) ($source[$key] ?? '') : '';
+        };
+        $account_id = $value($settings, 'accountId');
+        $site_id = $value($settings, 'siteId');
+        $site_key = $value($settings, 'siteKey');
+        if ('' === $account_id || '' === $site_id || '' === $site_key) {
+            return new \WP_Error('smartcloud_ai_kit_chatbot_site_not_connected', __('Connect this site to WP Suite before applying the Chatbot preset.', 'smartcloud-ai-kit'));
+        }
+        $api_base = 'https://api.wpsuite.io';
+        if (str_contains((string) get_site_url(), 'dev.wpsuite.io')) {
+            $api_base .= '/dev';
+        }
+        return array(
+            'endpoint' => sprintf('%s/account/%s/site/%s/settings', $api_base, rawurlencode($account_id), rawurlencode($site_id)),
+            'siteKey' => $site_key,
+        );
+    }
 
-	/** @return array<string, mixed>|\WP_Error */
-	private function refreshLocalLicenseConfig(): array|\WP_Error
-	{
-		$site_settings = get_option('smartcloud-wpsuite/site-settings');
-		if (false === $site_settings) {
-			$site_settings = get_option('hub-for-wpsuiteio/site-settings');
-		}
-		$body = is_object($site_settings) ? get_object_vars($site_settings) : (is_array($site_settings) ? $site_settings : array());
-		if (empty($body['accountId']) || empty($body['siteId']) || empty($body['siteKey'])) {
-			return new \WP_Error('smartcloud_ai_kit_chatbot_site_not_connected', __('Connect this site to WP Suite before refreshing its runtime configuration.', 'smartcloud-ai-kit'));
-		}
-		$body['lastUpdate'] = (int) round(microtime(true) * 1000);
-		$request = new \WP_REST_Request('POST', '/smartcloud-wpsuite/v1/update-site-settings');
-		$request->set_header('Content-Type', 'application/json');
-		$request->set_body((string) wp_json_encode($body));
-		$response = rest_do_request($request);
-		if ($response instanceof \WP_Error) {
-			return $response;
-		}
-		$status = $response->get_status();
-		if ($status < 200 || $status >= 300) {
-			/* translators: %d: HTTP response status code. */
-			return new \WP_Error('smartcloud_ai_kit_chatbot_runtime_refresh_failed', sprintf(__('AI-Kit runtime configuration could not be refreshed (HTTP %d).', 'smartcloud-ai-kit'), $status));
-		}
-		return array('refreshed' => true);
-	}
+    /** @return array<string, mixed>|\WP_Error */
+    private function refreshLocalLicenseConfig(): array|\WP_Error
+    {
+        $site_settings = get_option('smartcloud-wpsuite/site-settings');
+        if (false === $site_settings) {
+            $site_settings = get_option('hub-for-wpsuiteio/site-settings');
+        }
+        $body = is_object($site_settings) ? get_object_vars($site_settings) : (is_array($site_settings) ? $site_settings : array());
+        if (empty($body['accountId']) || empty($body['siteId']) || empty($body['siteKey'])) {
+            return new \WP_Error('smartcloud_ai_kit_chatbot_site_not_connected', __('Connect this site to WP Suite before refreshing its runtime configuration.', 'smartcloud-ai-kit'));
+        }
+        $body['lastUpdate'] = (int) round(microtime(true) * 1000);
+        $request = new \WP_REST_Request('POST', '/smartcloud-wpsuite/v1/update-site-settings');
+        $request->set_header('Content-Type', 'application/json');
+        $request->set_body((string) wp_json_encode($body));
+        $response = rest_do_request($request);
+        if ($response instanceof \WP_Error) {
+            return $response;
+        }
+        $status = $response->get_status();
+        if ($status < 200 || $status >= 300) {
+            /* translators: %d: HTTP response status code. */
+            return new \WP_Error('smartcloud_ai_kit_chatbot_runtime_refresh_failed', sprintf(__('AI-Kit runtime configuration could not be refreshed (HTTP %d).', 'smartcloud-ai-kit'), $status));
+        }
+        return array('refreshed' => true);
+    }
 
     public function registerAttachmentMetabox()
     {
