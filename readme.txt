@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.17
+Stable tag: 1.4.18
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -37,6 +37,11 @@ AI-Kit uses Chrome’s built-in on-device AI capabilities (when available). In t
   * Customize chat UI labels (e.g., title and placeholder), language and text direction (LTR/RTL/auto)
   * Customize the open button (position, label, optional base64 icon)
   * Use **Preview** to instantly try your current settings without saving
+* **PRO: Knowledge Base automation**
+  * Enroll WordPress with a short-lived pairing code and signed, site-specific transport
+  * Synchronize selected public post types and taxonomies through a durable, resumable outbox
+  * Merge manual policy, fixed external vocabularies, and WordPress-derived vocabulary without one producer erasing another
+  * Inspect the effective metadata configuration, provenance, baseline, queue, and last runner result in WP Admin
 * **PRO: AI-Kit Feature block**
   * Add front-end buttons to **summarize, write, rewrite, translate, and proofread**
 * **PRO: [smartcloud-ai-kit-feature] shortcode**
@@ -98,6 +103,9 @@ Yes. AI-Kit runs in the browser.
 
 WordPress/PHP does not proxy these calls — your site does not need server-side connectivity to the API, but the user’s browser must be able to reach the endpoint.
 This also means your hosting environment does not need outbound access to the AI API; only the client’s network matters.
+
+= How is automatic Knowledge Sync scheduled? =
+AI-Kit registers a WordPress cron event that becomes due every five minutes. Normal WP-Cron traffic can execute it. For predictable operation on low-traffic sites or installations with WP-Cron disabled, run `wp cron event run --due-now` from the system scheduler every five minutes. AI-Kit uses a runner lock, so overlapping invocations do not process the same work concurrently.
 
 = Does this work outside Gutenberg? =
 Yes — Pro includes the **[smartcloud-ai-kit-feature]** shortcode so you can use AI-Kit Feature in other editors/builders. Developers can also integrate the JavaScript APIs directly.
@@ -198,6 +206,28 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.18 =
+* Knowledge Sync: Added durable, multisite-aware WordPress change capture, baseline recovery, signed site enrollment, and resumable delivery foundations for automated Knowledge Base updates.
+* Knowledge Base: Added admin controls for enrollment, post-type policies, optional multisite scope, manual review release, immediate sync runs, and operational status.
+* Metadata: Added separately owned manual YAML, external JSON vocabulary, and WordPress-derived layers with effective-config and provenance previews.
+* Metadata UX: Clarified layer ownership, merge rules, JSON producer shapes, provenance, and actionable WordPress vocabulary states.
+* Connection: Made AI-Kit API Settings the sole backend source for Knowledge Sync, with automatic read-only endpoint mirroring for the server-side cron runner.
+* Content policies: Included and accepted built-in WordPress pages, excluded media attachments, and clarified the advanced document-profile metadata label.
+* Migration safety: Stage external and WordPress vocabulary inputs without changing a legacy live metadata config until an administrator reviews the proposed result and explicitly establishes the manual layer.
+* Vocabulary: Force a fresh WordPress vocabulary baseline after enrollment or a resolved backend change.
+* Vocabulary safety: Preserve hierarchical category parentage so subcategories remain grouped below their top-level category, and require a compatible backend before delivery.
+* Metadata reliability: Keep the last-known-valid effective config intact when producer materialization or ingestion scheduling fails, and compact redundant taxonomy metadata before enforcing the S3 Vectors 1 KiB limit.
+* Recovery: Requeue legacy catch-all `invalid_projection` failures once during the database upgrade so corrected backend validation can process them or return a precise reason.
+* Operations: Added review-aware WordPress abilities for inspecting sync policy, queue/baseline state, and vocabulary changes, plus an explicitly confirmed request that schedules the normal policy-preserving runner.
+* Reliability: Added terminal-success ingestion generations, durable leases, coalesced trailing runs, bounded recovery, and visible ingestion deletion statistics.
+* Recovery: Added paginated remote manifest verification, targeted repair for missing or mismatched sources, and manifest-proven cleanup of orphaned WordPress sources.
+* Safeguards: Added generation-bound administrator approval for high-count, high-ratio document deletion sets.
+* Keys: Added signed self-revocation with local private-key cleanup and an explicit admin control alongside verification and rotation.
+* Compatibility: Added backend capability discovery with legacy-safe fallback, per-feature enforcement, and backend release/schema details in diagnostics.
+* Transparency: Added localized, configurable AI-generated content notices to the Chatbot and DocSearch interfaces, including chatbot-name interpolation.
+* Safety: Disabled Chatbot image attachments by default so they must be explicitly enabled only for a multimodal frontend model.
+* Errors: Added a localized explanation when the configured AI model cannot process image attachments.
 
 = 1.4.17 =
 * Packaging: Restored the generated AI-Kit admin JavaScript chunk omitted from the previous WordPress.org package.

@@ -24,6 +24,15 @@ if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php'))
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/review-notice.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/review-notice.php';
 }
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync.php';
+}
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync-runtime.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync-runtime.php';
+}
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync-transport.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync-transport.php';
+}
 
 use SmartCloud\WPSuite\AiKit\Logger;
 
@@ -34,6 +43,13 @@ class Admin
     private KBOverrideRepository $overrides;
     private KBPublishStateRepository $publish_state;
     private RepositoryDependencies $dependencies;
+    private KnowledgeSyncPolicyStore $knowledge_sync_policies;
+    private KnowledgeSyncOutboxRepository $knowledge_sync_outbox;
+    private KnowledgeSyncCapture $knowledge_sync_capture;
+    private KnowledgeSyncSettingsStore $knowledge_sync_settings;
+    private KnowledgeSyncBaselineRepository $knowledge_sync_baselines;
+    private KnowledgeSyncRuntime $knowledge_sync_runtime;
+    private KnowledgeSyncTransport $knowledge_sync_transport;
 
     public function __construct()
     {
@@ -42,6 +58,16 @@ class Admin
         $this->overrides = new KBOverrideRepository();
         $this->publish_state = new KBPublishStateRepository();
         $this->dependencies = new RepositoryDependencies();
+        $this->knowledge_sync_policies = new KnowledgeSyncPolicyStore();
+        $this->knowledge_sync_outbox = new KnowledgeSyncOutboxRepository();
+        $this->knowledge_sync_capture = new KnowledgeSyncCapture(
+            $this->knowledge_sync_policies,
+            $this->knowledge_sync_outbox
+        );
+        $this->knowledge_sync_settings = new KnowledgeSyncSettingsStore();
+        $this->knowledge_sync_baselines = new KnowledgeSyncBaselineRepository();
+        $this->knowledge_sync_runtime = new KnowledgeSyncRuntime();
+        $this->knowledge_sync_transport = KnowledgeSyncTransport::create();
     }
 
     /**
@@ -68,6 +94,9 @@ class Admin
         // Post lifecycle hooks
         add_action('save_post', [$this, 'onPostSave'], 10, 3);
         add_action('before_delete_post', [$this, 'onPostDelete'], 10, 2);
+        $this->knowledge_sync_capture->registerHooks();
+        $this->knowledge_sync_runtime->registerHooks();
+        $this->knowledge_sync_transport->registerHooks();
 
         // Quick Edit & Bulk Edit integration
         add_action('admin_enqueue_scripts', [$this, 'enqueueQuickEditScript']);
@@ -138,7 +167,11 @@ class Admin
     private function runMigration(): bool
     {
         try {
+            $previous_db_version = (string) get_option('smartcloud_ai_kit_db_version', '0');
             Schema::createTables();
+            if (version_compare($previous_db_version, '1.4.2', '<')) {
+                (new KnowledgeSyncOutboxRepository())->retryLegacyProjectionFailures();
+            }
             update_option('smartcloud_ai_kit_db_version', SMARTCLOUD_AI_KIT_DB_VERSION);
             update_option('smartcloud_ai_kit_db_migration_dismissed', false);
             return true;
@@ -805,6 +838,323 @@ class Admin
             'callback' => [$this, 'restDeriveMetadataFromSources'],
             'permission_callback' => [$this, 'checkManagePermission']
         ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/policies/(?P<post_type>[a-z0-9_-]+)', [
+            [
+                'methods' => 'GET',
+                'callback' => [$this, 'restGetKnowledgeSyncPolicy'],
+                'permission_callback' => [$this, 'checkManagePermission'],
+            ],
+            [
+                'methods' => 'PUT',
+                'callback' => [$this, 'restUpdateKnowledgeSyncPolicy'],
+                'permission_callback' => [$this, 'checkManagePermission'],
+            ],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/settings', [
+            [
+                'methods' => 'GET',
+                'callback' => [$this, 'restGetKnowledgeSyncSettings'],
+                'permission_callback' => [$this, 'checkManagePermission'],
+            ],
+            [
+                'methods' => 'PUT',
+                'callback' => [$this, 'restUpdateKnowledgeSyncSettings'],
+                'permission_callback' => [$this, 'checkManagePermission'],
+            ],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/status', [
+            'methods' => 'GET',
+            'callback' => [$this, 'restGetKnowledgeSyncStatus'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/run', [
+            'methods' => 'POST',
+            'callback' => [$this, 'restRunKnowledgeSync'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/manual-review/approve', [
+            'methods' => 'POST',
+            'callback' => [$this, 'restApproveKnowledgeSyncManualReview'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/mass-delete/approve', [
+            'methods' => 'POST',
+            'callback' => [$this, 'restApproveKnowledgeSyncMassDeletion'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/transport/status', [
+            'methods' => 'GET',
+            'callback' => [$this, 'restGetKnowledgeSyncTransportStatus'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/transport/enroll', [
+            'methods' => 'POST',
+            'callback' => [$this, 'restEnrollKnowledgeSyncTransport'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/transport/verify', [
+            'methods' => 'POST',
+            'callback' => [$this, 'restVerifyKnowledgeSyncTransport'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/transport/rotate', [
+            'methods' => 'POST',
+            'callback' => [$this, 'restRotateKnowledgeSyncTransport'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
+        register_rest_route($namespace, '/kb/knowledge-sync/transport/revoke', [
+            'methods' => 'POST',
+            'callback' => [$this, 'restRevokeKnowledgeSyncTransport'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+    }
+
+    public function restGetKnowledgeSyncPolicy(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $post_type = sanitize_key((string) $request->get_param('post_type'));
+        $policy = $this->knowledge_sync_policies->getForPostType($post_type);
+        return new \WP_REST_Response(array(
+            'postType' => $post_type,
+            'policy' => $policy,
+            'configured' => $policy !== null,
+        ), 200);
+    }
+
+    public function restUpdateKnowledgeSyncPolicy(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
+    {
+        $post_type = sanitize_key((string) $request->get_param('post_type'));
+        $post_type_object = get_post_type_object($post_type);
+        if (!knowledge_sync_post_type_is_viewable($post_type_object)) {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_invalid_post_type',
+                __('Knowledge sync requires a publicly viewable post type.', 'smartcloud-ai-kit'),
+                array('status' => 400)
+            );
+        }
+
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_invalid_policy',
+                __('A JSON knowledge-sync policy is required.', 'smartcloud-ai-kit'),
+                array('status' => 400)
+            );
+        }
+        try {
+            $policy = $this->knowledge_sync_policies->saveForPostType($post_type, $body);
+        } catch (\InvalidArgumentException $error) {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_invalid_policy',
+                $error->getMessage(),
+                array('status' => 400)
+            );
+        }
+
+        return new \WP_REST_Response(array('policy' => $policy), 200);
+    }
+
+    public function restGetKnowledgeSyncSettings(): \WP_REST_Response
+    {
+        return new \WP_REST_Response(array('settings' => $this->knowledge_sync_settings->get()), 200);
+    }
+
+    public function restUpdateKnowledgeSyncSettings(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
+    {
+        $body = $request->get_json_params();
+        if (!is_array($body)) {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_invalid_settings',
+                __('JSON knowledge-sync settings are required.', 'smartcloud-ai-kit'),
+                array('status' => 400)
+            );
+        }
+        try {
+            $settings = $this->knowledge_sync_settings->save($body);
+        } catch (\InvalidArgumentException $error) {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_invalid_settings',
+                $error->getMessage(),
+                array('status' => 400)
+            );
+        }
+        return new \WP_REST_Response(array('settings' => $settings), 200);
+    }
+
+    public function restGetKnowledgeSyncStatus(): \WP_REST_Response
+    {
+        $post_types = array();
+        foreach (get_post_types(array('public' => true, 'show_ui' => true), 'objects') as $post_type) {
+            if (
+                !$post_type instanceof \WP_Post_Type ||
+                $post_type->name === 'attachment' ||
+                !knowledge_sync_post_type_is_viewable($post_type)
+            ) {
+                continue;
+            }
+            $taxonomies = array();
+            foreach (get_object_taxonomies($post_type->name, 'objects') as $taxonomy) {
+                if (!$taxonomy instanceof \WP_Taxonomy || empty($taxonomy->public)) {
+                    continue;
+                }
+                $taxonomies[] = array(
+                    'value' => $taxonomy->name,
+                    'label' => $taxonomy->labels->singular_name ?: $taxonomy->label,
+                );
+            }
+            usort($taxonomies, static fn(array $left, array $right): int => strcmp($left['label'], $right['label']));
+            $post_types[] = array(
+                'value' => $post_type->name,
+                'label' => $post_type->labels->singular_name ?: $post_type->label,
+                'taxonomies' => $taxonomies,
+            );
+        }
+        usort($post_types, static fn(array $left, array $right): int => strcmp($left['label'], $right['label']));
+
+        $can_include_subsites = false;
+        if (is_multisite()) {
+            if (!function_exists('is_plugin_active_for_network')) {
+                require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            }
+            $can_include_subsites = function_exists('is_plugin_active_for_network') && is_plugin_active_for_network(
+                plugin_basename(SMARTCLOUD_AI_KIT_PATH . 'smartcloud-ai-kit.php')
+            );
+        }
+
+        return new \WP_REST_Response(array(
+            'settings' => $this->knowledge_sync_settings->get(),
+            'policies' => $this->knowledge_sync_policies->getAll(),
+            'baselines' => $this->knowledge_sync_baselines->listAll(),
+            'outbox' => $this->knowledge_sync_outbox->counts(),
+            'blockedReasons' => $this->knowledge_sync_outbox->blockedReasonCounts(),
+            'lastRun' => get_option(KnowledgeSyncRuntime::LAST_RUN_OPTION, null),
+            'vocabulary' => get_option('smartcloud_ai_kit_kb_sync_vocabulary_state', null),
+            'nextRunGmt' => ($timestamp = wp_next_scheduled(KnowledgeSyncRuntime::CRON_HOOK))
+                ? gmdate('c', $timestamp)
+                : null,
+            'availablePostTypes' => $post_types,
+            'multisite' => array(
+                'enabled' => is_multisite(),
+                'canIncludeSubsites' => $can_include_subsites,
+            ),
+        ), 200);
+    }
+
+    public function restRunKnowledgeSync(): \WP_REST_Response
+    {
+        return new \WP_REST_Response($this->knowledge_sync_runtime->run(true), 200);
+    }
+
+    public function restApproveKnowledgeSyncManualReview(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $post_type = sanitize_key((string) ($request->get_param('postType') ?? ''));
+        $approved = $this->knowledge_sync_outbox->approveManualReview(
+            $post_type !== '' ? $post_type : null
+        );
+        (new KnowledgeSyncAuditRepository())->record('manual-review', 'approved', array(
+            'postType' => $post_type !== '' ? $post_type : null,
+            'approvedCount' => $approved,
+        ));
+        return new \WP_REST_Response(array('approved' => $approved), 200);
+    }
+
+    public function restApproveKnowledgeSyncMassDeletion(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $post_type = sanitize_key((string) ($request->get_param('postType') ?? ''));
+        $approved = $this->knowledge_sync_outbox->approveMassDeletion(
+            $post_type !== '' ? $post_type : null
+        );
+        (new KnowledgeSyncAuditRepository())->record('mass-delete-review', 'approved', array(
+            'postType' => $post_type !== '' ? $post_type : null,
+            'approvedCount' => $approved,
+        ));
+        return new \WP_REST_Response(array('approved' => $approved), 200);
+    }
+
+    public function restGetKnowledgeSyncTransportStatus(): \WP_REST_Response
+    {
+        return new \WP_REST_Response(array('transport' => $this->knowledge_sync_transport->localStatus()), 200);
+    }
+
+    public function restEnrollKnowledgeSyncTransport(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
+    {
+        $pairing_code = $request->get_param('pairingCode');
+        if (!is_string($pairing_code) || trim($pairing_code) === '') {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_pairing_code_required',
+                __('A pairing code is required.', 'smartcloud-ai-kit'),
+                array('status' => 400)
+            );
+        }
+        return $this->knowledgeSyncTransportOperation(
+            fn(): array => $this->knowledge_sync_transport->enroll($pairing_code),
+            201
+        );
+    }
+
+    public function restVerifyKnowledgeSyncTransport(): \WP_REST_Response|\WP_Error
+    {
+        return $this->knowledgeSyncTransportOperation(
+            fn(): array => $this->knowledge_sync_transport->verifyStatus()
+        );
+    }
+
+    public function restRotateKnowledgeSyncTransport(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
+    {
+        $overlap_seconds = $request->get_param('overlapSeconds');
+        return $this->knowledgeSyncTransportOperation(
+            fn(): array => $this->knowledge_sync_transport->rotate(
+                $overlap_seconds === null ? 300 : absint($overlap_seconds)
+            )
+        );
+    }
+
+    public function restRevokeKnowledgeSyncTransport(): \WP_REST_Response|\WP_Error
+    {
+        $response = $this->knowledgeSyncTransportOperation(
+            fn(): array => $this->knowledge_sync_transport->revoke()
+        );
+        if ($response instanceof \WP_REST_Response) {
+            (new KnowledgeSyncAuditRepository())->record('site-key', 'revoked', array());
+        }
+        return $response;
+    }
+
+    /** @param callable():array<string, mixed> $operation */
+    private function knowledgeSyncTransportOperation(callable $operation, int $success_status = 200): \WP_REST_Response|\WP_Error
+    {
+        try {
+            return new \WP_REST_Response($operation(), $success_status);
+        } catch (KnowledgeSyncTransportException $error) {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_' . sanitize_key($error->errorCode),
+                $error->getMessage(),
+                array('status' => in_array($error->errorCode, array(
+                    'site_not_enrolled',
+                    'private_key_missing',
+                    'enrollment_identity_mismatch',
+                ), true) ? 409 : 400)
+            );
+        } catch (\Throwable $error) {
+            Logger::error('Knowledge-sync transport failed.', array(
+                'exception' => get_class($error),
+            ));
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_transport_failed',
+                __('Knowledge-sync transport failed.', 'smartcloud-ai-kit'),
+                array('status' => 500)
+            );
+        }
     }
 
     /**

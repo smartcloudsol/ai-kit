@@ -7,11 +7,14 @@ import { useQuery } from "@tanstack/react-query";
 import { __ } from "@wordpress/i18n";
 import { useState } from "react";
 
-import { resolveBackend, TEXT_DOMAIN } from "@smart-cloud/ai-kit-core";
+import { TEXT_DOMAIN } from "@smart-cloud/ai-kit-core";
 
 import KBConfigEditor from "./KBConfigEditor.tsx";
 import KBSettings from "./KBSettings.tsx";
 import KBSourceList from "./KBSourceList.tsx";
+import KnowledgeSyncSettings from "./KnowledgeSyncSettings.tsx";
+import MetadataLayersEditor from "./MetadataLayersEditor.tsx";
+import { resolveKnowledgeAdminBackend } from "./backend-client.ts";
 
 interface KBAdminEditorProps {
   accountId: string;
@@ -40,7 +43,7 @@ export default function KBAdminEditor({
     error: backendError,
   } = useQuery({
     queryKey: ["kb-admin-backend"],
-    queryFn: resolveBackend,
+    queryFn: resolveKnowledgeAdminBackend,
   });
 
   // Sources are now fetched directly in KBSourceList with pagination
@@ -140,6 +143,14 @@ export default function KBAdminEditor({
       </Card>
 
       <KBSettings InfoLabel={InfoLabel} openInfo={openInfo} />
+
+      <KnowledgeSyncSettings
+        accountId={accountId}
+        siteId={siteId}
+        configuredBackendBaseUrl={backendConfig.baseUrl ?? ""}
+      />
+
+      <MetadataLayersEditor />
 
       <KBSourceList
         selectedPostId={selectedPostId}

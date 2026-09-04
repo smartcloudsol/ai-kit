@@ -5,8 +5,52 @@ import {
   CapabilityDecision,
   dispatchBackend,
   resolveBackend,
+  type ResolvedBackend,
 } from "@smart-cloud/ai-kit-core";
+import { getGateyPlugin, getStoreSelect } from "@smart-cloud/gatey-core";
 import { wpRestCall } from "./api-client";
+
+export async function resolveGateyApiEndpoint(
+  apiName: string,
+): Promise<string | undefined> {
+  const gatey = getGateyPlugin();
+  const store = await gatey?.cognito?.store;
+  if (!store) return undefined;
+
+  const config = getStoreSelect(store).getConfig();
+  const hostname = window.location.hostname.toLowerCase().split(":")[0];
+  const secondary = config?.apiConfigurations?.secondary;
+  let useSecondary = false;
+  if (secondary?.domains && secondary.apis.length > 0) {
+    try {
+      useSecondary = hostname.match(secondary.domains.toLowerCase()) !== null;
+    } catch {
+      useSecondary = false;
+    }
+  }
+  const apiConfiguration = useSecondary
+    ? secondary
+    : config?.apiConfigurations?.default;
+  const endpoint = apiConfiguration?.apis.find((api) => api.name === apiName)
+    ?.endpoint;
+  return endpoint?.trim().replace(/\/+$/, "") || undefined;
+}
+
+/**
+ * Resolve the browser backend and expose the concrete Gatey endpoint as well.
+ * Scheduled PHP transport cannot address an Amplify API by its logical name,
+ * so the admin persists this resolved HTTPS endpoint with the sync settings.
+ */
+export async function resolveKnowledgeAdminBackend(): Promise<ResolvedBackend> {
+  const backend = await resolveBackend("knowledge.admin");
+  if (backend.baseUrl || backend.transport !== "gatey" || !backend.apiName) {
+    return backend;
+  }
+  return {
+    ...backend,
+    baseUrl: await resolveGateyApiEndpoint(backend.apiName),
+  };
+}
 
 /**
  * KB Document structure for backend upload (matches backend types)
@@ -71,16 +115,10 @@ function generateCompactMetadataContent(document: KBDocumentUpload): string {
     if (!category && typeof section.extra_meta?.category === "string") {
       category = section.extra_meta.category;
     }
-    if (
-      !subcategory &&
-      typeof section.extra_meta?.subcategory === "string"
-    ) {
+    if (!subcategory && typeof section.extra_meta?.subcategory === "string") {
       subcategory = section.extra_meta.subcategory;
     }
-    if (
-      !description &&
-      typeof section.extra_meta?.description === "string"
-    ) {
+    if (!description && typeof section.extra_meta?.description === "string") {
       description = section.extra_meta.description;
     }
   });
@@ -264,9 +302,43 @@ export interface MetadataConfig {
 
 export interface MetadataConfigResponse {
   success: boolean;
-  config: MetadataConfig;
+  config: MetadataConfig | string;
   s3Key: string;
   lastModified?: string;
+  effectiveConfig?: string;
+  proposedConfig?: string;
+  pendingActivation?: boolean;
+  layers?: {
+    manual: {
+      config: string;
+      eTag?: string;
+      inheritedFromLegacy: boolean;
+      established: boolean;
+    };
+    external: {
+      sources: ExternalVocabularySource[];
+      eTag?: string;
+    };
+    wordpress: {
+      sources: ExternalVocabularySource[];
+    };
+  };
+  provenance?: Record<string, Record<string, string[]>>;
+  collisions?: Array<{
+    namespace: string;
+    canonical: string;
+    selectedValue: string;
+    values: string[];
+  }>;
+}
+
+export interface ExternalVocabularySource {
+  id: string;
+  enabled: boolean;
+  namespaces: Record<
+    string,
+    Array<string | { slug: string; label: string; parentSlug?: string }>
+  >;
 }
 
 export interface MetadataConfigUpdateResponse {
@@ -274,6 +346,8 @@ export interface MetadataConfigUpdateResponse {
   message: string;
   s3Key: string;
   updatedAt: string;
+  materialized: boolean;
+  activationRequired?: boolean;
 }
 
 export interface PromptTemplate {
@@ -303,6 +377,44 @@ export interface PromptTemplateUpdateResponse {
   updatedAt: string;
 }
 
+export interface KnowledgeSyncPairingCodeResponse {
+  pairingCode: string;
+  expiresAt: string;
+  workspaceId: string;
+  siteId: string;
+  environment: string;
+  allowedScopes: string[];
+}
+
+export async function createKnowledgeSyncPairingCode(
+  workspaceId: string,
+  siteId: string,
+  environment: "dev" | "staging" | "prod",
+): Promise<KnowledgeSyncPairingCodeResponse> {
+  const decision: CapabilityDecision = await getDecisionForAdminBackend();
+  if (!decision.backendAvailable) {
+    throw new Error("Backend not available");
+  }
+  return (await dispatchBackend(
+    decision,
+    "admin",
+    "/kb/automation/pairing-codes",
+    "POST",
+    {
+      workspaceId,
+      siteId,
+      environment,
+      allowedScopes: [
+        "knowledge:status",
+        "knowledge:key-rotate",
+        "knowledge:write",
+        "knowledge:metadata",
+      ],
+    },
+    {},
+  )) as KnowledgeSyncPairingCodeResponse;
+}
+
 /**
  * Get metadata config (categories/tags) from S3
  */
@@ -327,7 +439,8 @@ export async function getMetadataConfig(): Promise<MetadataConfigResponse> {
  * Update metadata config (categories/tags) in S3
  */
 export async function updateMetadataConfig(
-  config: MetadataConfig,
+  config: MetadataConfig | { raw: string },
+  expectedETag?: string,
 ): Promise<MetadataConfigUpdateResponse> {
   const decision: CapabilityDecision = await getDecisionForAdminBackend();
 
@@ -339,7 +452,25 @@ export async function updateMetadataConfig(
     "admin",
     "/kb/metadata-config",
     "PUT",
-    { config },
+    { config, layer: "manual", expectedETag },
+    {},
+  )) as MetadataConfigUpdateResponse;
+}
+
+export async function updateExternalVocabularySources(
+  sources: ExternalVocabularySource[],
+  expectedETag?: string,
+): Promise<MetadataConfigUpdateResponse> {
+  const decision: CapabilityDecision = await getDecisionForAdminBackend();
+  if (!decision.backendAvailable) {
+    throw new Error("Backend not available");
+  }
+  return (await dispatchBackend(
+    decision,
+    "admin",
+    "/kb/metadata-config",
+    "PUT",
+    { layer: "external", sources, expectedETag },
     {},
   )) as MetadataConfigUpdateResponse;
 }

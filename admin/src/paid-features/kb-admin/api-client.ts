@@ -15,6 +15,10 @@ import type {
   KBSourceEnableRequest,
   KBSourcesQuery,
   KBSourcesResponse,
+  KnowledgeSyncPolicy,
+  KnowledgeSyncSettings,
+  KnowledgeSyncStatus,
+  KnowledgeSyncTransportStatus,
 } from "./types";
 
 /**
@@ -245,4 +249,93 @@ export async function deriveMetadataFromSources(): Promise<{
   };
 }> {
   return wpRestCall("/kb/metadata-config/derive");
+}
+
+export async function fetchKnowledgeSyncStatus(): Promise<KnowledgeSyncStatus> {
+  return wpRestCall<KnowledgeSyncStatus>("/kb/knowledge-sync/status");
+}
+
+export async function updateKnowledgeSyncSettings(
+  settings: KnowledgeSyncSettings,
+): Promise<{ settings: KnowledgeSyncSettings }> {
+  return wpRestCall("/kb/knowledge-sync/settings", {
+    method: "PUT",
+    body: JSON.stringify(settings),
+  });
+}
+
+export async function mirrorKnowledgeSyncBackendBaseUrl(
+  backendBaseUrl: string,
+): Promise<{ settings: KnowledgeSyncSettings }> {
+  const status = await fetchKnowledgeSyncStatus();
+  return updateKnowledgeSyncSettings({
+    ...status.settings,
+    backendBaseUrl,
+  });
+}
+
+export async function updateKnowledgeSyncPolicy(
+  postType: string,
+  policy: KnowledgeSyncPolicy,
+): Promise<{ policy: KnowledgeSyncPolicy }> {
+  return wpRestCall(
+    `/kb/knowledge-sync/policies/${encodeURIComponent(postType)}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(policy),
+    },
+  );
+}
+
+export async function fetchKnowledgeSyncTransportStatus(): Promise<KnowledgeSyncTransportStatus> {
+  const response = await wpRestCall<{ transport: KnowledgeSyncTransportStatus }>(
+    "/kb/knowledge-sync/transport/status",
+  );
+  return response.transport;
+}
+
+export async function enrollKnowledgeSyncTransport(
+  pairingCode: string,
+): Promise<Record<string, unknown>> {
+  return wpRestCall("/kb/knowledge-sync/transport/enroll", {
+    method: "POST",
+    body: JSON.stringify({ pairingCode }),
+  });
+}
+
+export async function verifyKnowledgeSyncTransport(): Promise<Record<string, unknown>> {
+  return wpRestCall("/kb/knowledge-sync/transport/verify", { method: "POST" });
+}
+
+export async function rotateKnowledgeSyncTransport(): Promise<Record<string, unknown>> {
+  return wpRestCall("/kb/knowledge-sync/transport/rotate", {
+    method: "POST",
+    body: JSON.stringify({ overlapSeconds: 300 }),
+  });
+}
+
+export async function revokeKnowledgeSyncTransport(): Promise<Record<string, unknown>> {
+  return wpRestCall("/kb/knowledge-sync/transport/revoke", { method: "POST" });
+}
+
+export async function runKnowledgeSync(): Promise<Record<string, unknown>> {
+  return wpRestCall("/kb/knowledge-sync/run", { method: "POST" });
+}
+
+export async function approveKnowledgeSyncManualReview(
+  postType?: string,
+): Promise<{ approved: number }> {
+  return wpRestCall("/kb/knowledge-sync/manual-review/approve", {
+    method: "POST",
+    body: JSON.stringify(postType ? { postType } : {}),
+  });
+}
+
+export async function approveKnowledgeSyncMassDeletion(
+  postType?: string,
+): Promise<{ approved: number }> {
+  return wpRestCall("/kb/knowledge-sync/mass-delete/approve", {
+    method: "POST",
+    body: JSON.stringify(postType ? { postType } : {}),
+  });
 }

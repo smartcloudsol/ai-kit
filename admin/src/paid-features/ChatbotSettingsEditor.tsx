@@ -20,6 +20,8 @@ import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
   CustomTranslations,
+  DEFAULT_CHATBOT_AI_DISCLOSURE,
+  formatAiDisclosure,
   getStoreDispatch,
   getStoreSelect,
   LANGUAGE_OPTIONS,
@@ -54,6 +56,7 @@ import { saveSettings } from "./utils";
 
 const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels> = {
   modalTitle: "AI Assistant",
+  aiDisclosureLabel: DEFAULT_CHATBOT_AI_DISCLOSURE,
   userLabel: "User",
   assistantLabel: "Assistant",
   assistantThinkingLabel: "Assistant is thinking...",
@@ -278,7 +281,7 @@ export default function ChatbotSettingsEditor({
   );
 
   const labelsEntries = Object.entries(form.values.labels ?? {}).filter(
-    ([, v]) => typeof v === "string",
+    ([key, value]) => key !== "aiDisclosureLabel" && typeof value === "string",
   ) as Array<[keyof AiChatbotLabels, string]>;
 
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -448,6 +451,37 @@ export default function ChatbotSettingsEditor({
                       placeholder: e.currentTarget.value,
                     })
                   }
+                />
+
+                <Textarea
+                  label={
+                    <InfoLabel
+                      text="AI disclosure"
+                      scrollToId="chatbot-ai-disclosure"
+                      onOpen={openInfo}
+                    />
+                  }
+                  description="Notice shown above the message input. Use {name} to insert the localized chat title."
+                  placeholder={formatAiDisclosure(
+                    I18n.get(DEFAULT_CHATBOT_AI_DISCLOSURE),
+                    I18n.get(
+                      (form.values.chatbot.title as string) ||
+                        DEFAULT_CHATBOT_LABELS.modalTitle,
+                    ),
+                  )}
+                  value={form.values.labels.aiDisclosureLabel ?? ""}
+                  autosize
+                  minRows={2}
+                  onChange={(e) => {
+                    const next = { ...form.values.labels };
+                    const value = e.currentTarget.value;
+                    if (value) {
+                      next.aiDisclosureLabel = value;
+                    } else {
+                      delete next.aiDisclosureLabel;
+                    }
+                    form.setFieldValue("labels", next);
+                  }}
                 />
 
                 <Select
@@ -724,8 +758,8 @@ export default function ChatbotSettingsEditor({
                       onOpen={openInfo}
                     />
                   }
-                  description="Maximum number of images the chatbot accepts per message."
-                  placeholder="e.g. 3"
+                  description="Set a positive value only when the configured frontend model supports image input. Leave empty or set to 0 to disable image attachments."
+                  placeholder="0 (disabled)"
                   min={0}
                   value={
                     (form.values.chatbot?.maxImages as number) ?? undefined

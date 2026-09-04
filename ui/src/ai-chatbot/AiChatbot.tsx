@@ -25,6 +25,8 @@ import {
 } from "@tabler/icons-react";
 
 import {
+  DEFAULT_CHATBOT_AI_DISCLOSURE,
+  formatAiDisclosure,
   getStoreSelect,
   sendChatMessage,
   sendFeedbackMessage,
@@ -71,6 +73,8 @@ const HISTORY_STORAGE_KEY = `ai-kit-chatbot-history-v1:${
 
 export const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels> = {
   modalTitle: "AI Assistant",
+
+  aiDisclosureLabel: DEFAULT_CHATBOT_AI_DISCLOSURE,
 
   userLabel: "User",
   assistantLabel: "Assistant",
@@ -183,7 +187,9 @@ function createMessageId(prefix: string) {
   )}`;
 }
 
-const DEFAULT_MAX_IMAGES = 4;
+// Image input is an explicit opt-in because not every configured frontend
+// model is multimodal. A positive maxImages value is the capability gate.
+const DEFAULT_MAX_IMAGES = 0;
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 
 const isAbortLike = (e: Error & { code?: string }) => {
@@ -549,6 +555,14 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     [maxImageBytes],
   );
 
+  const imageAttachmentsEnabled = resolvedMaxImages > 0;
+
+  useEffect(() => {
+    if (!imageAttachmentsEnabled && composerImagesRef.current.length > 0) {
+      clearComposerImages();
+    }
+  }, [clearComposerImages, imageAttachmentsEnabled]);
+
   const hasMessages = messages.length > 0;
 
   const isChatBusy = useMemo(
@@ -574,14 +588,24 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   }, [openButtonTitle, labels.askMeLabel, language]);
 
   const modalTitle = useMemo(() => {
-    const raw = title ? title : labels.modalTitle;
-    return I18n.get(raw);
+    const raw =
+      title?.trim() ||
+      labels.modalTitle?.trim() ||
+      DEFAULT_CHATBOT_LABELS.modalTitle;
+    return I18n.get(raw).trim() || I18n.get(DEFAULT_CHATBOT_LABELS.modalTitle);
   }, [title, labels.modalTitle, language]);
 
   const textareaPlaceholder = useMemo(() => {
     const raw = placeholder ? placeholder : labels.placeholder;
     return I18n.get(raw);
   }, [placeholder, labels.placeholder, language]);
+
+  const aiDisclosure = useMemo(() => {
+    const template = I18n.get(
+      labels.aiDisclosureLabel?.trim() || DEFAULT_CHATBOT_AI_DISCLOSURE,
+    );
+    return formatAiDisclosure(template, modalTitle);
+  }, [labels.aiDisclosureLabel, language, modalTitle]);
 
   const rootClassName = useMemo(() => {
     const base = "ai-docs-ask";
@@ -746,6 +770,11 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   const onPickImages = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!imageAttachmentsEnabled) {
+        e.currentTarget.value = "";
+        return;
+      }
+
       const existing = composerImagesRef.current;
       const files = Array.from(e.target.files || []);
       const remaining = Math.max(0, resolvedMaxImages - existing.length);
@@ -783,7 +812,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       if (picked.length) setComposerImages((prev) => [...prev, ...picked]);
       e.currentTarget.value = "";
     },
-    [resolvedMaxImages, resolvedMaxBytes],
+    [imageAttachmentsEnabled, resolvedMaxImages, resolvedMaxBytes],
   );
 
   const removeImage = useCallback((ix: number) => {
@@ -1130,7 +1159,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     cancelRequestedRef.current = false;
     setStatusLineError(null);
     setActiveOp("chat");
-    const selectedImages = [...composerImagesRef.current];
+    const selectedImages = imageAttachmentsEnabled
+      ? [...composerImagesRef.current]
+      : [];
     const userAttachments = await buildUserAttachments(
       selectedImages,
       selectedAudio,
@@ -1280,6 +1311,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     labels.emptyResponseLabel,
     labels.unexpectedErrorLabel,
     language,
+    imageAttachmentsEnabled,
   ]);
 
   const handleQuestionKeyDown = useCallback(
@@ -2023,6 +2055,16 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               </Group>
             )}
 
+            <Text
+              className="ai-generated-content-disclosure ai-chatbot-generated-content-disclosure"
+              size="xs"
+              c="dimmed"
+              role="note"
+              data-ai-kit-ai-disclosure
+            >
+              {aiDisclosure}
+            </Text>
+
             <Stack className="ai-box ai-box-open">
               {/* Reset confirmation dialog (Yes/No) */}
               <Modal
@@ -2166,7 +2208,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                     </>
                   )}
 
-                  {resolvedMaxImages > 0 && (
+                  {imageAttachmentsEnabled && (
                     <>
                       <Button
                         variant="outline"

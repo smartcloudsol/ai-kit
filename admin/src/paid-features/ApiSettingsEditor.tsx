@@ -25,6 +25,8 @@ import { TEXT_DOMAIN, type AiKitConfig } from "@smart-cloud/ai-kit-core";
 import { getGateyPlugin } from "@smart-cloud/gatey-core";
 
 import { type SettingsEditorProps } from "../main";
+import { mirrorKnowledgeSyncBackendBaseUrl } from "./kb-admin/api-client";
+import { resolveGateyApiEndpoint } from "./kb-admin/backend-client";
 import { saveSettings } from "./utils";
 
 import classes from "../main.module.css";
@@ -172,6 +174,34 @@ export default function ApiSettingsEditor({
           payload,
         );
         onSave(updatedConfig);
+
+        try {
+          const resolvedBackendBaseUrl =
+            updatedConfig.mode === "local-only"
+              ? ""
+              : updatedConfig.backendTransport === "gatey" &&
+                  updatedConfig.backendApiName
+                ? (await resolveGateyApiEndpoint(
+                    updatedConfig.backendApiName,
+                  )) ?? ""
+                : (updatedConfig.backendBaseUrl ?? "").trim().replace(/\/+$/, "");
+          await mirrorKnowledgeSyncBackendBaseUrl(resolvedBackendBaseUrl);
+        } catch (error) {
+          notifications.show({
+            title: __("Knowledge Sync runner needs attention", TEXT_DOMAIN),
+            message: __(
+              "API settings were saved, but the resolved backend endpoint could not be mirrored for WordPress cron. Open Knowledge Base to retry.",
+              TEXT_DOMAIN,
+            ),
+            color: "yellow",
+            icon: <IconAlertCircle />,
+            className: classes["notification"],
+          });
+          console.error(
+            "Error mirroring the Knowledge Sync backend endpoint:",
+            error,
+          );
+        }
 
         notifications.show({
           title: __("Settings saved", TEXT_DOMAIN),

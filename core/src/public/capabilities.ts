@@ -23,8 +23,10 @@ export const decideCapability = async (
   _feature: BuiltInAiFeature,
   _availabilityOptions?: AnyCreateCoreOptions,
   _modeOverride?: AiModePreference,
-) =>
-  Promise.resolve<CapabilityDecision>({
+  _context?: import("../types").ContextKind,
+) => {
+  void _context;
+  return Promise.resolve<CapabilityDecision>({
     feature: _feature,
     source: "none",
     mode: "local-only",
@@ -32,13 +34,17 @@ export const decideCapability = async (
     backendAvailable: false,
     reason: "not-implemented",
   });
+};
 
-export async function resolveBackend(): Promise<{
+export async function resolveBackend(
+  _capability?: import("../types").AiKitBackendCapability,
+): Promise<{
   available: boolean;
   transport?: BackendTransport;
   apiName?: string;
   baseUrl?: string;
   reason?: string;
 }> {
+  void _capability;
   return { available: false, reason: "not-implemented" };
 }

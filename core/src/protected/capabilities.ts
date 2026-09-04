@@ -15,10 +15,16 @@ import type {
   AiModePreference,
   AnyCreateCoreOptions,
   BackendTransport,
+  AiKitBackendCapability,
   BuiltInAiFeature,
   CapabilityDecision,
   DeviceAvailability,
 } from "../types";
+import {
+  capabilityForFeature,
+  resolveBackendCompatibility,
+  supportsBackendCapability,
+} from "../backend-compatibility";
 
 async function readAiKitConfig(): Promise<AiKitConfig> {
   const aiKit = getWpSuite()?.plugins?.aiKit as AiKitPlugin | undefined;
@@ -49,12 +55,15 @@ function getModePreference(config: AiKitConfig): AiModePreference {
   return transport ? "backend-fallback" : "local-only";
 }
 
-export async function resolveBackend(): Promise<{
+export async function resolveBackend(
+  capability?: AiKitBackendCapability,
+): Promise<{
   available: boolean;
   transport?: BackendTransport;
   apiName?: string;
   baseUrl?: string;
   reason?: string;
+  compatibility?: import("../types").BackendCompatibility;
 }> {
   const config = await readAiKitConfig();
   const { transport, backendApiName, backendBaseUrl } =
@@ -67,10 +76,27 @@ export async function resolveBackend(): Promise<{
   if (transport === "fetch") {
     if (!backendBaseUrl)
       return { available: false, reason: "backendBaseUrl is missing" };
+    const compatibility = await resolveBackendCompatibility({
+      transport,
+      baseUrl: backendBaseUrl,
+    });
+    if (
+      capability &&
+      !supportsBackendCapability(compatibility, capability)
+    ) {
+      return {
+        available: false,
+        transport,
+        baseUrl: backendBaseUrl,
+        compatibility,
+        reason: `Backend does not support ${capability}.`,
+      };
+    }
     return {
       available: true,
       transport,
       baseUrl: backendBaseUrl,
+      compatibility,
       reason: "Custom fetch backend",
     };
   }
@@ -84,10 +110,25 @@ export async function resolveBackend(): Promise<{
     return { available: false, reason: "Gatey is not available" };
   }
 
+  const compatibility = await resolveBackendCompatibility({
+    transport,
+    apiName: backendApiName,
+  });
+  if (capability && !supportsBackendCapability(compatibility, capability)) {
+    return {
+      available: false,
+      transport,
+      apiName: backendApiName,
+      compatibility,
+      reason: `Backend does not support ${capability}.`,
+    };
+  }
+
   return {
     available: true,
     transport,
     apiName: backendApiName,
+    compatibility,
     reason: "Gatey backend",
   };
 }
@@ -476,11 +517,12 @@ export async function decideCapability(
   feature: BuiltInAiFeature,
   availabilityOptions?: AnyCreateCoreOptions,
   modeOverride?: AiModePreference,
+  context: import("../types").ContextKind = "admin",
 ): Promise<CapabilityDecision> {
   const config = await readAiKitConfig();
   const mode = modeOverride ? modeOverride : getModePreference(config);
 
-  const backend = await resolveBackend();
+  const backend = await resolveBackend(capabilityForFeature(context, feature));
   const onDevice = await checkOnDeviceAvailability(
     feature,
     availabilityOptions,
@@ -500,6 +542,7 @@ export async function decideCapability(
     backendApiName: backend.apiName,
     backendBaseUrl: backend.baseUrl,
     backendReason: backend.reason,
+    backendCompatibility: backend.compatibility,
   };
 
   if (mode === "local-only") {

@@ -2,6 +2,7 @@ import { DEFAULT_THEME } from "@mantine/core";
 import { REACT_FALLBACK_BLOCK_NAME } from "@smart-cloud/wpsuite-blocks";
 import {
   CustomTranslations,
+  DEFAULT_DOC_SEARCH_AI_DISCLOSURE,
   DocSearchArgs,
   getStore,
   getStoreSelect,
@@ -56,6 +57,7 @@ export type EditorBlockProps = {
   inputSelector?: string;
   variation?: DocSearchArgs["variation"];
   autoRun?: boolean;
+  aiDisclosure?: string;
   enableUserFilters?: boolean;
   language?: DocSearchArgs["language"];
   direction?: DocSearchArgs["direction"];
@@ -95,6 +97,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
     inputSelector,
     variation,
     autoRun,
+    aiDisclosure,
     enableUserFilters,
     language,
     direction,
@@ -281,6 +284,18 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
               }}
               help={__(
                 "Override the default title displayed on the AI-Kit Doc Search block. Leave empty to use the standard title.",
+                TEXT_DOMAIN,
+              )}
+            />
+            <TextareaControl
+              label={__("AI disclosure", TEXT_DOMAIN)}
+              value={aiDisclosure || ""}
+              placeholder={I18n.get(DEFAULT_DOC_SEARCH_AI_DISCLOSURE)}
+              onChange={(value) => {
+                setAttributes({ aiDisclosure: value });
+              }}
+              help={__(
+                "Override the localized notice shown below AI-generated summaries. Leave empty to use the default notice.",
                 TEXT_DOMAIN,
               )}
             />
@@ -694,6 +709,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
             inputSelector={inputSelector}
             variation={variation || "default"}
             autoRun={autoRun}
+            aiDisclosure={aiDisclosure}
             enableUserFilters={enableUserFilters}
             language={language || "en"}
             direction={themeDirection || "auto"}

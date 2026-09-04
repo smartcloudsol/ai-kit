@@ -24,6 +24,35 @@ export type CapabilitySource = "on-device" | "backend" | "none";
 
 export type BackendTransport = "gatey" | "fetch";
 
+export type AiKitBackendCapability =
+  | `ai.${BuiltInAiFeature}.${ContextKind}`
+  | "knowledge.admin"
+  | "knowledge.query.frontend"
+  | "knowledge.automation";
+
+export interface BackendManifest {
+  schemaVersion: 1;
+  product: "smartcloud-ai-kit-backend";
+  release: string;
+  apiSchemaVersion?: number;
+  capabilities: Partial<Record<AiKitBackendCapability, number>>;
+}
+
+export interface BackendCompatibility {
+  status: "verified" | "legacy";
+  manifest?: BackendManifest;
+  reason?: string;
+}
+
+export interface ResolvedBackend {
+  available: boolean;
+  transport?: BackendTransport;
+  apiName?: string;
+  baseUrl?: string;
+  reason?: string;
+  compatibility?: BackendCompatibility;
+}
+
 export interface AiKit {
   features: AiKitFeatures;
   settings: AiKitSettings;
@@ -96,6 +125,7 @@ export interface CapabilityDecision {
   backendApiName?: string;
   backendBaseUrl?: string;
   backendReason?: string;
+  backendCompatibility?: BackendCompatibility;
 
   reason: string;
 }
@@ -251,6 +281,8 @@ export type OpenButtonPosition =
 
 export type AiChatbotLabels = Partial<{
   modalTitle: string;
+
+  aiDisclosureLabel: string;
 
   userLabel: string;
   assistantLabel: string;
@@ -644,6 +676,9 @@ export type DocSearchProps = AiWorkerProps & {
   context?: ContextKind;
   autoRun?: boolean;
 
+  /** Optional override for the localized AI-generated summary disclosure. */
+  aiDisclosure?: string;
+
   /** Title shown above the search input (optional). */
   title?: string;
 
@@ -718,15 +753,12 @@ export interface Capabilities {
     feature: BuiltInAiFeature,
     availabilityOptions?: AnyCreateCoreOptions,
     modeOverride?: AiModePreference,
+    context?: ContextKind,
   ) => Promise<CapabilityDecision>;
 
-  resolveBackend: () => Promise<{
-    available: boolean;
-    transport?: BackendTransport;
-    apiName?: string;
-    baseUrl?: string;
-    reason?: string;
-  }>;
+  resolveBackend: (
+    capability?: AiKitBackendCapability,
+  ) => Promise<ResolvedBackend>;
 
   willUseOnDevice: (
     feature: BuiltInAiFeature,

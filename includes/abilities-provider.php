@@ -55,6 +55,149 @@ final class Provider extends Product_Provider_Base
                 'method' => 'list_knowledge_metadata',
                 'input_schema' => $this->empty_input_schema(),
             ),
+            array(
+                'suffix' => 'get-knowledge-sync-policy',
+                'description' => 'Return the configured automatic Knowledge Base sync policy without private key material.',
+                'method' => 'get_knowledge_sync_policy',
+                'input_schema' => $this->knowledge_sync_policy_input_schema(),
+            ),
+            array(
+                'suffix' => 'get-knowledge-sync-status',
+                'description' => 'Return local Knowledge Base sync queue, baseline, schedule, and enrollment status.',
+                'method' => 'get_knowledge_sync_status',
+                'input_schema' => $this->empty_input_schema(),
+            ),
+            array(
+                'suffix' => 'get-knowledge-metadata-diff',
+                'description' => 'Compare the current WordPress-derived vocabulary with its last accepted version.',
+                'method' => 'get_knowledge_metadata_diff',
+                'input_schema' => $this->empty_input_schema(),
+            ),
+            array(
+                'suffix' => 'request-knowledge-sync',
+                'description' => 'Request a scheduled Knowledge Base sync pass without bypassing configured content-review policy.',
+                'method' => 'request_knowledge_sync',
+                'input_schema' => $this->knowledge_sync_request_input_schema(),
+                'meta' => array(
+                    'readonly' => false,
+                    'destructive' => false,
+                    'idempotent' => true,
+                    'operation' => 'request',
+                    'agent_draft_safe' => true,
+                    'human_approval_required' => true,
+                ),
+            ),
+        );
+    }
+
+    public function get_knowledge_sync_policy(array $input = array()): array|WP_Error
+    {
+        if (!class_exists('\\SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncPolicyStore')) {
+            return new WP_Error('smartcloud_ai_kit_knowledge_sync_unavailable', __('Knowledge sync is unavailable.', 'smartcloud-ai-kit'));
+        }
+        $store = new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPolicyStore();
+        $post_type = sanitize_key((string) ($input['post_type'] ?? ''));
+        return array(
+            'provider' => $this->provider_id,
+            'contract_version' => $this->contract_version,
+            'post_type' => $post_type !== '' ? $post_type : null,
+            'policies' => $post_type !== ''
+                ? array($post_type => $store->getForPostType($post_type))
+                : $store->getAll(),
+        );
+    }
+
+    public function get_knowledge_sync_status(array $input = array()): array|WP_Error
+    {
+        if (!class_exists('\\SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncSettingsStore')) {
+            return new WP_Error('smartcloud_ai_kit_knowledge_sync_unavailable', __('Knowledge sync is unavailable.', 'smartcloud-ai-kit'));
+        }
+        $settings = (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncSettingsStore())->get();
+        $transport_status = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncTransport::create()->localStatus();
+        unset($settings['backendBaseUrl']);
+        return array(
+            'provider' => $this->provider_id,
+            'contract_version' => $this->contract_version,
+            'settings' => $settings,
+            'policies' => (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPolicyStore())->getAll(),
+            'outbox' => (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncOutboxRepository())->counts(),
+            'baselines' => (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncBaselineRepository())->listAll(),
+            'last_run' => get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRuntime::LAST_RUN_OPTION, null),
+            'next_run_gmt' => ($timestamp = wp_next_scheduled(\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRuntime::CRON_HOOK))
+                ? gmdate('c', $timestamp)
+                : null,
+            'transport' => array(
+                'configured' => !empty($transport_status['configured']),
+                'enrolled' => !empty($transport_status['enrolled']),
+                'key_storage_mode' => $settings['keyStorageMode'],
+                'backend_compatibility' => $transport_status['backendCompatibility'] ?? array('status' => 'unconfigured'),
+                'remote_status' => $transport_status['remoteStatus'] ?? null,
+                'remote_error' => $transport_status['remoteError'] ?? null,
+            ),
+        );
+    }
+
+    public function get_knowledge_metadata_diff(array $input = array()): array|WP_Error
+    {
+        if (!class_exists('\\SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncVocabularyService')) {
+            return new WP_Error('smartcloud_ai_kit_knowledge_sync_unavailable', __('Knowledge sync is unavailable.', 'smartcloud-ai-kit'));
+        }
+        return array(
+            'provider' => $this->provider_id,
+            'contract_version' => $this->contract_version,
+            'diff' => (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncVocabularyService())->metadataDiff(),
+        );
+    }
+
+    public function request_knowledge_sync(array $input): array|WP_Error
+    {
+        if (($input['confirm_review_boundary'] ?? null) !== true) {
+            return new WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_confirmation_required',
+                __('Explicit confirmation of the configured review boundary is required.', 'smartcloud-ai-kit')
+            );
+        }
+        if (!class_exists('\\SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncTransport')) {
+            return new WP_Error('smartcloud_ai_kit_knowledge_sync_unavailable', __('Knowledge sync is unavailable.', 'smartcloud-ai-kit'));
+        }
+        $transport = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncTransport::create();
+        $status = $transport->localStatus();
+        $automation_version = (int) ($status['backendCompatibility']['capabilities']['knowledge.automation'] ?? 0);
+        if (empty($status['enrolled']) || $automation_version < 2) {
+            return new WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_backend_unavailable',
+                __('A verified, enrolled Knowledge Base automation backend is required.', 'smartcloud-ai-kit')
+            );
+        }
+        $policies = (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPolicyStore())->getAll();
+        $enabled = array_filter($policies, static fn(array $policy): bool => !empty($policy['enabled']) && ($policy['reviewPolicy'] ?? 'disabled') !== 'disabled');
+        if ($enabled === array()) {
+            return new WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_policy_disabled',
+                __('Enable at least one Knowledge Base content policy before requesting synchronization.', 'smartcloud-ai-kit')
+            );
+        }
+        $scheduled = time() + 1;
+        $result = wp_schedule_single_event(
+            $scheduled,
+            \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRuntime::CRON_HOOK,
+            array(true),
+            true
+        );
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncAuditRepository())->record(
+            'ability-request',
+            'scheduled',
+            array('reviewPolicies' => array_values(array_unique(array_column($enabled, 'reviewPolicy'))))
+        );
+        return array(
+            'provider' => $this->provider_id,
+            'status' => 'scheduled',
+            'scheduled_gmt' => gmdate('c', $scheduled),
+            'review_policies' => array_values(array_unique(array_column($enabled, 'reviewPolicy'))),
+            'review_boundary_preserved' => true,
         );
     }
 
@@ -390,6 +533,37 @@ final class Provider extends Product_Provider_Base
     private function supported_feature_modes(): array
     {
         return array('summarize', 'proofread', 'write', 'rewrite', 'translate');
+    }
+
+    private function knowledge_sync_policy_input_schema(): array
+    {
+        return array(
+            'type' => 'object',
+            'properties' => array(
+                'post_type' => array(
+                    'type' => 'string',
+                    'pattern' => '^[a-z0-9_-]+$',
+                    'maxLength' => 20,
+                ),
+            ),
+            'additionalProperties' => false,
+        );
+    }
+
+    private function knowledge_sync_request_input_schema(): array
+    {
+        return array(
+            'type' => 'object',
+            'required' => array('confirm_review_boundary'),
+            'properties' => array(
+                'confirm_review_boundary' => array(
+                    'type' => 'boolean',
+                    'enum' => array(true),
+                    'description' => 'Literal confirmation that the request must preserve every configured manual or publish-is-approval boundary.',
+                ),
+            ),
+            'additionalProperties' => false,
+        );
     }
 
     private function backend_ready_state(): string

@@ -208,6 +208,21 @@
   background-color: transparent;
 }
 
+.ai-generated-content-disclosure {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  opacity: 0.78;
+  text-align: center;
+}
+
+.ai-chatbot-generated-content-disclosure {
+  margin: 0;
+  padding: var(--ai-kit-space-1) var(--ai-kit-space-4)
+    var(--ai-kit-space-2);
+  background: var(--ai-kit-chat-status-bg);
+  text-align: start;
+}
+
 .ai-feature-title-icon,
 .doc-search-title-icon {
   width: 24px;

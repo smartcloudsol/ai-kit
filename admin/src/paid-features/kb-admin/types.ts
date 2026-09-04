@@ -168,3 +168,107 @@ export interface KBSourcesResponse {
   per_page: number;
   total_pages: number;
 }
+
+export type KnowledgeSyncReviewPolicy =
+  | "disabled"
+  | "wordpress-publish-is-approval"
+  | "manual-kb-review";
+
+export interface KnowledgeSyncPolicy {
+  schemaVersion: 1;
+  postType: string;
+  enabled: boolean;
+  autoEnableSource: "administrator" | "migration" | "system";
+  reviewPolicy: KnowledgeSyncReviewPolicy;
+  onPublish: "upsert";
+  onPublishedUpdate: "upsert";
+  onUnpublish: "delete";
+  metadataRefresh: "reconcile";
+  includeTaxonomies: string[];
+  documentProfile: string;
+}
+
+export interface KnowledgeSyncSettings {
+  includeSubsites: boolean;
+  baselinePageSize: number;
+  transportBatchSize: number;
+  backendBaseUrl: string;
+  keyStorageMode: "disabled" | "file" | "encrypted-option";
+  environment: "dev" | "staging" | "prod";
+}
+
+export interface KnowledgeSyncPostType {
+  value: string;
+  label: string;
+  taxonomies: Array<{ value: string; label: string }>;
+}
+
+export interface KnowledgeSyncStatus {
+  settings: KnowledgeSyncSettings;
+  policies: Record<string, KnowledgeSyncPolicy>;
+  baselines: Array<Record<string, string | number | null>>;
+  outbox: Record<string, number>;
+  blockedReasons: Record<string, number>;
+  nextRunGmt: string | null;
+  lastRun: {
+    status: string;
+    completedGmt?: string;
+    blogs?: Array<Record<string, unknown>>;
+  } | null;
+  vocabulary: {
+    sourceVersion: number;
+    acceptedGmt?: string;
+  } | null;
+  availablePostTypes: KnowledgeSyncPostType[];
+  multisite: {
+    enabled: boolean;
+    canIncludeSubsites: boolean;
+  };
+}
+
+export interface KnowledgeSyncTransportStatus {
+  configured: boolean;
+  enrolled: boolean;
+  keyId: string | null;
+  workspaceId: string | null;
+  siteId: string | null;
+  environment: string;
+  algorithm: string | null;
+  keyStorageMode: string;
+  backendCompatibility: {
+    status: "unconfigured" | "legacy" | "verified";
+    reason?: string;
+    release?: string;
+    apiSchemaVersion?: number | null;
+    capabilities?: Record<string, number>;
+  };
+  remoteStatus?: {
+    ingestion?: {
+      status: string;
+      requestedGeneration: number;
+      activeGeneration: number;
+      committedGeneration: number;
+      retryCount: number;
+      ingestionJobId: string | null;
+      lastError: string | null;
+      lastSuccessAt: number | null;
+      lastCompletedJobId: string | null;
+      lastDeletedDocumentCount: number;
+      lastStatistics: Record<string, unknown> | null;
+    } | null;
+    manifest?: {
+      status: string;
+      counts?: Record<string, number>;
+      nextPageToken?: string | null;
+      sources?: Array<{
+        sourceKey: string;
+        sourceVersion: number;
+        documentGeneration: number;
+        status: string;
+        expected: number;
+        present: number;
+      }>;
+    } | null;
+  } | null;
+  remoteError?: string | null;
+}

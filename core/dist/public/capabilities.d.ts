@@ -4,8 +4,8 @@ export declare const checkOnDeviceAvailability: (_feature: BuiltInAiFeature, _av
     available: boolean;
     status: string;
 }>;
-export declare const decideCapability: (_feature: BuiltInAiFeature, _availabilityOptions?: AnyCreateCoreOptions, _modeOverride?: AiModePreference) => Promise<CapabilityDecision>;
-export declare function resolveBackend(): Promise<{
+export declare const decideCapability: (_feature: BuiltInAiFeature, _availabilityOptions?: AnyCreateCoreOptions, _modeOverride?: AiModePreference, _context?: import("../types").ContextKind) => Promise<CapabilityDecision>;
+export declare function resolveBackend(_capability?: import("../types").AiKitBackendCapability): Promise<{
     available: boolean;
     transport?: BackendTransport;
     apiName?: string;

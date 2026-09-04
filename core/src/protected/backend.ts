@@ -19,6 +19,11 @@ import type {
   ContextKind,
 } from "../types";
 import { BackendError } from "../types";
+import {
+  capabilityForCustomPath,
+  resolveBackendCompatibility,
+  supportsBackendCapability,
+} from "../backend-compatibility";
 
 /* -----------------------------
  * reCAPTCHA chat assessment caching (client-side)
@@ -338,6 +343,20 @@ export async function dispatchCustomBackend<TResponse>(
   requestBody: unknown,
   options: BackendCallOptions = {},
 ): Promise<TResponse> {
+  const requiredCapability = capabilityForCustomPath(context, customPath);
+  if (requiredCapability) {
+    const compatibility = await resolveBackendCompatibility({
+      transport: decision.backendTransport ?? "gatey",
+      apiName: decision.backendApiName,
+      baseUrl: decision.backendBaseUrl,
+    });
+    if (!supportsBackendCapability(compatibility, requiredCapability)) {
+      throw new BackendError(
+        `Backend does not support ${requiredCapability}.`,
+        { ...decision, backendCompatibility: compatibility },
+      );
+    }
+  }
   const path = getBackendCustomPath(context, customPath);
   return dispatchBackend(
     decision,

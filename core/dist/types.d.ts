@@ -4,6 +4,27 @@ export type AiModePreference = "local-only" | "backend-fallback" | "backend-only
 export type BuiltInAiFeature = "prompt" | "summarizer" | "writer" | "rewriter" | "proofreader" | "language-detector" | "translator";
 export type CapabilitySource = "on-device" | "backend" | "none";
 export type BackendTransport = "gatey" | "fetch";
+export type AiKitBackendCapability = `ai.${BuiltInAiFeature}.${ContextKind}` | "knowledge.admin" | "knowledge.query.frontend" | "knowledge.automation";
+export interface BackendManifest {
+    schemaVersion: 1;
+    product: "smartcloud-ai-kit-backend";
+    release: string;
+    apiSchemaVersion?: number;
+    capabilities: Partial<Record<AiKitBackendCapability, number>>;
+}
+export interface BackendCompatibility {
+    status: "verified" | "legacy";
+    manifest?: BackendManifest;
+    reason?: string;
+}
+export interface ResolvedBackend {
+    available: boolean;
+    transport?: BackendTransport;
+    apiName?: string;
+    baseUrl?: string;
+    reason?: string;
+    compatibility?: BackendCompatibility;
+}
 export interface AiKit {
     features: AiKitFeatures;
     settings: AiKitSettings;
@@ -63,6 +84,7 @@ export interface CapabilityDecision {
     backendApiName?: string;
     backendBaseUrl?: string;
     backendReason?: string;
+    backendCompatibility?: BackendCompatibility;
     reason: string;
 }
 export interface BackendCallOptions {
@@ -132,6 +154,7 @@ export type OpenButtonIconLayout = "top" | "bottom" | "left" | "right";
 export type OpenButtonPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
 export type AiChatbotLabels = Partial<{
     modalTitle: string;
+    aiDisclosureLabel: string;
     userLabel: string;
     assistantLabel: string;
     assistantThinkingLabel: string;
@@ -453,6 +476,8 @@ export interface FeedbackMessageArgs {
 export type DocSearchProps = AiWorkerProps & {
     context?: ContextKind;
     autoRun?: boolean;
+    /** Optional override for the localized AI-generated summary disclosure. */
+    aiDisclosure?: string;
     /** Title shown above the search input (optional). */
     title?: string;
     /** Optional search input. */
@@ -490,14 +515,8 @@ export interface Capabilities {
     MIN_CHROME_VERSION?: Partial<Record<BuiltInAiFeature, number>>;
     isOnDeviceLanguageSupported: (outputLanguage: AiKitLanguageCode) => boolean;
     checkOnDeviceAvailability: (feature: BuiltInAiFeature, availabilityOptions?: AnyCreateCoreOptions) => Promise<DeviceAvailability>;
-    decideCapability: (feature: BuiltInAiFeature, availabilityOptions?: AnyCreateCoreOptions, modeOverride?: AiModePreference) => Promise<CapabilityDecision>;
-    resolveBackend: () => Promise<{
-        available: boolean;
-        transport?: BackendTransport;
-        apiName?: string;
-        baseUrl?: string;
-        reason?: string;
-    }>;
+    decideCapability: (feature: BuiltInAiFeature, availabilityOptions?: AnyCreateCoreOptions, modeOverride?: AiModePreference, context?: ContextKind) => Promise<CapabilityDecision>;
+    resolveBackend: (capability?: AiKitBackendCapability) => Promise<ResolvedBackend>;
     willUseOnDevice: (feature: BuiltInAiFeature, availabilityOptions?: AnyCreateCoreOptions) => Promise<boolean>;
     willUseBackend: (feature: BuiltInAiFeature, availabilityOptions?: AnyCreateCoreOptions) => Promise<boolean>;
 }

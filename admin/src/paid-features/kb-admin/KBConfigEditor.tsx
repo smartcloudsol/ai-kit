@@ -313,14 +313,6 @@ export default function KBConfigEditor({
 
   // Define configurable items list
   const configItems: ConfigItem[] = [
-    {
-      type: "metadata",
-      label: __("Metadata Configuration", TEXT_DOMAIN),
-      description: __(
-        "Define categories, subcategories, and tags for KB documents. Stored as YAML in S3. Use the compare view to see derived metadata from your sources.",
-        TEXT_DOMAIN,
-      ),
-    },
     ...(templatesResponse?.templates.map((template) => ({
       type: "template" as const,
       templateType: template.type,
@@ -340,7 +332,7 @@ export default function KBConfigEditor({
                 <Group gap="xs">
                   <IconSettings size={20} />
                   <InfoLabel
-                    text={__("KB Configuration", TEXT_DOMAIN)}
+                    text={__("KB Prompt Templates", TEXT_DOMAIN)}
                     scrollToId="kb-config-metadata"
                     onOpen={openInfo}
                   />
@@ -348,7 +340,7 @@ export default function KBConfigEditor({
               </Title>
               <Text size="sm" c="dimmed" mt="xs">
                 {__(
-                  "Manage metadata schema and prompt templates used by all KB documents. Click an item to edit its configuration.",
+                  "Manage prompt templates used by Knowledge Base retrieval and answers. Click an item to edit its configuration.",
                   TEXT_DOMAIN,
                 )}
               </Text>

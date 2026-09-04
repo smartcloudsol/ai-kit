@@ -105,11 +105,91 @@ class Schema
             KEY ix_source (kb_source_post_id)
         ) $charset_collate;";
 
+        // Table 6: kb_sync_outbox
+        // One durable desired-state row per WordPress source. Repeated saves
+        // advance its generation instead of appending an unbounded queue.
+        $sql_sync_outbox = "CREATE TABLE {$prefix}kb_sync_outbox (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            consumer_id VARCHAR(190) NOT NULL,
+            blog_id BIGINT UNSIGNED NOT NULL,
+            post_type VARCHAR(50) NOT NULL,
+            post_id BIGINT UNSIGNED NOT NULL,
+            desired_operation VARCHAR(10) NOT NULL,
+            desired_generation BIGINT UNSIGNED NOT NULL DEFAULT 1,
+            reviewed_generation BIGINT UNSIGNED NULL,
+            leased_generation BIGINT UNSIGNED NULL,
+            leased_operation VARCHAR(10) NULL,
+            source_sequence BIGINT UNSIGNED NOT NULL DEFAULT 1,
+            source_version VARCHAR(32) NOT NULL,
+            leased_source_version VARCHAR(32) NULL,
+            payload_fingerprint CHAR(64) NULL,
+            state VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempt_count INT UNSIGNED NOT NULL DEFAULT 0,
+            next_attempt_gmt DATETIME NULL,
+            lease_expires_gmt DATETIME NULL,
+            lease_owner VARCHAR(64) NULL,
+            leased_correlation_id VARCHAR(64) NULL,
+            last_public_url TEXT NULL,
+            correlation_id VARCHAR(64) NOT NULL,
+            last_error_code VARCHAR(64) NULL,
+            created_gmt DATETIME NOT NULL,
+            updated_gmt DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_consumer_source (consumer_id, blog_id, post_type, post_id),
+            KEY ix_state_due (state, next_attempt_gmt),
+            KEY ix_lease (state, lease_expires_gmt)
+        ) $charset_collate;";
+
+        // Table 7: kb_sync_baselines
+        // Freeze a finite high-water post ID for the initial reconciliation;
+        // normal save hooks continue recording newer changes in the outbox.
+        $sql_sync_baselines = "CREATE TABLE {$prefix}kb_sync_baselines (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            consumer_id VARCHAR(190) NOT NULL,
+            blog_id BIGINT UNSIGNED NOT NULL,
+            post_type VARCHAR(50) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'required',
+            cursor_post_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            high_water_post_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            serializer_fingerprint CHAR(64) NOT NULL,
+            policy_fingerprint CHAR(64) NOT NULL,
+            last_error_code VARCHAR(64) NULL,
+            started_gmt DATETIME NULL,
+            verified_gmt DATETIME NULL,
+            updated_gmt DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_consumer_scope (consumer_id, blog_id, post_type),
+            KEY ix_status (status, updated_gmt)
+        ) $charset_collate;";
+
+        // Table 8: kb_sync_audit. Store operational metadata only, never
+        // document bodies, private keys, signatures, or pairing codes.
+        $sql_sync_audit = "CREATE TABLE {$prefix}kb_sync_audit (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            blog_id BIGINT UNSIGNED NOT NULL,
+            event_type VARCHAR(64) NOT NULL,
+            status VARCHAR(20) NOT NULL,
+            consumer_id VARCHAR(190) NULL,
+            post_type VARCHAR(50) NULL,
+            post_id BIGINT UNSIGNED NULL,
+            correlation_id VARCHAR(64) NULL,
+            error_code VARCHAR(64) NULL,
+            details_json LONGTEXT NULL,
+            recorded_gmt DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            KEY ix_recorded (recorded_gmt),
+            KEY ix_consumer (consumer_id, recorded_gmt),
+            KEY ix_status (status, recorded_gmt)
+        ) $charset_collate;";
+
         dbDelta($sql_sources);
         dbDelta($sql_generated);
         dbDelta($sql_overrides);
         dbDelta($sql_publish);
         dbDelta($sql_dependencies);
+        dbDelta($sql_sync_outbox);
+        dbDelta($sql_sync_baselines);
+        dbDelta($sql_sync_audit);
 
         Logger::info('KB Admin database tables created/updated', [
             'db_version' => SMARTCLOUD_AI_KIT_DB_VERSION ?? 'unknown'
@@ -129,7 +209,10 @@ class Schema
             "{$prefix}kb_generated",
             "{$prefix}kb_overrides",
             "{$prefix}kb_publish_state",
-            "{$prefix}kb_dependencies"
+            "{$prefix}kb_dependencies",
+            "{$prefix}kb_sync_outbox",
+            "{$prefix}kb_sync_baselines",
+            "{$prefix}kb_sync_audit"
         ];
 
         Logger::info('Dropping KB Admin tables', ['tables' => $tables]);

@@ -657,6 +657,7 @@ async function route<TResp>(
     feature,
     availabilityOptions as never,
     modeOverride,
+    context,
   );
 
   emit(feature, context, backendOptions, {
@@ -2069,6 +2070,7 @@ export const prompt: Features["prompt"] = async (
     "prompt",
     core as never,
     options?.modeOverride,
+    context,
   );
 
   return route(

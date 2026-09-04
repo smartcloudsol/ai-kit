@@ -17,6 +17,10 @@
       "role": "content",
       "default": true
     },
+    "aiDisclosure": {
+      "type": "string",
+      "role": "content"
+    },
     "enableUserFilters": {
       "type": "boolean",
       "role": "content",
