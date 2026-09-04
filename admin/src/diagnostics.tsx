@@ -44,6 +44,10 @@ type DecisionView = CapabilityDecision & {
 
   backendAvailable?: boolean;
   backendReason?: string;
+  backendCompatibility?: {
+    status: "verified" | "legacy";
+    manifest?: { release: string; apiSchemaVersion?: number };
+  };
 };
 
 type FeatureMeta = {
@@ -337,6 +341,9 @@ export default function Diagnostics() {
       backendApiName: d?.backendApiName,
       backendBaseUrl: d?.backendBaseUrl,
       backendReason: d?.backendReason ?? dash(),
+      compatibilityStatus: d?.backendCompatibility?.status,
+      backendRelease: d?.backendCompatibility?.manifest?.release,
+      apiSchemaVersion: d?.backendCompatibility?.manifest?.apiSchemaVersion,
     };
   }, [rows]);
 
@@ -522,6 +529,20 @@ export default function Diagnostics() {
               )
             </Code>
           </Text>
+          {backendInfo.compatibilityStatus && (
+            <Text size="sm" mt="xs">
+              {__("Backend compatibility:", TEXT_DOMAIN)}{" "}
+              <Code>
+                {backendInfo.compatibilityStatus}
+                {backendInfo.backendRelease
+                  ? `; release ${backendInfo.backendRelease}`
+                  : ""}
+                {backendInfo.apiSchemaVersion
+                  ? `; API schema ${backendInfo.apiSchemaVersion}`
+                  : ""}
+              </Code>
+            </Text>
+          )}
         </Paper>
       </Paper>
 

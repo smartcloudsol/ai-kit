@@ -44,6 +44,9 @@ export {
 
 export * from "./icons";
 export * from "./types";
+export * from "./ai-disclosures";
+export * from "./knowledge-sync";
+export * from "./backend-compatibility";
 
 export const LANGUAGE_OPTIONS: { label: string; value: AiKitLanguageCode }[] = [
   { label: __("Arabic", TEXT_DOMAIN), value: "ar" },

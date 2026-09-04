@@ -104,6 +104,23 @@ test("distinguishes authorization, throttling, network, and backend failures", (
   );
 });
 
+test("explains a configured model capability mismatch", () => {
+  const details = normalizeAiRunError(
+    backendError(400, {
+      code: "MODEL_CAPABILITY_ERROR",
+      message: "The configured AI model does not support image attachments.",
+      requestId: "req-model-capability",
+    }),
+  );
+
+  assert.equal(details.kind, "validation");
+  assert.equal(details.code, "MODEL_CAPABILITY_ERROR");
+  assert.equal(
+    getAiRunErrorMessage(details),
+    "The configured AI model does not support image attachments. Contact the site administrator.",
+  );
+});
+
 test("treats intentional cancellation as non-error feedback", () => {
   const feedback = createAiRunErrorFeedback(
     new DOMException("Aborted", "AbortError"),

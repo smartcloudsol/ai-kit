@@ -88,6 +88,9 @@ $widgetSource = (string) file_get_contents(dirname(__DIR__, 2) . '/elementor-ai-
 
 expect(str_contains($pluginSource, "renderShortcodeBlock('smartcloud-ai-kit/feature'"), 'AI feature shortcode must retain its block renderer.');
 expect(str_contains($pluginSource, "renderShortcodeBlock('smartcloud-ai-kit/doc-search'"), 'Doc Search shortcode must retain its block renderer.');
+expect(str_contains($pluginSource, "'aiDisclosure' => null"), 'Doc Search shortcode must accept an AI disclosure override.');
+expect(str_contains($widgetSource, "\$this->add_control('aiDisclosure'"), 'Elementor Doc Search must expose an AI disclosure override.');
+expect(str_contains($widgetSource, "'aiDisclosure',"), 'Elementor Doc Search must pass the AI disclosure override to the shortcode.');
 expect(str_contains($widgetSource, "smartcloud_ai_kit_do_shortcode('smartcloud-ai-kit-feature'"), 'AI feature Elementor widget must retain its shortcode adapter.');
 expect(str_contains($widgetSource, "smartcloud_ai_kit_do_shortcode('smartcloud-ai-kit-doc-search'"), 'Doc Search Elementor widget must retain its shortcode adapter.');
 

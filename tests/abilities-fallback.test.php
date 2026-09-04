@@ -75,6 +75,13 @@ namespace SmartCloud\WPSuite\AiKit\Abilities {
     expect(str_contains($pluginSource, "get_option('smartcloud-wpsuite/site-settings')"), 'AI Kit must read the canonical site-settings option.');
     expect(str_contains($pluginSource, "get_option('hub-for-wpsuiteio/site-settings')"), 'AI Kit must retain a legacy site-settings fallback.');
     expect(str_contains($pluginSource, "'/smartcloud-wpsuite/v1/update-site-settings'"), 'AI Kit must use the canonical site-settings REST route.');
+    $providerSource = file_get_contents(dirname(__DIR__) . '/includes/abilities-provider.php');
+    expect(is_string($providerSource), 'AI Kit abilities provider source must be readable.');
+    expect(str_contains($providerSource, "'suffix' => 'get-knowledge-sync-policy'"), 'AI Kit must expose read-only knowledge-sync policy discovery.');
+    expect(str_contains($providerSource, "'suffix' => 'get-knowledge-sync-status'"), 'AI Kit must expose read-only knowledge-sync operational status.');
+    expect(str_contains($providerSource, "'suffix' => 'get-knowledge-metadata-diff'"), 'AI Kit must expose read-only WordPress vocabulary diff status.');
+    expect(str_contains($providerSource, "'suffix' => 'request-knowledge-sync'"), 'AI Kit must expose the review-aware sync request ability.');
+    expect(str_contains($providerSource, "'human_approval_required' => true"), 'The sync request ability must advertise its human approval boundary.');
     $uninstallSource = file_get_contents(dirname(__DIR__) . '/uninstall.php');
     expect(is_string($uninstallSource), 'AI Kit uninstall cleanup must be packaged.');
     expect(str_contains($uninstallSource, 'smartcloud_ai_kit_kb_dependencies'), 'AI Kit uninstall must remove its Knowledge Base tables.');

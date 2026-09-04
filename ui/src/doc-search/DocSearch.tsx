@@ -19,6 +19,7 @@ import {
 import {
   AiKitDocSearchIcon,
   CapabilityDecision,
+  DEFAULT_DOC_SEARCH_AI_DISCLOSURE,
   type ContextKind,
   dispatchBackend,
   resolveBackend,
@@ -183,6 +184,7 @@ function escapeCssId(id: string) {
 const DocSearchBase: FC<Props> = (props) => {
   const {
     autoRun = true,
+    aiDisclosure,
     context,
     title,
     showOpenButton = false,
@@ -213,6 +215,9 @@ const DocSearchBase: FC<Props> = (props) => {
   } = props;
 
   const [featureOpen, setFeatureOpen] = useState<boolean>(!showOpenButton);
+  const resolvedAiDisclosure = I18n.get(
+    aiDisclosure?.trim() || DEFAULT_DOC_SEARCH_AI_DISCLOSURE,
+  );
   const [query, setQuery] = useState<string>("");
   const [recording, setRecording] = useState<boolean>(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -1166,6 +1171,15 @@ const DocSearchBase: FC<Props> = (props) => {
                           >
                             {annotatedSummary || summaryText}
                           </ReactMarkdown>
+                          <Text
+                            className="ai-generated-content-disclosure"
+                            size="xs"
+                            c="dimmed"
+                            role="note"
+                            data-ai-kit-ai-disclosure
+                          >
+                            {resolvedAiDisclosure}
+                          </Text>
                         </Stack>
                       </>
                     ) : null}

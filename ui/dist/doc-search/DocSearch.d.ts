@@ -3,6 +3,7 @@ import { FC } from "react";
 export declare const DocSearch: FC<import("@smart-cloud/ai-kit-core").AiWorkerProps & {
     context?: ContextKind;
     autoRun?: boolean;
+    aiDisclosure?: string;
     title?: string;
     getSearchText?: () => string;
     searchButtonIcon?: string;

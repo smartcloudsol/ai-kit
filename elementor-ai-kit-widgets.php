@@ -812,6 +812,12 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'type' => \Elementor\Controls_Manager::TEXT,
         ]);
 
+        $this->add_control('aiDisclosure', [
+            'label' => __('AI Disclosure', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::TEXTAREA,
+            'description' => __('Override the localized notice shown below AI-generated summaries. Leave empty to use the default notice.', 'smartcloud-ai-kit'),
+        ]);
+
         $this->add_control('inputSelector', [
             'label' => __('Input Selector', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::TEXT,
@@ -1042,6 +1048,7 @@ class AiKit_DocSearch_Widget extends AiKit_Base_Widget
             'autoRun',
             'enableUserFilters',
             'title',
+            'aiDisclosure',
             'showOpenButton',
             'openButtonTitle',
             'showOpenButtonTitle',

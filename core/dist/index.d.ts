@@ -5,6 +5,9 @@ export { getAiKitPlugin, getStore, TEXT_DOMAIN, waitForAiKitReady, type AiKitErr
 export { getStoreDispatch, getStoreSelect, observeStore, sanitizeAiKitConfig, reloadConfig, type AiKitConfig, type CustomTranslations, type State, type Store, } from "./store";
 export * from "./icons";
 export * from "./types";
+export * from "./ai-disclosures";
+export * from "./knowledge-sync";
+export * from "./backend-compatibility";
 export declare const LANGUAGE_OPTIONS: {
     label: string;
     value: AiKitLanguageCode;
@@ -13,13 +16,7 @@ export declare const getMinChromeVersions: () => Promise<Partial<Record<import("
 export declare const isOnDeviceLanguageSupported: (...args: Parameters<Capabilities["isOnDeviceLanguageSupported"]>) => Promise<boolean>;
 export declare const decideCapability: (...args: Parameters<Capabilities["decideCapability"]>) => Promise<import("./types").CapabilityDecision>;
 export declare const checkOnDeviceAvailability: (...args: Parameters<Capabilities["checkOnDeviceAvailability"]>) => Promise<import("./types").DeviceAvailability>;
-export declare const resolveBackend: (...args: Parameters<Capabilities["resolveBackend"]>) => Promise<{
-    available: boolean;
-    transport?: import("./types").BackendTransport;
-    apiName?: string;
-    baseUrl?: string;
-    reason?: string;
-}>;
+export declare const resolveBackend: (...args: Parameters<Capabilities["resolveBackend"]>) => Promise<import("./types").ResolvedBackend>;
 export declare const dispatchBackend: (...args: Parameters<Backend<unknown>["dispatchCustomBackend"]>) => Promise<unknown>;
 export declare const getWriteOptions: (...args: Parameters<Features["getWriteOptions"]>) => Promise<WriterCreateCoreOptions>;
 export declare const write: (...args: Parameters<Features["write"]>) => Promise<import("./types").WriteResult>;

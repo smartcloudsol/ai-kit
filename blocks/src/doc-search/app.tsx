@@ -56,6 +56,7 @@ export const App: FunctionComponent<
     inputSelector,
     enableUserFilters,
     autoRun,
+    aiDisclosure,
     store,
     showOpenButton,
     openButtonTitle,
@@ -117,6 +118,7 @@ export const App: FunctionComponent<
           },
           enableUserFilters: enableUserFilters ?? false,
           autoRun: autoRun ?? false,
+          aiDisclosure,
           title,
           store: store!,
           target: targetRef.current!,
@@ -191,6 +193,7 @@ export const App: FunctionComponent<
     initialSelectedSubcategories,
     initialSelectedTags,
     autoRun,
+    aiDisclosure,
     enableUserFilters,
     onUiMountTarget,
   ]);

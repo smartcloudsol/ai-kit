@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.4.17
+ * Version:           1.4.18
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,8 +18,8 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.4.17';
-const DB_VERSION = '1.3.1';
+const VERSION = '1.4.18';
+const DB_VERSION = '1.4.2';
 
 if (!defined('ABSPATH')) {
     exit;
@@ -556,6 +556,7 @@ final class AiKit
             'variation',
             'autoRun',
             'enableUserFilters',
+            'aiDisclosure',
             'title',
             'inputSelector',
             'showOpenButton',
@@ -946,6 +947,7 @@ var WpSuite = __aikitGlobal.WpSuite;
      * Supported attributes (shortcode keys are case-insensitive; kebab_case / snake_case variants also work):
      * - variation (default: "default")
      * - title
+     * - aiDisclosure
      * - showOpenButton
      * - openButtonTitle
      * - showOpenButtonTitle
@@ -972,6 +974,7 @@ var WpSuite = __aikitGlobal.WpSuite;
             'variation' => 'default',
             'autoRun' => null,
             'enableUserFilters' => null,
+            'aiDisclosure' => null,
             'title' => null,
             'showOpenButton' => null,
             'openButtonTitle' => null,

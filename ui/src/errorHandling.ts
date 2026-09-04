@@ -245,6 +245,11 @@ export function getAiRunErrorMessage(
   details: AiRunErrorDetails,
   translate: (message: string) => string = (message) => message,
 ): string {
+  if (details.code?.toUpperCase() === "MODEL_CAPABILITY_ERROR") {
+    return translate(
+      "The configured AI model does not support image attachments. Contact the site administrator.",
+    );
+  }
   if (details.classification === "PROVIDER_UNAVAILABLE") {
     return translate(
       "Human verification is temporarily unavailable. Please try again.",

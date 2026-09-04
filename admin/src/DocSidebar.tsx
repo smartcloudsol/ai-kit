@@ -185,6 +185,16 @@ const pages = {
         in a compact area.
       </Text>
 
+      <Title order={3} mt="md" id="chatbot-ai-disclosure">
+        <span className="highlightable">AI disclosure</span>
+      </Title>
+      <Text>
+        Sets the notice shown directly above the message input to identify the
+        chatbot as AI and remind visitors to verify important information. Use
+        <code>{"{name}"}</code> to insert the localized chat title, or leave the
+        field empty to use the localized default notice.
+      </Text>
+
       <Title order={3} mt="md" id="chatbot-language">
         <span className="highlightable">Language</span>
       </Title>
@@ -358,8 +368,10 @@ const pages = {
         <span className="highlightable">Max images</span>
       </Title>
       <Text>
-        Limits how many images a user can attach in a single message. Set to 0
-        to effectively disable image uploads.
+        Image attachments are disabled by default because not every frontend
+        model is multimodal. Set a positive limit only when the configured
+        frontend model supports image input; leave the value empty or set it
+        to 0 otherwise.
       </Text>
 
       <Title order={3} mt="md" id="chatbot-max-image-bytes">
@@ -619,31 +631,57 @@ const pages = {
       </Text>
 
       <Title order={3} mt="md" id="kb-config-metadata">
-        <span className="highlightable">Metadata Configuration</span>
+        <span className="highlightable">Metadata Configuration Layers</span>
       </Title>
       <Text>
-        The <strong>KB Configuration</strong> section allows you to manage the
-        metadata schema used by all KB documents. This includes:
+        The effective metadata configuration is materialized from three
+        separately owned inputs:
       </Text>
       <List size="sm" spacing="xs" mt="xs" withPadding>
         <List.Item>
-          <strong>Categories and Subcategories:</strong> Hierarchical
-          classification for documents
+          <strong>Manual policy:</strong> authored defaults, restrictions,
+          aliases, exclusions, locks, and other YAML fields
         </List.Item>
         <List.Item>
-          <strong>Tags:</strong> Flat taxonomy for cross-cutting topics
+          <strong>External vocabularies:</strong> fixed, named JSON sources
+          such as Docusaurus product and content-type terms
         </List.Item>
         <List.Item>
-          <strong>YAML format:</strong> The configuration is stored as YAML in
-          S3 for easy editing
+          <strong>WordPress-derived vocabulary:</strong> a read-only,
+          machine-owned union of the taxonomies selected in Knowledge Sync
         </List.Item>
       </List>
       <Text mt="xs">
-        You can edit the metadata configuration directly in the Monaco editor.
-        Click the <strong>Compare</strong> button to see a diff between your
-        current configuration and the metadata derived from all enabled KB
-        sources. This helps you keep the taxonomy in sync with your actual
-        content.
+        Edit only the layer you own. The Effective result and Provenance tabs
+        are read-only. Every save validates the complete merge before replacing
+        the last-known-valid effective YAML; ETags prevent concurrent admin
+        edits from silently overwriting one another.
+      </Text>
+
+      <Title order={3} mt="md" id="kb-knowledge-sync">
+        <span className="highlightable">Automatic Knowledge Sync</span>
+      </Title>
+      <Text>
+        Configure the backend URL, environment, private-key storage, and batch
+        sizes under <strong>Connection and runner</strong>. Save those settings,
+        then create a one-time pairing code and enroll the site. The private
+        signing key remains in WordPress.
+      </Text>
+      <Text mt="xs">
+        Under <strong>Content policy</strong>, select a public post type, enable
+        synchronization, choose its approval policy, and select the public
+        taxonomies that should become document metadata. Enabling a policy
+        creates a paginated baseline; later publish, update, taxonomy,
+        unpublish, trash, restore, and delete transitions are coalesced in the
+        local durable outbox.
+      </Text>
+      <Text mt="xs">
+        WordPress pseudo-cron runs a pass every five minutes while work is in
+        scope. Use <strong>Run one sync pass</strong> for an immediate check and
+        review the Operational status panel for the baseline, outbox,
+        WordPress-vocabulary version, and last runner result. A real system cron
+        that invokes WordPress cron remains the reliable production choice for
+        low-traffic sites.
       </Text>
 
       <Title order={3} mt="md" id="kb-config-prompts">
