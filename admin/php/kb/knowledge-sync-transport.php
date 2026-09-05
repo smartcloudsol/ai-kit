@@ -450,7 +450,7 @@ final class KnowledgeSyncTransport
         }
         $local = $this->localStatus();
         $version = $local['backendCompatibility']['capabilities']['knowledge.automation'] ?? null;
-        return !empty($local['configured']) && !empty($local['enrolled']) && is_int($version) && $version >= 4;
+        return !empty($local['configured']) && !empty($local['enrolled']) && is_int($version) && $version >= 5;
     }
 
     /**
@@ -467,7 +467,7 @@ final class KnowledgeSyncTransport
     {
         unset($previous);
         $settings = $this->configuredSettings();
-        $this->requireCapability('knowledge.automation', $settings['backendBaseUrl'], 4);
+        $this->requireCapability('knowledge.automation', $settings['backendBaseUrl'], 5);
         $registration = $this->requiredRegistration();
         $items = array();
         foreach ($projections as $outbox_id => $projection) {

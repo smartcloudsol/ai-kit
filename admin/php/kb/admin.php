@@ -1933,6 +1933,7 @@ class Admin
         $success = $this->overrides->save($override);
 
         if ($success) {
+            $this->knowledge_sync_capture->onBaseMetadataChanged($post_id, $doc_id, $section_id);
             // Only delete publish state if source was NOT disabled
             // If it was disabled, preserve publish_state (keeps published status)
             if (!$was_disabled) {
@@ -2020,6 +2021,7 @@ class Admin
         $success = $this->overrides->delete($post_id, $doc_id, $section_id);
 
         if ($success) {
+            $this->knowledge_sync_capture->onBaseMetadataChanged($post_id, $doc_id, $section_id);
             // Only delete publish state if source was NOT disabled
             // If it was disabled, preserve publish_state (keeps published status)
             if (!$was_disabled) {
