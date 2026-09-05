@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.20
+Stable tag: 1.4.21
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -206,6 +206,9 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.21 =
+* Metadata editors: Use YAML consistently for manual policy, external vocabularies, WordPress-derived data, effective/proposed results, and provenance. Preserve the structured API contract and validate external vocabulary input before saving.
 
 = 1.4.20 =
 * KB status: Use automatic delivery state for synchronized base documents instead of incorrectly requiring manual publication. Preserve review requirements for separate manual documents and stale locked overrides.
@@ -495,6 +498,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.21 =
+Unifies metadata editors as YAML. Backend 1.0.86 also uses YAML for stored configuration layers; existing layer files require operator conversion before that backend update. Document .metadata.json sidecars remain unchanged.
 
 = 1.4.20 =
 Corrects misleading Needs Review warnings for auto-synchronized KB sources. Delivered confirms backend receipt, not completed indexing. Manual review requirements remain intact. No additional backend update is required over 1.4.19.

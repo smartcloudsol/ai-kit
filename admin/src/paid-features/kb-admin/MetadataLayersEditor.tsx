@@ -29,12 +29,12 @@ import {
   getMetadataConfig,
   updateExternalVocabularySources,
   updateMetadataConfig,
-  type ExternalVocabularySource,
 } from "./backend-client";
 import {
-  fetchKnowledgeSyncStatus,
-  runKnowledgeSync,
-} from "./api-client";
+  parseExternalVocabularyYaml,
+  serializeMetadataLayer,
+} from "./metadata-layer-yaml";
+import { fetchKnowledgeSyncStatus, runKnowledgeSync } from "./api-client";
 
 export default function MetadataLayersEditor() {
   const queryClient = useQueryClient();
@@ -54,10 +54,10 @@ export default function MetadataLayersEditor() {
     manualOverride ??
     (typeof manualConfig === "string"
       ? manualConfig
-      : JSON.stringify(manualConfig, null, 2));
+      : serializeMetadataLayer(manualConfig));
   const external =
     externalOverride ??
-    `${JSON.stringify(query.data?.layers?.external.sources ?? [], null, 2)}\n`;
+    serializeMetadataLayer(query.data?.layers?.external.sources ?? []);
   const legacyMigrationRequired =
     query.data?.layers?.manual.inheritedFromLegacy === true;
 
@@ -110,10 +110,7 @@ export default function MetadataLayersEditor() {
       notifications.show({
         title: __("Manual metadata policy saved", TEXT_DOMAIN),
         message: result.materialized
-          ? __(
-              "The effective metadata config was materialized.",
-              TEXT_DOMAIN,
-            )
+          ? __("The effective metadata config was materialized.", TEXT_DOMAIN)
           : __(
               "The metadata input was staged without changing the effective configuration.",
               TEXT_DOMAIN,
@@ -135,12 +132,11 @@ export default function MetadataLayersEditor() {
 
   const externalMutation = useMutation({
     mutationFn: () => {
-      const parsed = JSON.parse(external) as unknown;
-      if (!Array.isArray(parsed)) {
-        throw new Error("External vocabulary sources must be a JSON array.");
-      }
+      const parsed = parseExternalVocabularyYaml(external, (text) =>
+        __(text, TEXT_DOMAIN),
+      );
       return updateExternalVocabularySources(
-        parsed as ExternalVocabularySource[],
+        parsed,
         query.data?.layers?.external.eTag,
       );
     },
@@ -148,10 +144,7 @@ export default function MetadataLayersEditor() {
       notifications.show({
         title: __("External vocabularies saved", TEXT_DOMAIN),
         message: result.materialized
-          ? __(
-              "The effective metadata config was materialized.",
-              TEXT_DOMAIN,
-            )
+          ? __("The effective metadata config was materialized.", TEXT_DOMAIN)
           : __(
               "The external vocabulary was staged. Review the proposed result and establish the manual layer when you are ready to activate it.",
               TEXT_DOMAIN,
@@ -204,7 +197,7 @@ export default function MetadataLayersEditor() {
     query.data.effectiveConfig ??
     (typeof query.data.config === "string"
       ? query.data.config
-      : JSON.stringify(query.data.config, null, 2));
+      : serializeMetadataLayer(query.data.config));
   const proposed = query.data.proposedConfig ?? effective;
 
   return (
@@ -274,13 +267,13 @@ export default function MetadataLayersEditor() {
             </Text>
             <Text size="sm">
               {__(
-                "External vocabularies and WordPress-derived use JSON because they are structured producer envelopes with source IDs, enabled state, and namespaces. External is editable; WordPress-derived is replaced by the signed runner and is read-only.",
+                "External vocabularies and WordPress-derived use YAML with source IDs, enabled state, and namespaces. External is editable; WordPress-derived is replaced by the signed runner and is read-only.",
                 TEXT_DOMAIN,
               )}
             </Text>
             <Text size="sm">
               {__(
-                "Effective result is the last-known-valid YAML consumed by retrieval after all layers and merge rules are applied. Provenance is a read-only JSON audit map from each effective value to the source layer(s) that contributed it.",
+                "Effective result is the last-known-valid YAML consumed by retrieval after all layers and merge rules are applied. Provenance is a read-only YAML audit map from each effective value to the source layer(s) that contributed it.",
                 TEXT_DOMAIN,
               )}
             </Text>
@@ -301,7 +294,7 @@ export default function MetadataLayersEditor() {
               <Group gap={6}>
                 {__("External vocabularies", TEXT_DOMAIN)}{" "}
                 <Badge size="xs" variant="light">
-                  JSON
+                  YAML
                 </Badge>
               </Group>
             </Tabs.Tab>
@@ -310,7 +303,7 @@ export default function MetadataLayersEditor() {
                 {__("WordPress-derived", TEXT_DOMAIN)}{" "}
                 <Badge size="xs">{wordpressSources.length}</Badge>{" "}
                 <Badge size="xs" variant="light">
-                  JSON
+                  YAML
                 </Badge>
               </Group>
             </Tabs.Tab>
@@ -336,7 +329,7 @@ export default function MetadataLayersEditor() {
               <Group gap={6}>
                 {__("Provenance", TEXT_DOMAIN)}{" "}
                 <Badge size="xs" variant="light">
-                  JSON
+                  YAML
                 </Badge>
               </Group>
             </Tabs.Tab>
@@ -398,7 +391,7 @@ export default function MetadataLayersEditor() {
                       legacyMigrationRequired &&
                       query.data.pendingActivation &&
                       !window.confirm(
-                          __(
+                        __(
                           "Establishing the manual layer will preserve manual-only policy fields and activate the staged external and WordPress vocabularies shown under Proposed result. Continue?",
                           TEXT_DOMAIN,
                         ),
@@ -421,38 +414,36 @@ export default function MetadataLayersEditor() {
             <Stack gap="sm">
               <Text size="sm">
                 {__(
-                  "Editable JSON array. Each item needs a stable id, an enabled flag, and a namespaces object whose values are arrays. Leave this empty when no external producer vocabulary is required.",
+                  "Editable YAML sequence. Each item needs a stable id, a boolean enabled flag, and a namespaces mapping whose values are sequences. Use [] when no external producer vocabulary is required. Existing JSON input is also accepted.",
                   TEXT_DOMAIN,
                 )}
               </Text>
               <Alert
                 color="gray"
-                title={__("Expected JSON shape", TEXT_DOMAIN)}
+                title={__("Expected YAML shape", TEXT_DOMAIN)}
               >
                 <Text
                   component="pre"
                   size="xs"
                   style={{ whiteSpace: "pre-wrap", margin: 0 }}
                 >
-                  {`[
-  {
-    "id": "docusaurus",
-    "enabled": true,
-    "namespaces": {
-      "category": [
-        { "slug": "guides", "label": "Guides" },
-        { "slug": "setup", "label": "Setup", "parentSlug": "guides" }
-      ],
-      "post_tag": ["ai-kit"]
-    }
-  }
-]`}
+                  {`- id: docusaurus
+  enabled: true
+  namespaces:
+    category:
+      - slug: guides
+        label: Guides
+      - slug: setup
+        label: Setup
+        parentSlug: guides
+    post_tag:
+      - ai-kit`}
                 </Text>
               </Alert>
               <MonacoEditor
                 value={external}
                 onChange={(value) => setExternalOverride(value ?? "[]")}
-                language="json"
+                language="yaml"
                 height="520px"
                 theme="vs-light"
                 minimap={false}
@@ -496,14 +487,14 @@ export default function MetadataLayersEditor() {
                             TEXT_DOMAIN,
                           )
                         : syncStatusQuery.data?.vocabulary
-                          ? __(
-                              "WordPress accepted a vocabulary version locally, but the backend has not returned a derived source yet. Run another pass after enrollment and refresh this panel.",
-                              TEXT_DOMAIN,
-                            )
-                          : __(
-                              "An enabled policy is ready, but no vocabulary version has been accepted yet. Run a sync pass or wait for cron.",
-                              TEXT_DOMAIN,
-                            )}
+                        ? __(
+                            "WordPress accepted a vocabulary version locally, but the backend has not returned a derived source yet. Run another pass after enrollment and refresh this panel.",
+                            TEXT_DOMAIN,
+                          )
+                        : __(
+                            "An enabled policy is ready, but no vocabulary version has been accepted yet. Run a sync pass or wait for cron.",
+                            TEXT_DOMAIN,
+                          )}
                     </Text>
                     {activeVocabularyPolicies.length > 0 && (
                       <Group justify="flex-end">
@@ -521,8 +512,8 @@ export default function MetadataLayersEditor() {
                 </Alert>
               )}
               <MonacoEditor
-                value={`${JSON.stringify(wordpressSources, null, 2)}\n`}
-                language="json"
+                value={serializeMetadataLayer(wordpressSources)}
+                language="yaml"
                 height="520px"
                 theme="vs-light"
                 minimap={false}
@@ -593,17 +584,13 @@ export default function MetadataLayersEditor() {
                     mt="xs"
                     style={{ whiteSpace: "pre-wrap" }}
                   >
-                    {JSON.stringify(query.data.collisions, null, 2)}
+                    {serializeMetadataLayer(query.data.collisions)}
                   </Text>
                 </Alert>
               )}
               <MonacoEditor
-                value={`${JSON.stringify(
-                  query.data.provenance ?? {},
-                  null,
-                  2,
-                )}\n`}
-                language="json"
+                value={serializeMetadataLayer(query.data.provenance ?? {})}
+                language="yaml"
                 height="520px"
                 theme="vs-light"
                 minimap={false}
