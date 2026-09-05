@@ -1,6 +1,17 @@
 // KB Admin TypeScript Types
 // Mirrors PHP backend data structures
 
+export type KBPublishStatus =
+  | "needs_review"
+  | "ready_to_publish"
+  | "published"
+  | "sync_pending"
+  | "sync_running"
+  | "sync_delivered"
+  | "sync_error"
+  | "sync_blocked"
+  | "sync_removed";
+
 export interface KBSource {
   post_id: number;
   post_type: string;
@@ -11,7 +22,8 @@ export interface KBSource {
   is_disabled_but_published: boolean;
   default_doc_mode: "base_only" | "inherit" | "separate_doc";
   updated_at: string;
-  kb_publish_status: "needs_review" | "ready_to_publish" | "published";
+  kb_publish_status: KBPublishStatus;
+  kb_sync_error?: string | null;
 }
 
 export interface KBSection {
@@ -154,7 +166,7 @@ export interface KBSourcesQuery {
   search?: string;
   status?: "all" | "publish" | "draft";
   type?: string;
-  kb_status?: "all" | "needs_review" | "ready_to_publish" | "published";
+  kb_status?: "all" | KBPublishStatus;
 }
 
 export interface KBSourcesResponse {

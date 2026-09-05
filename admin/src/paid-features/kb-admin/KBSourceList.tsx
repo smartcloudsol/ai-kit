@@ -47,6 +47,8 @@ import {
 } from "./api-client";
 import { deleteKBDocumentFromBackend } from "./backend-client";
 import KBDocumentEditor from "./KBDocumentEditor.tsx";
+import { kbSourceStatusPresentation } from "./kb-source-status";
+import type { KBPublishStatus } from "./types";
 
 interface KBSourceListProps {
   selectedPostId: number | null;
@@ -80,9 +82,10 @@ export default function KBSourceList({
     "all",
   );
   const [typeFilter, setTypeFilter] = useState("all");
-  const [kbStatusFilter, setKbStatusFilter] = useState<
-    "all" | "needs_review" | "ready_to_publish" | "published"
-  >("all");
+  const [kbStatusFilter, setKbStatusFilter] = useState<"all" | KBPublishStatus>(
+    "all",
+  );
+  const statusPresentation = kbSourceStatusPresentation(__, TEXT_DOMAIN);
   const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
   // Fetch KB sources with pagination and filters
@@ -462,15 +465,9 @@ export default function KBSourceList({
               }}
               data={[
                 { value: "all", label: __("All KB Status", TEXT_DOMAIN) },
-                {
-                  value: "needs_review",
-                  label: __("Needs Review", TEXT_DOMAIN),
-                },
-                {
-                  value: "ready_to_publish",
-                  label: __("Ready to Publish", TEXT_DOMAIN),
-                },
-                { value: "published", label: __("Published", TEXT_DOMAIN) },
+                ...Object.entries(statusPresentation).map(
+                  ([value, { label }]) => ({ value, label }),
+                ),
               ]}
               style={{ width: 180 }}
             />
@@ -566,22 +563,37 @@ export default function KBSourceList({
                         </Badge>
                       </Table.Td>
                       <Table.Td>
-                        <Badge
-                          size="sm"
-                          color={
-                            source.kb_publish_status === "needs_review"
-                              ? "orange"
-                              : source.kb_publish_status === "ready_to_publish"
-                              ? "yellow"
-                              : "green"
+                        <Tooltip
+                          disabled={
+                            source.kb_publish_status !== "sync_delivered"
                           }
+                          label={__(
+                            "Backend delivery acknowledged. Knowledge Base indexing is not verified by this status.",
+                            TEXT_DOMAIN,
+                          )}
+                          multiline
+                          w={280}
                         >
-                          {source.kb_publish_status === "needs_review"
-                            ? __("Needs Review", TEXT_DOMAIN)
-                            : source.kb_publish_status === "ready_to_publish"
-                            ? __("Ready", TEXT_DOMAIN)
-                            : __("Published", TEXT_DOMAIN)}
-                        </Badge>
+                          <Badge
+                            size="sm"
+                            tabIndex={0}
+                            color={
+                              statusPresentation[source.kb_publish_status].color
+                            }
+                          >
+                            {statusPresentation[source.kb_publish_status].label}
+                          </Badge>
+                        </Tooltip>
+                        {source.kb_sync_error && (
+                          <Text
+                            size="xs"
+                            c="red"
+                            maw={280}
+                            style={{ overflowWrap: "anywhere" }}
+                          >
+                            {source.kb_sync_error}
+                          </Text>
+                        )}
                       </Table.Td>
                       <Table.Td>
                         <Text size="xs" c="dimmed">
