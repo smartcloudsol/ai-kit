@@ -36,6 +36,8 @@ if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync-transport.php'
 
 use SmartCloud\WPSuite\AiKit\Logger;
 
+require_once __DIR__ . '/source-publication-status.php';
+
 class Admin
 {
     private Repository $sources;
@@ -258,6 +260,21 @@ class Admin
     public function showKbReviewNotice(): void
     {
         if (!current_user_can('manage_options') || !ReviewNotice::isPending()) {
+            return;
+        }
+
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Revalidate a persisted notice against current source states.
+        $source_ids = $wpdb->get_col($wpdb->prepare('SELECT post_id FROM %i', $wpdb->prefix . 'smartcloud_ai_kit_kb_sources'));
+        $needs_review = false;
+        foreach ($source_ids as $source_id) {
+            if ($this->calculate_kb_publish_status((int) $source_id) === 'needs_review') {
+                $needs_review = true;
+                break;
+            }
+        }
+        if (!$needs_review) {
+            ReviewNotice::acknowledge();
             return;
         }
 
@@ -654,7 +671,7 @@ class Admin
                     'required' => false,
                     'type' => 'string',
                     'default' => 'all',
-                    'enum' => ['all', 'needs_review', 'ready_to_publish', 'published'],
+                    'enum' => array_merge(['all'], SourcePublicationStatus::STATUSES),
                     'sanitize_callback' => 'sanitize_text_field'
                 ]
             ]
@@ -1278,7 +1295,8 @@ class Admin
             $post_id = (int) $source->post_id;
 
             // Calculate KB publish status
-            $kb_publish_status = $this->calculate_kb_publish_status($post_id);
+            $publication = SourcePublicationStatus::forPost($post_id);
+            $kb_publish_status = $publication['status'];
 
             // Filter by KB status if specified
             if ($kb_status_filter && $kb_status_filter !== 'all' && $kb_status_filter !== $kb_publish_status) {
@@ -1295,7 +1313,8 @@ class Admin
                 'is_disabled_but_published' => !(bool) $source->enabled && $kb_publish_status === 'published',
                 'default_doc_mode' => $source->default_doc_mode,
                 'updated_at' => $source->updated_at,
-                'kb_publish_status' => $kb_publish_status
+                'kb_publish_status' => $kb_publish_status,
+                'kb_sync_error' => $publication['error'],
             ];
         }
 
@@ -1313,7 +1332,7 @@ class Admin
         } else {
             // Sort by KB publish status if no KB status filter (needs_review first, then ready_to_publish, then published)
             usort($result, function ($a, $b) {
-                $statusOrder = ['needs_review' => 1, 'ready_to_publish' => 2, 'published' => 3];
+                $statusOrder = array_flip(['needs_review', 'sync_error', 'sync_blocked', 'ready_to_publish', 'sync_pending', 'sync_running', 'sync_delivered', 'published', 'sync_removed']);
                 $orderA = $statusOrder[$a['kb_publish_status']] ?? 4;
                 $orderB = $statusOrder[$b['kb_publish_status']] ?? 4;
                 return $orderA - $orderB;
@@ -1332,79 +1351,11 @@ class Admin
 
     /**
      * Calculate KB publish status for a post
-     * @return string 'needs_review' | 'ready_to_publish' | 'published'
+     * @return string One of SourcePublicationStatus::STATUSES.
      */
     private function calculate_kb_publish_status(int $post_id): string
     {
-        global $wpdb;
-
-        $generated_table = $wpdb->prefix . 'smartcloud_ai_kit_kb_generated';
-        $publish_state_table = $wpdb->prefix . 'smartcloud_ai_kit_kb_publish_state';
-
-        // Get all distinct doc_ids for this post (use %i for table names)
-        $doc_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->prepare(
-                'SELECT DISTINCT doc_id FROM %i WHERE post_id = %d',
-                $generated_table,
-                $post_id
-            )
-        );
-
-        if (empty($doc_ids)) {
-            return 'needs_review'; // No content generated
-        }
-
-        // Get publish states for all docs
-        $publish_states = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->prepare(
-                'SELECT doc_id, effective_hash, last_backend_status
-                 FROM %i
-                 WHERE post_id = %d',
-                $publish_state_table,
-                $post_id
-            )
-        );
-
-        // Build a map of doc_id => publish_state
-        $state_map = [];
-        foreach ($publish_states as $state) {
-            $state_map[$state->doc_id] = $state;
-        }
-
-        $has_needs_review = false;
-        $has_ready_to_publish = false;
-        $has_published = false;
-
-        // Check each document
-        foreach ($doc_ids as $doc_id) {
-            if (!isset($state_map[$doc_id])) {
-                // No publish state for this doc - needs review
-                $has_needs_review = true;
-            } else {
-                $state = $state_map[$doc_id];
-                if ($state->last_backend_status === 'success') {
-                    // Successfully published to backend
-                    $has_published = true;
-                } else {
-                    // Status is 'pending' or 'error' - ready to publish
-                    $has_ready_to_publish = true;
-                }
-            }
-        }
-
-        // Priority: needs_review > ready_to_publish > published
-        if ($has_needs_review) {
-            return 'needs_review';
-        }
-        if ($has_ready_to_publish) {
-            return 'ready_to_publish';
-        }
-        if ($has_published) {
-            return 'published';
-        }
-
-        // Fallback (shouldn't reach here)
-        return 'needs_review';
+        return SourcePublicationStatus::forPost($post_id)['status'];
     }
 
     /**

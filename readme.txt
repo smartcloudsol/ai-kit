@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.19
+Stable tag: 1.4.20
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -206,6 +206,11 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.20 =
+* KB status: Use automatic delivery state for synchronized base documents instead of incorrectly requiring manual publication. Preserve review requirements for separate manual documents and stale locked overrides.
+* Admin: Add sync queue, delivery, removal, and failure statuses to KB Sources badges and filters; show sync error codes and distinguish delivery acknowledgement from KB indexing.
+* Notices: Recheck current source states before displaying a persisted review warning, clearing it when no source needs review.
 
 = 1.4.19 =
 * Knowledge Sync metadata: Respect per-document source URL, title, description, category, subcategory and tag overrides; fall back to the KB Base URL Override for source links. Reconcile existing documents after upgrading or changing the base URL, and queue metadata-only edits with the configured approval policy.
@@ -490,6 +495,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.20 =
+Corrects misleading Needs Review warnings for auto-synchronized KB sources. Delivered confirms backend receipt, not completed indexing. Manual review requirements remain intact. No additional backend update is required over 1.4.19.
 
 = 1.4.19 =
 Knowledge Sync requires backend 1.0.85 or newer with knowledge.automation capability 5. Existing documents are automatically reconciled using URL and metadata overrides, subject to the configured approval policy.
