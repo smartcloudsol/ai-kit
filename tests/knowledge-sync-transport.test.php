@@ -139,7 +139,7 @@ function wp_remote_request(string $url, array $arguments): array
                 'product' => 'smartcloud-ai-kit-backend',
                 'release' => '1.0.75',
                 'apiSchemaVersion' => 7,
-                'capabilities' => array('knowledge.automation' => 4),
+                'capabilities' => array('knowledge.automation' => $capability_mode === 'v4' ? 4 : 5),
             ), JSON_THROW_ON_ERROR),
         );
     }
@@ -309,6 +309,20 @@ $vocabulary = $transport->dispatchVocabulary(null, array(
     )),
 ));
 transport_expect($vocabulary['status'] === 'accepted' && $vocabulary['changed'], 'Signed WordPress vocabulary reconciliation must complete.');
+$before_guard_requests = count($requests);
+$capability_mode = 'v4';
+$v4_transport = KnowledgeSyncTransport::create();
+transport_expect(!$v4_transport->isContentDeliveryAvailable(), 'Capability v4 must not silently drop authored document metadata.');
+$v4_dispatch_rejected = false;
+try {
+    $v4_transport->dispatchBatch(null, []);
+} catch (KnowledgeSyncTransportException $error) {
+    $v4_dispatch_rejected = $error->errorCode === 'backend_capability_unavailable';
+}
+transport_expect($v4_dispatch_rejected, 'Direct batch dispatch must also reject capability v4.');
+$capability_mode = 'v5';
+transport_expect(KnowledgeSyncTransport::create()->isContentDeliveryAvailable(), 'Capability v5 must enable authored-metadata delivery for enrolled sites.');
+$guard_requests = count($requests) - $before_guard_requests;
 $revoked = $transport->revoke();
 transport_expect($revoked['status'] === 'revoked', 'The current site key must be revocable over signed transport.');
 transport_expect(!isset($options['smartcloud_ai_kit_kb_sync_registration']), 'Revocation must remove the local registration.');
@@ -326,7 +340,7 @@ try {
 }
 transport_expect($unsafe_directory_rejected, 'File key storage must reject the WordPress webroot.');
 
-transport_expect(count($requests) === 7, 'Capability discovery, enrollment, status, rotation, promoted-key status, vocabulary reconciliation, and revocation must each make one request.');
+transport_expect(count($requests) - $guard_requests === 7, 'Capability discovery, enrollment, status, rotation, promoted-key status, vocabulary reconciliation, and revocation must each make one request.');
 
 $capability_mode = 'legacy';
 unset($options['smartcloud_ai_kit_kb_sync_registration']);

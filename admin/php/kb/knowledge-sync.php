@@ -634,6 +634,18 @@ final class KnowledgeSyncCapture
         }
     }
 
+    /** Metadata edits do not fire WordPress post-save hooks. */
+    public function onBaseMetadataChanged(int $post_id, string $doc_id, string $section_id): void
+    {
+        if ($doc_id !== 'post-' . $post_id . '/base' || $section_id !== 'main') {
+            return;
+        }
+        $post = get_post($post_id);
+        if ($post instanceof \WP_Post && $post->post_status === 'publish') {
+            $this->onAfterInsertPost($post_id, $post, true, $post);
+        }
+    }
+
     public function onBeforeDeletePost(int $post_id, \WP_Post $post): void
     {
         if ($this->eligiblePolicy($post->post_type) === null) {

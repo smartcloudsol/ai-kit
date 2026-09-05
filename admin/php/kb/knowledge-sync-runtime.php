@@ -9,6 +9,59 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/** Resolves authored base-document metadata independently of markdown locking. */
+final class KnowledgeSyncDocumentMetadata
+{
+    public static function baseUrlOverride(): string
+    {
+        return rtrim(trim((string) get_option('smartcloud_ai_kit_kb_base_url_override', '')), '/');
+    }
+
+    /** @param array<string, mixed>|null $overrides
+     *  @return array<string, mixed>
+     */
+    public static function resolve(\WP_Post $post, ?array $overrides = null): array
+    {
+        if ($overrides === null) {
+            $row = (new KBOverrideRepository())->get((int) $post->ID, 'post-' . $post->ID . '/base', 'main');
+            $decoded = $row && $row->override_meta_json ? json_decode($row->override_meta_json, true) : null;
+            $overrides = is_array($decoded) ? $decoded : array();
+        }
+        $text = static fn(string $key): string => is_string($overrides[$key] ?? null) ? trim($overrides[$key]) : '';
+        $url = $text('postUrl');
+        if ($url === '') {
+            $url = (string) get_permalink($post);
+            $base = self::baseUrlOverride();
+            if ($base !== '') {
+                $parts = wp_parse_url($url);
+                $url = $base . (is_array($parts)
+                    ? ($parts['path'] ?? '')
+                        . (isset($parts['query']) ? '?' . $parts['query'] : '')
+                        . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '')
+                    : '');
+            }
+        }
+        $classification = array();
+        foreach (array('category', 'subcategory') as $key) {
+            if ($text($key) !== '') {
+                $classification[$key] = $text($key);
+            }
+        }
+        if (is_array($overrides['tags'] ?? null)) {
+            $classification['tags'] = array_values(array_unique(array_filter(array_map(
+                static fn(mixed $tag): string => is_string($tag) ? trim($tag) : '',
+                $overrides['tags']
+            ), static fn(string $tag): bool => $tag !== '')));
+        }
+        return array(
+            'canonicalUrl' => $url,
+            'title' => $text('title') !== '' ? $text('title') : trim(wp_strip_all_tags(get_the_title($post))),
+            'excerpt' => $text('description') !== '' ? $text('description') : trim(wp_strip_all_tags(get_the_excerpt($post))),
+            'classification' => $classification,
+        );
+    }
+}
+
 final class KnowledgeSyncSettingsStore
 {
     public const OPTION_NAME = 'smartcloud_ai_kit_kb_sync_settings';
@@ -279,7 +332,12 @@ final class KnowledgeSyncBaselineRepository
 
 final class KnowledgeSyncBaselineService
 {
-    public const SERIALIZER_VERSION = 'knowledge-sync-document-v1';
+    public const SERIALIZER_VERSION = 'knowledge-sync-document-v2-authored-metadata';
+
+    public static function serializerFingerprint(): string
+    {
+        return hash('sha256', self::SERIALIZER_VERSION . ':' . KnowledgeSyncDocumentMetadata::baseUrlOverride());
+    }
 
     public function __construct(
         private readonly KnowledgeSyncPolicyStore $policies,
@@ -298,7 +356,7 @@ final class KnowledgeSyncBaselineService
 
         $blog_id = get_current_blog_id();
         $consumer_id = 'wordpress-blog-' . $blog_id;
-        $serializer_fingerprint = hash('sha256', self::SERIALIZER_VERSION);
+        $serializer_fingerprint = self::serializerFingerprint();
         $policy_fingerprint = $this->policies->fingerprint($policy);
         $baseline = $this->baselines->ensure(
             $consumer_id,
@@ -493,7 +551,8 @@ final class KnowledgeSyncProjectionBuilder
             throw new KnowledgeSyncProjectionException('policy_scope_changed', 'Source is no longer in policy scope.');
         }
 
-        $title = trim(wp_strip_all_tags(get_the_title($post)));
+        $resolved_metadata = KnowledgeSyncDocumentMetadata::resolve($post);
+        $title = $resolved_metadata['title'];
         if ($title === '') {
             $title = sprintf('Untitled WordPress source %d', (int) $post->ID);
         }
@@ -502,7 +561,7 @@ final class KnowledgeSyncProjectionBuilder
         if (trim($markdown) === '') {
             $markdown = '# ' . $title;
         }
-        $url = get_permalink($post);
+        $url = $resolved_metadata['canonicalUrl'];
         if (!is_string($url) || $url === '' || str_contains($url, '__trashed')) {
             throw new KnowledgeSyncProjectionException('invalid_public_url', 'Public source has no stable canonical URL.');
         }
@@ -515,13 +574,17 @@ final class KnowledgeSyncProjectionBuilder
             'profile' => (string) $policy['documentProfile'],
             'canonicalUrl' => $url,
             'title' => $title,
-            'excerpt' => trim(wp_strip_all_tags(get_the_excerpt($post))),
+            'excerpt' => $resolved_metadata['excerpt'],
             'content' => $markdown,
             'contentType' => 'text/markdown',
             'contentSha256' => hash('sha256', $markdown),
             'modifiedGmt' => $modified,
             'metadata' => $this->metadata((int) $post->ID, $policy['includeTaxonomies']),
         );
+
+        if ($resolved_metadata['classification'] !== array()) {
+            $projection['document']['classification'] = $resolved_metadata['classification'];
+        }
 
         return $projection;
     }

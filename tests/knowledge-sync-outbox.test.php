@@ -23,6 +23,16 @@ final class WP_Taxonomy
     }
 }
 
+final class KnowledgeSyncTestOverrideRepository
+{
+    public function get(int $post_id, string $doc_id, string $section_id): ?object
+    {
+        $GLOBALS['last_override_identity'] = [$post_id, $doc_id, $section_id];
+        return (object) ['locked' => false, 'override_meta_json' => json_encode(['postUrl' => 'https://authored.example.com/base'])];
+    }
+}
+class_alias(KnowledgeSyncTestOverrideRepository::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KBOverrideRepository');
+
 final class KnowledgeSyncTestWpdb
 {
     public string $prefix = 'wp_';
@@ -177,8 +187,16 @@ function sanitize_text_field(string $value): string
 
 function get_permalink(WP_Post $post): string
 {
+    if (isset($GLOBALS['test_permalink'])) {
+        return $GLOBALS['test_permalink'];
+    }
     return "https://example.com/{$post->post_type}/{$post->ID}/";
 }
+
+function wp_parse_url(string $url): array|false { return parse_url($url); }
+function wp_strip_all_tags(string $value): string { return strip_tags($value); }
+function get_the_title(WP_Post $post): string { return 'Generated title'; }
+function get_the_excerpt(WP_Post $post): string { return 'Generated excerpt'; }
 
 function wp_generate_uuid4(): string
 {
@@ -330,5 +348,50 @@ expect($category_namespace === [
     ['slug' => 'company', 'label' => 'Company'],
     ['slug' => 'history', 'label' => 'History', 'parentSlug' => 'about-wp-suite'],
 ], 'Hierarchical taxonomies must retain every direct parent slug.');
+
+$metadata_class = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncDocumentMetadata::class;
+$baseline_class = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncBaselineService::class;
+expect($metadata_class::resolve($published)['canonicalUrl'] === 'https://authored.example.com/base', 'Persisted metadata overrides apply even when markdown is unlocked.');
+expect($GLOBALS['last_override_identity'] === [42, 'post-42/base', 'main'], 'Auto sync must read the same base document override row as manual publishing.');
+$before_fingerprint = $baseline_class::serializerFingerprint();
+$GLOBALS['test_permalink'] = 'https://dev.example.com/blog/post/?preview=no#section';
+$options['smartcloud_ai_kit_kb_base_url_override'] = 'https://www.example.com/root/';
+$metadata = $metadata_class::resolve($published, []);
+expect($metadata['canonicalUrl'] === 'https://www.example.com/root/blog/post/?preview=no#section', 'Global URL override must preserve path, query, and fragment.');
+expect($baseline_class::serializerFingerprint() !== $before_fingerprint, 'URL settings changes must invalidate already-ready baselines.');
+$metadata = $metadata_class::resolve($published, [
+    'postUrl' => 'https://custom.example.org/authored?x=1#part',
+    'title' => 'Authored title', 'description' => 'Authored description',
+    'category' => 'Solutions', 'subcategory' => 'Solution Guide', 'tags' => ['Authored tag'],
+]);
+expect($metadata['canonicalUrl'] === 'https://custom.example.org/authored?x=1#part', 'Explicit source URL must take precedence without rewriting.');
+expect($metadata['title'] === 'Authored title' && $metadata['excerpt'] === 'Authored description', 'Authored title and description must override generated values.');
+expect($metadata['classification'] === ['category' => 'Solutions', 'subcategory' => 'Solution Guide', 'tags' => ['Authored tag']], 'Classification overrides must be independent from WordPress terms.');
+$metadata = $metadata_class::resolve($published, ['postUrl' => ' ', 'title' => '', 'description' => '', 'category' => '', 'tags' => []]);
+expect($metadata['title'] === 'Generated title' && $metadata['excerpt'] === 'Generated excerpt', 'Blank text overrides must fall back to generated metadata.');
+expect($metadata['canonicalUrl'] === 'https://www.example.com/root/blog/post/?preview=no#section', 'Blank source URL must fall back to global override.');
+expect($metadata['classification'] === ['tags' => []], 'Explicit empty tags must preserve manual clearing semantics.');
+unset($options['smartcloud_ai_kit_kb_base_url_override']);
+expect($metadata_class::resolve($published, [])['canonicalUrl'] === $GLOBALS['test_permalink'], 'Without either override use the original permalink.');
+unset($GLOBALS['test_permalink']);
+
+$posts[42] = $published;
+$before_queries = $wpdb->queryCount;
+$capture->onBaseMetadataChanged(42, 'post-42/base', 'main');
+expect($wpdb->queryCount === $before_queries + 1, 'Metadata-only edits must enqueue eligible published sources.');
+$policies->saveForPostType('post', ['enabled' => true, 'reviewPolicy' => 'manual-kb-review']);
+$capture->onBaseMetadataChanged(42, 'post-42/base', 'main');
+$last_args = end($wpdb->preparedArguments);
+expect($last_args[6] === 'blocked' && $last_args[9] === 'manual_review_required', 'Metadata changes must preserve manual approval requirements.');
+$before_queries = $wpdb->queryCount;
+$capture->onBaseMetadataChanged(42, 'post-42/other', 'main');
+$posts[42] = $draft;
+$capture->onBaseMetadataChanged(42, 'post-42/base', 'main');
+$posts[51] = new WP_Post(51, 'private_note', 'publish');
+$capture->onBaseMetadataChanged(51, 'post-51/base', 'main');
+$posts[42] = $published;
+$policies->saveForPostType('post', ['enabled' => false]);
+$capture->onBaseMetadataChanged(42, 'post-42/base', 'main');
+expect($wpdb->queryCount === $before_queries, 'Separate documents, drafts, private types and disabled policies must not enqueue base sync.');
 
 echo "Knowledge-sync policy and outbox capture tests passed.\n";
