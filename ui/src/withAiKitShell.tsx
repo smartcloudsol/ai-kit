@@ -1,9 +1,9 @@
+import { LocaleDirectionProvider } from "./LocaleDirectionProvider";
 import { generateColors } from "@mantine/colors-generator";
 import {
   colorsTuple,
   createTheme,
   DEFAULT_THEME,
-  DirectionProvider,
   MantineColorsTuple,
   MantineProvider,
 } from "@mantine/core";
@@ -13,7 +13,8 @@ import {
   getStoreSelect,
 } from "@smart-cloud/ai-kit-core";
 import { useSelect } from "@wordpress/data";
-import { I18n } from "aws-amplify/utils";
+import { resolveComponentLocale, getLocaleDirection } from "@smart-cloud/wpsuite-core";
+import { AiKitLocaleProvider, useSiteLocale } from "./locale";
 import { type ComponentType, useEffect, useMemo, useState } from "react";
 import { ShadowBoundary } from "./ShadowBoundary";
 
@@ -77,29 +78,16 @@ export function withAiKitShell<P extends object>(
     const customTranslations: CustomTranslations | undefined | null = useSelect(
       () => getStoreSelect(store).getCustomTranslations(),
     );
-    const [languageOverride] = useState<string>(
-      new URLSearchParams(window.location.search).get("language") ?? "",
-    );
+    const siteLocale = useSiteLocale();
     const [directionOverride] = useState<string>(
       new URLSearchParams(window.location.search).get("direction") ?? "",
     );
-    const currentLanguage = useMemo(() => {
-      I18n.putVocabularies(customTranslations || {});
-      const lang = languageInStore || languageOverride || language;
-      if (!lang || lang === "system") {
-        I18n.setLanguage("");
-        return undefined;
-      }
-      I18n.setLanguage(lang);
-      return lang;
-    }, [language, languageOverride, languageInStore, customTranslations]);
+    const currentLanguage = resolveComponentLocale(language, languageInStore, siteLocale.locale);
 
     const currentDirection = useMemo(() => {
       const dir = directionInStore || directionOverride || direction;
       if (!dir || dir === "auto") {
-        return currentLanguage === "ar" || currentLanguage === "he"
-          ? "rtl"
-          : "ltr";
+        return getLocaleDirection(currentLanguage);
       }
       return dir as "ltr" | "rtl";
     }, [currentLanguage, direction, directionInStore, directionOverride]);
@@ -330,7 +318,8 @@ export function withAiKitShell<P extends object>(
           }
 
           return (
-            <DirectionProvider initialDirection={currentDirection}>
+            <AiKitLocaleProvider language={currentLanguage} customTranslations={customTranslations}>
+            <LocaleDirectionProvider initialDirection={currentDirection}>
               <MantineProvider
                 forceColorScheme={resolved}
                 theme={theme}
@@ -348,7 +337,8 @@ export function withAiKitShell<P extends object>(
                   }
                 />
               </MantineProvider>
-            </DirectionProvider>
+            </LocaleDirectionProvider>
+            </AiKitLocaleProvider>
           );
           }}
         </ShadowBoundary>

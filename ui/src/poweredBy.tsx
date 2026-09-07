@@ -1,6 +1,6 @@
 import { Anchor, Text } from "@mantine/core";
 import { getAiKitPlugin } from "@smart-cloud/ai-kit-core";
-import { I18n } from "aws-amplify/utils";
+import { useAiKitI18n } from "./locale";
 import { FC } from "react";
 
 const aiKit = getAiKitPlugin();
@@ -8,6 +8,7 @@ const aiKit = getAiKitPlugin();
 export const PoweredBy: FC<{ variation?: "default" | "modal" }> = ({
   variation,
 }) => {
+  const I18n = useAiKitI18n();
   return (
     <div
       style={{

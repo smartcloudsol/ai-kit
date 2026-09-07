@@ -1,6 +1,6 @@
 import { Tooltip } from "@mantine/core";
 import { useMemo } from "react";
-import { I18n } from "aws-amplify/utils";
+import { useAiKitI18n } from "../locale";
 
 // Minimal shape compatible with dom-chromium-ai ProofreadCorrection
 export type Correction = {
@@ -43,6 +43,7 @@ function normalizeCorrections(corrections: Correction[]): Correction[] {
 }
 
 export function ProofreadDiff({ original, corrections }: ProofreadDiffProps) {
+  const I18n = useAiKitI18n();
   const segments = useMemo<Segment[]>(() => {
     const corr = normalizeCorrections(corrections || []);
     const segs: Segment[] = [];

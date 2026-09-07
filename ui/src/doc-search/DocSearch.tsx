@@ -28,7 +28,7 @@ import {
   type DocSearchProps,
   type SearchResult,
 } from "@smart-cloud/ai-kit-core";
-import { I18n } from "aws-amplify/utils";
+import { useAiKitI18n } from "../locale";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -44,13 +44,11 @@ import {
 } from "@tabler/icons-react";
 
 import { AiFeatureBorder } from "../ai-feature/AiFeatureBorder";
-import { translations } from "../i18n";
 import { PoweredBy } from "../poweredBy";
 import { useAiRun } from "../useAiRun";
 import { AiKitShellInjectedProps, withAiKitShell } from "../withAiKitShell";
 import { normalizeInitialFilterValues } from "./initialFilters";
 
-I18n.putVocabularies(translations);
 
 type Props = DocSearchProps & AiKitShellInjectedProps;
 
@@ -182,6 +180,7 @@ function escapeCssId(id: string) {
 }
 
 const DocSearchBase: FC<Props> = (props) => {
+  const I18n = useAiKitI18n();
   const {
     autoRun = true,
     aiDisclosure,
@@ -284,11 +283,8 @@ const DocSearchBase: FC<Props> = (props) => {
   }, [searchButtonIcon, showSearchButtonIcon]);
 
   const defaultTitle = useMemo(() => {
-    if (language) {
-      I18n.setLanguage(language || "en");
-    }
     return I18n.get(title || "Search with AI-Kit");
-  }, [language]);
+  }, [language, title, I18n]);
 
   const openButtonAccessibleLabel = I18n.get(openButtonTitle || defaultTitle);
   const searchButtonAccessibleLabel = I18n.get("Search");
@@ -298,7 +294,7 @@ const DocSearchBase: FC<Props> = (props) => {
     if (!e) return null;
     // Keep this generic and short (backend / on-device messages differ).
     return I18n.get("Searching…");
-  }, [language, statusEvent]);
+  }, [I18n, language, statusEvent]);
 
   const inputText = useMemo(() => {
     return query || getSearchText;

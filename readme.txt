@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.21
+Stable tag: 1.4.22
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -206,6 +206,10 @@ Some admin UI modules may originate from shared WP Suite components to support w
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.22 =
+* Localization: Resolve automatic frontend language from the active site locale before using the browser preference, and include complete AI-Kit translations for all 22 supported locales.
+* Dependencies: Refresh the shared WP Suite, Gatey, AI-Kit UI, and Amplify runtimes, while retaining React 18 compatibility.
 
 = 1.4.21 =
 * Metadata editors: Use YAML consistently for manual policy, external vocabularies, WordPress-derived data, effective/proposed results, and provenance. Preserve the structured API contract and validate external vocabulary input before saving.
