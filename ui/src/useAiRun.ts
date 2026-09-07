@@ -8,7 +8,7 @@ import {
   type AiKitStatusEvent,
 } from "@smart-cloud/ai-kit-core";
 import { getWpSuite } from "@smart-cloud/wpsuite-core";
-import { I18n } from "aws-amplify/utils";
+import { useAiKitI18n } from "./locale";
 import { useCallback, useRef, useState } from "react";
 import {
   AiRunError,
@@ -85,6 +85,7 @@ export function stripCodeFence(text: string): string {
 }
 
 export function useAiRun<T>(): UseAiRunResult<T> {
+  const I18n = useAiKitI18n();
   const ctrlRef = useRef<AbortController | null>(null);
   const lastSourceRef = useRef<"on-device" | "backend" | null>(null);
 
@@ -148,9 +149,7 @@ export function useAiRun<T>(): UseAiRunResult<T> {
           setErrorFeedback(clearAiRunErrorFeedback());
           return null;
         }
-        const feedback = createAiRunErrorFeedback(err, (message) =>
-          I18n.get(message),
-        );
+        const feedback = createAiRunErrorFeedback(err, (message) => message);
         setErrorFeedback(feedback);
         throw new AiRunError(feedback.details!, feedback.message!, {
           cause: err,
@@ -168,7 +167,7 @@ export function useAiRun<T>(): UseAiRunResult<T> {
 
   return {
     busy,
-    error: errorFeedback.message,
+    error: errorFeedback.message ? I18n.get(errorFeedback.message) : null,
     errorDetails: errorFeedback.details,
     statusEvent,
     result,

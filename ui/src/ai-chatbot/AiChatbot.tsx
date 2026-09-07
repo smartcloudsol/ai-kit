@@ -36,7 +36,7 @@ import {
   type HistoryStorageMode,
 } from "@smart-cloud/ai-kit-core";
 import { useSelect } from "@wordpress/data";
-import { I18n } from "aws-amplify/utils";
+import { useAiKitI18n } from "../locale";
 import React, {
   FC,
   useCallback,
@@ -48,7 +48,6 @@ import React, {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { translations } from "../i18n";
 import { useAiRun } from "../useAiRun";
 import { AiKitShellInjectedProps, withAiKitShell } from "../withAiKitShell";
 import {
@@ -58,7 +57,6 @@ import {
   persistAttachmentBlob,
 } from "./attachmentStorage";
 
-I18n.putVocabularies(translations);
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -206,6 +204,7 @@ const isAbortLike = (e: Error & { code?: string }) => {
 const formatStatusEvent = (
   event: AiKitStatusEvent | null,
   labels: AiChatbotLabels,
+  I18n: ReturnType<typeof useAiKitI18n>,
 ): string | null => {
   if (!event) return null;
 
@@ -295,6 +294,7 @@ type PersistedChat = {
 };
 
 const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
+  const I18n = useAiKitI18n();
   const {
     rootElement,
     store,
@@ -535,11 +535,6 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     lastUserSentAtRef.current = lastUserSentAt;
   }, [lastUserSentAt]);
 
-  useEffect(() => {
-    if (language) {
-      I18n.setLanguage(language || "en");
-    }
-  }, [language]);
 
   const showChatbotPreview: boolean = useSelect(() =>
     getStoreSelect(store).isShowChatbotPreview(),
@@ -585,7 +580,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       DEFAULT_CHATBOT_LABELS.askMeLabel;
     const translated = I18n.get(raw).trim();
     return translated || I18n.get(DEFAULT_CHATBOT_LABELS.askMeLabel);
-  }, [openButtonTitle, labels.askMeLabel, language]);
+  }, [I18n, openButtonTitle, labels.askMeLabel, language]);
 
   const modalTitle = useMemo(() => {
     const raw =
@@ -593,19 +588,19 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       labels.modalTitle?.trim() ||
       DEFAULT_CHATBOT_LABELS.modalTitle;
     return I18n.get(raw).trim() || I18n.get(DEFAULT_CHATBOT_LABELS.modalTitle);
-  }, [title, labels.modalTitle, language]);
+  }, [I18n, title, labels.modalTitle, language]);
 
   const textareaPlaceholder = useMemo(() => {
     const raw = placeholder ? placeholder : labels.placeholder;
     return I18n.get(raw);
-  }, [placeholder, labels.placeholder, language]);
+  }, [I18n, placeholder, labels.placeholder, language]);
 
   const aiDisclosure = useMemo(() => {
     const template = I18n.get(
       labels.aiDisclosureLabel?.trim() || DEFAULT_CHATBOT_AI_DISCLOSURE,
     );
     return formatAiDisclosure(template, modalTitle);
-  }, [labels.aiDisclosureLabel, language, modalTitle]);
+  }, [I18n, labels.aiDisclosureLabel, language, modalTitle]);
 
   const rootClassName = useMemo(() => {
     const base = "ai-docs-ask";
@@ -713,8 +708,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   const statusText = useMemo(() => {
     if (!ai.busy) return null;
-    return formatStatusEvent(ai.statusEvent, labels) || I18n.get("Working…");
-  }, [ai.busy, ai.statusEvent, language, labels]);
+    return formatStatusEvent(ai.statusEvent, labels, I18n) || I18n.get("Working…");
+  }, [I18n, ai.busy, ai.statusEvent, language, labels]);
 
   const lastCanceledUserMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -1131,7 +1126,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         setActiveOp((prev) => (prev === "feedback" ? null : prev));
       }
     },
-    [ai, language],
+    [I18n, ai, language],
   );
 
   const updateFeedback = useCallback(
@@ -1300,7 +1295,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       if (questionInputRef.current) questionInputRef.current.focus();
       scrollToBottom();
     }
-  }, [
+  }, [I18n,
     ai,
     buildUserAttachments,
     clearComposerImages,
@@ -1390,7 +1385,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       );
     }
     return <IconMessage size={18} />;
-  }, [showOpenButtonIcon, openButtonIcon, labels, openButtonLabel, language]);
+  }, [I18n, showOpenButtonIcon, openButtonIcon, labels, openButtonLabel, language]);
 
   const openButtonContent = useMemo(() => {
     const iconEl = renderOpenButtonIcon;
@@ -1454,7 +1449,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     return hasMessages
       ? I18n.get(labels.readyLabel)
       : I18n.get(labels.readyEmptyLabel);
-  }, [
+  }, [I18n,
     statusLineError,
     hasMessages,
     labels.readyLabel,
@@ -1465,7 +1460,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   const sendOrCancelLabel = useMemo(() => {
     if (isChatBusy) return I18n.get(labels.cancelLabel);
     return I18n.get(labels.sendLabel);
-  }, [isChatBusy, labels.cancelLabel, labels.sendLabel, language]);
+  }, [I18n, isChatBusy, labels.cancelLabel, labels.sendLabel, language]);
 
   const sendOrCancelIcon = useMemo(() => {
     if (isChatBusy) return <IconPlayerStop size={18} />;

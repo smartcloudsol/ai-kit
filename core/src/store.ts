@@ -1,3 +1,4 @@
+import { loadTranslationCatalogs } from "@smart-cloud/wpsuite-core";
 import {
   getConfig,
   getWpSuite,
@@ -84,21 +85,7 @@ const getCustomTranslations = async (): Promise<CustomTranslations | null> => {
   if (!aiKit) {
     throw new Error("AI-Kit plugin is not available");
   }
-  let translations: CustomTranslations | null = null;
-  if (aiKit.settings.customTranslationsUrl) {
-    translations = await fetch(
-      aiKit.settings.customTranslationsUrl +
-        (aiKit.settings.customTranslationsUrl.includes("?") ? "&" : "?") +
-        "t=" +
-        siteSettings.lastUpdate,
-    )
-      .then((response) => (response.ok ? response.text() : null))
-      .then((response) =>
-        response ? (JSON.parse(response) as CustomTranslations) : null,
-      )
-      .catch(() => null);
-  }
-  return translations ?? null;
+  return loadTranslationCatalogs(aiKit.settings.customTranslationsUrl, { cacheVersion: siteSettings.lastUpdate });
 };
 
 const getDefaultState = async (): Promise<State> => {

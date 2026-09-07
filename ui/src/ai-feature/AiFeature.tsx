@@ -1,3 +1,6 @@
+import { useDirection } from "@mantine/core";
+import { LocaleDirectionProvider } from "../LocaleDirectionProvider";
+import { getLocaleDirection } from "@smart-cloud/wpsuite-core";
 import {
   Alert,
   Button,
@@ -40,7 +43,7 @@ import {
   write,
   type WriteArgs,
 } from "@smart-cloud/ai-kit-core";
-import { I18n } from "aws-amplify/utils";
+import { AiKitLocaleProvider, useAiKitI18n } from "../locale";
 import * as CountryFlagIcons from "country-flag-icons/react/3x2";
 import {
   type ComponentProps,
@@ -62,7 +65,6 @@ import {
   IconSum,
 } from "@tabler/icons-react";
 
-import { translations } from "../i18n";
 import { PoweredBy } from "../poweredBy";
 import {
   getAiRunErrorMessage,
@@ -80,7 +82,6 @@ import { AiFeatureBorder } from "./AiFeatureBorder";
 import { ProofreadDiff } from "./ProofreadDiff";
 import { markdownToHtml } from "./utils";
 
-I18n.putVocabularies(translations);
 
 type GeneratedImageMetadata = {
   alt_text?: string;
@@ -391,6 +392,23 @@ async function parsePostMetadataFromPromptResult(
  * - optional Cancel action
  */
 const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
+  const parent = useAiKitI18n();
+  const parentDirection = useDirection().dir;
+  const [languageOverride, setLanguageOverride] = useState<AiKitLanguageCode | undefined>();
+  const language = languageOverride ?? props.language ?? parent.language;
+  const direction = languageOverride ? getLocaleDirection(language) : props.direction ?? parentDirection;
+  return <AiKitLocaleProvider language={language}>
+    <LocaleDirectionProvider initialDirection={direction === "auto" ? getLocaleDirection(language) : direction}>
+      <AiFeatureContent {...props} languageOverride={languageOverride} setLanguageOverride={setLanguageOverride} />
+    </LocaleDirectionProvider>
+  </AiKitLocaleProvider>;
+};
+
+const AiFeatureContent: FC<AiFeatureProps & AiKitShellInjectedProps & {
+  languageOverride?: AiKitLanguageCode;
+  setLanguageOverride: (language: AiKitLanguageCode | undefined) => void;
+}> = (props) => {
+  const I18n = useAiKitI18n();
   const {
     allowOverride: allowOverrideDefaults,
     autoRun = true,
@@ -420,15 +438,12 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
     modalRootElement,
   } = props;
 
-  const [languageOverride, setLanguageOverride] = useState<
-    AiKitLanguageCode | undefined
-  >();
+  const { languageOverride, setLanguageOverride } = props;
   const [directionOverride, setDirectionOverride] = useState<
     "ltr" | "rtl" | "auto" | undefined
   >();
 
   const effectiveUiLanguage = languageOverride ?? normalizeLang(language);
-  I18n.setLanguage(effectiveUiLanguage || "en");
   const currentUiLanguage = effectiveUiLanguage || "en";
   const effectiveDirection = useMemo(() => {
     const activeDirection = languageOverride ? directionOverride : direction;
@@ -593,7 +608,7 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
           return msg || I18n.get("Working...");
       }
     },
-    [effectiveUiLanguage, mode],
+    [I18n, effectiveUiLanguage, mode],
   );
 
   const inputText = useMemo(() => {
@@ -770,10 +785,10 @@ const AiFeatureBase: FC<AiFeatureProps & AiKitShellInjectedProps> = (props) => {
               }
               if (outLang === inputLang) {
                 setError(
-                  I18n.get("Input and output languages cannot be the same."),
+                  "Input and output languages cannot be the same.",
                 );
                 throw new Error(
-                  I18n.get("Input and output languages cannot be the same."),
+                  "Input and output languages cannot be the same.",
                 );
               }
               const args: TranslateArgs = {
@@ -1069,13 +1084,13 @@ Follow these additional instructions: ${instructions}`
         if (details.kind !== "cancelled") {
           setErrorDetails(details);
           setError(
-            getAiRunErrorMessage(details, (message) => I18n.get(message)),
+            getAiRunErrorMessage(details),
           );
         }
       }
       setState(undefined);
     },
-    [
+    [I18n,
       language,
       ai,
       instructions,
@@ -1137,7 +1152,7 @@ Follow these additional instructions: ${instructions}`
       default:
         return ai.lastSource ? I18n.get("Regenerate") : I18n.get("Generate");
     }
-  }, [effectiveUiLanguage, ai.lastSource, mode]);
+  }, [I18n, effectiveUiLanguage, ai.lastSource, mode]);
 
   const getRegenerateOnBackendTitle = useCallback(() => {
     switch (mode) {
@@ -1152,7 +1167,7 @@ Follow these additional instructions: ${instructions}`
       default:
         return I18n.get("Regenerate on Backend");
     }
-  }, [effectiveUiLanguage, mode]);
+  }, [I18n, effectiveUiLanguage, mode]);
 
   const close = useCallback(async () => {
     setFeatureOpen(false);
@@ -1276,7 +1291,7 @@ Follow these additional instructions: ${instructions}`
     }
 
     return parts.length ? parts.join(" • ") : I18n.get("No overrides");
-  }, [
+  }, [I18n,
     effectiveUiLanguage,
     mode,
     inputLanguage,
@@ -1397,7 +1412,7 @@ Follow these additional instructions: ${instructions}`
         w={size === "sm" ? 44 : 36}
       />
     ),
-    [
+    [I18n,
       ai.busy,
       selectedLanguageOption?.countryCode,
       selectedLanguageOption?.value,
@@ -2278,6 +2293,7 @@ function MarkdownResult(props: {
   editable: boolean;
   onChange?: (v: string) => void;
 }) {
+  const I18n = useAiKitI18n();
   const { contentLanguage, value, editable, onChange } = props;
   const contentDirection = isRtlLanguage(contentLanguage) ? "rtl" : "ltr";
   const contentAlign = contentDirection === "rtl" ? "right" : "left";
