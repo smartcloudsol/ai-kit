@@ -114,6 +114,11 @@
       "role": "content",
       "default": true
     },
+    "showLanguageSwitcher": {
+      "type": "boolean",
+      "role": "content",
+      "default": false
+    },
     "showRegenerateOnBackendButton": {
       "type": "boolean",
       "role": "content",

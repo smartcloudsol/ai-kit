@@ -5,6 +5,7 @@ export declare const AiFeature: FC<import("@smart-cloud/ai-kit-core").AiWorkerPr
     context?: import("@smart-cloud/ai-kit-core").ContextKind;
     modeOverride?: AiModePreference;
     autoRun?: boolean;
+    showLanguageSwitcher?: boolean;
     onDeviceTimeout?: number;
     editable?: boolean;
     acceptButtonTitle?: string;

@@ -419,6 +419,7 @@ const AiFeatureContent: FC<AiFeatureProps & AiKitShellInjectedProps & {
     showOpenButton = false,
     showOpenButtonTitle = true,
     showOpenButtonIcon = true,
+    showLanguageSwitcher = false,
     openButtonTitle,
     openButtonIcon,
     showRegenerateOnBackendButton = true,
@@ -1499,16 +1500,18 @@ Follow these additional instructions: ${instructions}`
               <Modal.Header dir={effectiveDirection} style={{ zIndex: 1000 }}>
                 {getOpenButtonDefaultIcon("ai-feature-title-icon")}
                 <Modal.Title>{I18n.get(defaultTitle)}</Modal.Title>
-                <div
-                  style={{
-                    display: "flex",
-                    flex: 1,
-                    justifyContent: "flex-start",
-                    marginRight: 8,
-                  }}
-                >
-                  {renderLanguageOverrideSelect("xs")}
-                </div>
+                {showLanguageSwitcher && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flex: 1,
+                      justifyContent: "flex-start",
+                      marginRight: 8,
+                    }}
+                  >
+                    {renderLanguageOverrideSelect("xs")}
+                  </div>
+                )}
                 <Modal.CloseButton />
               </Modal.Header>
             )}
@@ -1519,7 +1522,7 @@ Follow these additional instructions: ${instructions}`
                 variation={variation}
               >
                 <Stack gap="sm" mb="sm" p="sm" dir={effectiveDirection}>
-                  {variation !== "modal" && (
+                  {variation !== "modal" && showLanguageSwitcher && (
                     <Group justify="flex-end">
                       {renderLanguageOverrideSelect()}
                     </Group>

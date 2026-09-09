@@ -65,6 +65,7 @@ try {
           "showRegenerateOnBackendButton",
           "showOpenButtonTitle",
           "showOpenButtonIcon",
+          "showLanguageSwitcher",
         ];
         for (const field of booleanFields) {
           if (field in config) {

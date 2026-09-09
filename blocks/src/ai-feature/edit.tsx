@@ -77,6 +77,7 @@ export type EditorBlockProps = {
   showOpenButtonTitle?: boolean;
   openButtonIcon?: string;
   showOpenButtonIcon?: boolean;
+  showLanguageSwitcher?: boolean;
   showRegenerateOnBackendButton?: boolean;
   acceptButtonTitle?: string;
   optionsDisplay?: "collapse" | "vertical" | "horizontal";
@@ -134,6 +135,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
     showOpenButtonTitle,
     openButtonIcon,
     showOpenButtonIcon,
+    showLanguageSwitcher,
     showRegenerateOnBackendButton,
     acceptButtonTitle,
     colorMode,
@@ -379,6 +381,17 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
               }}
               help={__(
                 "Choose the AI-Kit Feature block’s layout direction—Auto (default; follows the selected language), Left‑to‑Right, or Right‑to‑Left.",
+                TEXT_DOMAIN,
+              )}
+            />
+            <CheckboxControl
+              label={__("Show language switcher", TEXT_DOMAIN)}
+              checked={showLanguageSwitcher === true}
+              onChange={(value) => {
+                setAttributes({ showLanguageSwitcher: value === true });
+              }}
+              help={__(
+                "Show a language switcher inside the AI-Kit Feature interface.",
                 TEXT_DOMAIN,
               )}
             />
@@ -1105,6 +1118,7 @@ export const Edit: FunctionComponent<BlockEditProps<EditorBlockProps>> = (
             showOpenButtonTitle={showOpenButtonTitle}
             openButtonIcon={openButtonIcon}
             showOpenButtonIcon={showOpenButtonIcon}
+            showLanguageSwitcher={showLanguageSwitcher}
             showRegenerateOnBackendButton={showRegenerateOnBackendButton}
             acceptButtonTitle={acceptButtonTitle}
             colorMode={colorMode || "auto"}

@@ -85,6 +85,8 @@ foreach (['ai-feature', 'doc-search'] as $blockName) {
 
 $pluginSource = (string) file_get_contents(dirname(__DIR__, 2) . '/smartcloud-ai-kit.php');
 $widgetSource = (string) file_get_contents(dirname(__DIR__, 2) . '/elementor-ai-kit-widgets.php');
+$featureMetadata = json_decode((string) file_get_contents(dirname(__DIR__) . '/src/ai-feature/block.json'), true);
+$featureUiSource = (string) file_get_contents(dirname(__DIR__, 2) . '/ui/src/ai-feature/AiFeature.tsx');
 
 expect(str_contains($pluginSource, "renderShortcodeBlock('smartcloud-ai-kit/feature'"), 'AI feature shortcode must retain its block renderer.');
 expect(str_contains($pluginSource, "renderShortcodeBlock('smartcloud-ai-kit/doc-search'"), 'Doc Search shortcode must retain its block renderer.');
@@ -93,5 +95,10 @@ expect(str_contains($widgetSource, "\$this->add_control('aiDisclosure'"), 'Eleme
 expect(str_contains($widgetSource, "'aiDisclosure',"), 'Elementor Doc Search must pass the AI disclosure override to the shortcode.');
 expect(str_contains($widgetSource, "smartcloud_ai_kit_do_shortcode('smartcloud-ai-kit-feature'"), 'AI feature Elementor widget must retain its shortcode adapter.');
 expect(str_contains($widgetSource, "smartcloud_ai_kit_do_shortcode('smartcloud-ai-kit-doc-search'"), 'Doc Search Elementor widget must retain its shortcode adapter.');
+expect(($featureMetadata['attributes']['showLanguageSwitcher']['default'] ?? null) === false, 'AI Feature language switcher must be hidden by default.');
+expect(str_contains($pluginSource, "'showLanguageSwitcher' => false"), 'AI Feature shortcode must hide the language switcher by default.');
+expect(str_contains($widgetSource, "\$this->add_control('showLanguageSwitcher'"), 'Elementor AI Feature must expose the language switcher setting.');
+expect(str_contains($featureUiSource, 'showLanguageSwitcher = false'), 'AI Feature UI must hide the language switcher when the property is omitted.');
+expect(substr_count($featureUiSource, 'showLanguageSwitcher &&') >= 2, 'AI Feature UI must guard both modal and inline language switchers.');
 
 fwrite(STDOUT, "AI Kit fallback, shortcode and Elementor compatibility checks passed.\n");

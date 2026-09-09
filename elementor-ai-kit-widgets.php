@@ -492,6 +492,13 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
             'default' => 'true',
         ]);
 
+        $this->add_control('showLanguageSwitcher', [
+            'label' => __('Show Language Switcher', 'smartcloud-ai-kit'),
+            'type' => \Elementor\Controls_Manager::SWITCHER,
+            'return_value' => 'true',
+            'default' => '',
+        ]);
+
         $this->add_control('acceptButtonTitle', [
             'label' => __('Accept Button Title', 'smartcloud-ai-kit'),
             'type' => \Elementor\Controls_Manager::TEXT,
@@ -621,6 +628,7 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
             'openButtonIcon',
             'showOpenButtonTitle',
             'showOpenButtonIcon',
+            'showLanguageSwitcher',
             'acceptButtonTitle',
             'optionsDisplay',
             'colorMode',
@@ -630,7 +638,7 @@ class AiKit_Feature_Widget extends AiKit_Base_Widget
         ];
 
         // SWITCHER fields that need explicit boolean values
-        $switcher_fields = ['editable', 'autoRun', 'showRegenerateOnBackendButton', 'showOpenButtonTitle', 'showOpenButtonIcon'];
+        $switcher_fields = ['editable', 'autoRun', 'showRegenerateOnBackendButton', 'showOpenButtonTitle', 'showOpenButtonIcon', 'showLanguageSwitcher'];
 
         // Filter settings to only include allowed attributes with non-empty values
         $atts = array_intersect_key($all, array_flip($simple_attrs));
