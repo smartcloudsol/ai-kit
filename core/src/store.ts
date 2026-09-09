@@ -1,8 +1,7 @@
-import { loadTranslationCatalogs } from "@smart-cloud/wpsuite-core";
 import {
   getConfig,
+  getCustomTranslations as loadCustomTranslations,
   getWpSuite,
-  SiteSettings,
   type SubscriptionType,
 } from "@smart-cloud/wpsuite-core";
 import {
@@ -30,13 +29,6 @@ export interface AiKitConfig {
 
   enableChatbot?: boolean;
   chatbot?: AiChatbotProps;
-}
-
-let siteSettings: SiteSettings;
-if (typeof WpSuite !== "undefined") {
-  siteSettings = WpSuite.siteSettings;
-} else {
-  siteSettings = {} as SiteSettings;
 }
 
 /**
@@ -80,17 +72,11 @@ export const sanitizeAiKitConfig = (input: unknown): AiKitConfig => {
   return out;
 };
 
-const getCustomTranslations = async (): Promise<CustomTranslations | null> => {
-  const aiKit = getAiKitPlugin();
-  if (!aiKit) {
-    throw new Error("AI-Kit plugin is not available");
-  }
-  return loadTranslationCatalogs(aiKit.settings.customTranslationsUrl, { cacheVersion: siteSettings.lastUpdate });
-};
-
 const getDefaultState = async (): Promise<State> => {
   const config = sanitizeAiKitConfig(await getConfig("aiKit"));
-  const customTranslations = await getCustomTranslations();
+  const customTranslations = await loadCustomTranslations({
+    legacyUrl: getAiKitPlugin()?.settings.customTranslationsUrl,
+  });
 
   return {
     config: config,

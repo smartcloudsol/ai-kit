@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
 
 use SmartCloud\WPSuite\AiKit\Logger;
 
-const SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION = '2.5.13';
+const SMARTCLOUD_WPSUITE_AI_KIT_HUB_VERSION = '2.5.14';
 
 final class AiKitHubLoader
 {

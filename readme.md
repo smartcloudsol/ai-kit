@@ -87,13 +87,13 @@ For full backend installation and parameters, follow the SAR documentation from 
   Gutenberg integrations (sidebar, toolbar tools, inspector panels, Pro feature block integration); build here and copy the generated assets from `blocks/dist/` into the final plugin layout.
 
 - `wpsuite-main/` (in the Hub repository)  
-  Shared frontend bundle copied into `hub-for-wpsuiteio/`; its `dist/` output provides the script loaded on every page to initialize WPSuite reCAPTCHA v3 when needed.
+  Shared frontend bundle copied into `smartcloud-wpsuite/`; its `dist/` output provides the script loaded on every page to initialize WPSuite reCAPTCHA v3 when needed.
 
 - `wpsuite-admin/` (in the Hub repository)  
   Shared WP Suite admin interface used across WP Suite plugins.
 
 - `wpsuite-*-vendor/` (in the Hub repository)  
-  Shared vendor bundles whose `dist/` outputs are copied into `hub-for-wpsuiteio/assets/js/` and `hub-for-wpsuiteio/assets/css/`.
+  Shared vendor bundles whose `dist/` outputs are copied into `smartcloud-wpsuite/assets/js/` and `smartcloud-wpsuite/assets/css/`.
 
 - `assets/`  
   Static plugin assets.
@@ -109,7 +109,7 @@ If you also work on the Hub codebase, you may build and link a local version ins
 
 ### Source of Shared WPSuite Hub Code
 
-The shared WordPress Hub code lives in the `wpsuite-admin/`, `wpsuite-main/`, and `wpsuite-*-vendor/` directories of the [Hub for WPSuite.io](https://github.com/smartcloudsol/hub-for-wpsuiteio) repository.  
+The shared WordPress Hub code lives in the `wpsuite-admin/`, `wpsuite-main/`, and `wpsuite-*-vendor/` directories of the [SmartCloud WP Suite](https://github.com/smartcloudsol/smartcloud-wpsuite) repository.
 That repository hosts the shared administrative interface, global frontend assets, and vendor bundles used across WPSuite plugins, including AI-Kit.
 
 ---
@@ -127,7 +127,7 @@ That repository hosts the shared administrative interface, global frontend asset
 You typically want AI-Kit **and** the Hub repository (for `wpsuite-core`, `wpsuite-admin`, `wpsuite-main`, and the shared vendor bundles) side-by-side:
 
 ```bash
-git clone https://github.com/smartcloudsol/hub-for-wpsuiteio.git
+git clone https://github.com/smartcloudsol/smartcloud-wpsuite.git
 git clone https://github.com/smartcloudsol/ai-kit.git
 ```
 
@@ -135,7 +135,7 @@ Suggested structure:
 
 ```
 /projects/
-  hub-for-wpsuiteio/
+  smartcloud-wpsuite/
     wpsuite-core/
     wpsuite-admin/
     wpsuite-main/
@@ -154,7 +154,7 @@ Suggested structure:
 
 ```bash
 # Hub repo
-cd hub-for-wpsuiteio/wpsuite-core
+cd smartcloud-wpsuite/wpsuite-core
 yarn install
 
 cd ../wpsuite-admin
@@ -206,7 +206,7 @@ Useful if you actively modify `wpsuite-core`, `ai-kit-core`, or `ai-kit-ui`.
 Build/link `wpsuite-core` from the Hub repo:
 
 ```bash
-cd ../hub-for-wpsuiteio/wpsuite-core
+cd ../smartcloud-wpsuite/wpsuite-core
 yarn run build
 npm link
 ```
@@ -255,7 +255,7 @@ yarn run build-wp dist
 
 After building `main/`, `admin/`, and `blocks/`, copy the generated assets from each module's `dist/` directory into the matching plugin directory. For `admin/`, copy the PHP files from `admin/php/` as well.
 
-If you build shared Hub assets locally, run `yarn run build-wp dist` in `hub-for-wpsuiteio/wpsuite-main` and `hub-for-wpsuiteio/wpsuite-admin`, and run `yarn run build` in any touched `hub-for-wpsuiteio/wpsuite-*-vendor` workspace before packaging.
+If you build shared Hub assets locally, run `yarn run build-wp dist` in `smartcloud-wpsuite/wpsuite-main` and `smartcloud-wpsuite/wpsuite-admin`, and run `yarn run build` in any touched `smartcloud-wpsuite/wpsuite-*-vendor` workspace before packaging.
 
 ### 5) Development workflow
 - Rebuild `core/` and `ui/` after shared package changes (`yarn run build`), and rebuild `main/`, `admin/`, or `blocks/` with `yarn run build-wp dist` after WordPress bundle changes.
@@ -273,12 +273,12 @@ Ensure the built assets are copied into the simplified plugin layout:
 - `blocks/dist/*` → `blocks/`
 - `admin/php/*` and `admin/dist/*` → `admin/`
 
-If you rebuild the shared Hub assets in the separate Hub repository, copy the following outputs into the plugin's `hub-for-wpsuiteio/` directory according to that repository's instructions:
+If you rebuild the shared Hub assets in the separate Hub repository, copy the following outputs into the plugin's `smartcloud-wpsuite/` directory according to that repository's instructions:
 
-- `wpsuite-main/dist/*` → `hub-for-wpsuiteio/`
-- `wpsuite-admin/php/*` and `wpsuite-admin/dist/*` → `hub-for-wpsuiteio/`
-- `wpsuite-*-vendor/dist/*.js` → `hub-for-wpsuiteio/assets/js/`
-- `wpsuite-*-vendor/dist/*.css` → `hub-for-wpsuiteio/assets/css/`
+- `wpsuite-main/dist/*` → `smartcloud-wpsuite/`
+- `wpsuite-admin/php/*` and `wpsuite-admin/dist/*` → `smartcloud-wpsuite/`
+- `wpsuite-*-vendor/dist/*.js` → `smartcloud-wpsuite/assets/js/`
+- `wpsuite-*-vendor/dist/*.css` → `smartcloud-wpsuite/assets/css/`
 
 The `wpsuite-main/dist/` bundle provides the script that loads on every page and initializes the reCAPTCHA v3 flow used by WPSuite plugins whenever it is needed.
 

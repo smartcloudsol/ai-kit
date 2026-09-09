@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.4.22
+ * Version:           1.4.23
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.4.22';
+const VERSION = '1.4.23';
 const DB_VERSION = '1.4.2';
 
 if (!defined('ABSPATH')) {
@@ -538,6 +538,7 @@ final class AiKit
             'openButtonIcon',
             'showOpenButtonTitle',
             'showOpenButtonIcon',
+            'showLanguageSwitcher',
             'showRegenerateOnBackendButton',
             'acceptButtonTitle',
             'language',
@@ -914,6 +915,7 @@ var WpSuite = __aikitGlobal.WpSuite;
             'showOpenButtonTitle' => null,
             'openButtonIcon' => null,
             'showOpenButtonIcon' => null,
+            'showLanguageSwitcher' => false,
             'showRegenerateOnBackendButton' => null,
             'acceptButtonTitle' => null,
             'language' => 'system',

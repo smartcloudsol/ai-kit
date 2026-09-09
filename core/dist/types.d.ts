@@ -57,7 +57,10 @@ export interface AiKitSettings {
      * Keep this lightweight: most users will rely on defaults.
      */
     defaultOutputLanguage?: AiKitLanguageCode;
-    /** Optional URL to custom translations JSON file. */
+    /**
+     * @deprecated Configure the site-wide custom translations URL in WP Suite
+     * settings. This property remains as a fallback for rolling upgrades.
+     */
     customTranslationsUrl?: string;
     /** Chat optimization: number of seconds a successful reCAPTCHA assessment remains valid for the current chat session. */
     reCaptchaChatTtlSeconds?: number;
@@ -231,6 +234,7 @@ export type AiFeatureProps = AiWorkerProps & {
     context?: ContextKind;
     modeOverride?: AiModePreference;
     autoRun?: boolean;
+    showLanguageSwitcher?: boolean;
     onDeviceTimeout?: number;
     editable?: boolean;
     acceptButtonTitle?: string;

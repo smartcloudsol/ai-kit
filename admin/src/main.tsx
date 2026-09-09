@@ -13,7 +13,6 @@ import {
   Switch,
   Text,
   Textarea,
-  TextInput,
   Title,
 } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
@@ -894,41 +893,6 @@ const Main = (props: MainProps) => {
                       ...settingsFormData,
                       defaultOutputLanguage: (value ||
                         "en") as AiKitLanguageCode,
-                    })
-                  }
-                />
-                <TextInput
-                  disabled={savingSettings}
-                  label={
-                    <InfoLabel
-                      text="Custom Translations URL"
-                      scrollToId="custom-translations-url"
-                      onOpen={openInfo}
-                    />
-                  }
-                  description={
-                    <>
-                      <Text size="sm" m={0}>
-                        If you want to use custom translations, enter the URL
-                        here. The URL should point to a JSON file. Download{" "}
-                        <a
-                          href="https://wpsuite.io/static/plugins/gatey-translations.json"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download
-                        >
-                          sample translations
-                        </a>
-                        , modify it, and upload it to your server or a public
-                        file hosting service.
-                      </Text>
-                    </>
-                  }
-                  value={settingsFormData.customTranslationsUrl}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setSettingsFormData({
-                      ...settingsFormData,
-                      customTranslationsUrl: e.target.value,
                     })
                   }
                 />
