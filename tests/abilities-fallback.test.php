@@ -72,6 +72,9 @@ namespace SmartCloud\WPSuite\AiKit\Abilities {
     expect(str_contains($loaderSource, "'smartcloud-wpsuite'"), 'AI Kit Hub loader must target the renamed runtime directory.');
     expect(str_contains($loaderSource, "'smartcloud-wpsuite'"), 'AI Kit must use the canonical WP Suite admin and state slug.');
     expect(str_contains($loaderSource, "'hub-for-wpsuiteio'"), 'AI Kit must retain the legacy WP Suite slug alias during migration.');
+    foreach (array('SMARTCLOUD_WPSUITE_VERSION', 'SMARTCLOUD_WPSUITE_PATH', 'SMARTCLOUD_WPSUITE_URL', 'SMARTCLOUD_WPSUITE_READY_HOOK') as $sharedConstant) {
+        expect(str_contains($loaderSource, "if (!defined('{$sharedConstant}'))"), "AI Kit must guard the shared {$sharedConstant} declaration when another Hub owner already loaded it.");
+    }
     expect(str_contains($pluginSource, "get_option('smartcloud-wpsuite/site-settings')"), 'AI Kit must read the canonical site-settings option.');
     expect(str_contains($pluginSource, "get_option('hub-for-wpsuiteio/site-settings')"), 'AI Kit must retain a legacy site-settings fallback.');
     expect(str_contains($pluginSource, "'/smartcloud-wpsuite/v1/update-site-settings'"), 'AI Kit must use the canonical site-settings REST route.');
