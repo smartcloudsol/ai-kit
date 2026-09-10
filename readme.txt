@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.23
+Stable tag: 1.4.24
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -207,10 +207,14 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 == Changelog ==
 
+= 1.4.24 =
+* Dependencies: Bundled WP Suite Hub 2.5.15 with the Amplify preview.3 runtime that supplies the corrected Authenticator translations.
+* Compatibility: Guard shared Hub constants when another WP Suite plugin already owns the runtime, avoiding duplicate-constant warnings during updates and CLI operations.
+
 = 1.4.23 =
 * Localization: Added the shared site translation catalog so custom strings resolve consistently across WP Suite plugins and site locales.
 * Settings: Added an opt-in setting for the AI Feature language-switcher in the Chatbot, defaulting to off on fresh installs.
-* Dependencies: Updated AI Kit Core to 1.5.9, AI Kit UI to 1.5.16, WP Suite Core to 2.4.1, and the bundled WP Suite Hub to 2.5.14 with the Amplify preview.2 catalogue corrections.
+* Dependencies: Updated AI Kit Core to 1.5.9, AI Kit UI to 1.5.16, WP Suite Core to 2.4.2, and the bundled WP Suite Hub to 2.5.14 with the Amplify preview.2 catalogue corrections.
 
 = 1.4.22 =
 * Localization: Resolve automatic frontend language from the active site locale before using the browser preference, and include complete AI-Kit translations for all 22 supported locales.
