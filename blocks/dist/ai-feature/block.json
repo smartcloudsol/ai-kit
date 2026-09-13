@@ -169,7 +169,7 @@
       "type": "string"
     }
   },
-  "textdomain": "wpsuite-ai-kit",
+  "textdomain": "smartcloud-ai-kit",
   "editorScript": "smartcloud-ai-kit-blocks-editor-script",
   "allowedBlocks": [
     "wpsuite/react-fallback"

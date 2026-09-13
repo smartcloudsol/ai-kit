@@ -61,6 +61,35 @@ test("projection round-trips without losing bigint source versions", async () =>
   );
 });
 
+test("v2 projection normalizes content locale to one base language", async () => {
+  const contract = await loadContract();
+  const candidate = projection({
+    schemaVersion: 2,
+    document: {
+      ...projection().document,
+      locale: "fr_FR",
+    },
+  });
+  const parsed = contract.parsePublicContentProjection(candidate, {
+    producer: "wordpress",
+    siteId: "site-17",
+  });
+  assert.equal(parsed.schemaVersion, 2);
+  assert.equal(parsed.document.locale, "fr");
+});
+
+test("v2 upserts require a valid locale while v1 remains readable", async () => {
+  const contract = await loadContract();
+  assert.equal(contract.parsePublicContentProjection(projection()).schemaVersion, 1);
+  assert.throws(
+    () =>
+      contract.parsePublicContentProjection(
+        projection({ schemaVersion: 2 }),
+      ),
+    (error) => error.code === "invalid_string",
+  );
+});
+
 test("older source versions cannot be mistaken for newer changes", async () => {
   const contract = await loadContract();
   assert.equal(contract.compareKnowledgeSourceVersions("41", "42"), "older");

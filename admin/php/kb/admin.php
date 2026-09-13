@@ -18,6 +18,9 @@ if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/schema.php')) {
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repository.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repository.php';
 }
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/localization.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/localization.php';
+}
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/repositorydependencies.php';
 }
@@ -1708,6 +1711,7 @@ class Admin
                 : wp_trim_words(wp_strip_all_tags($post->post_content), 30, '...'),
             'post_type' => $post->post_type,
             'post_url' => get_permalink($post_id),
+            'localization' => $this->getPostLocalization($post),
             'source' => $source ? [
                 'enabled' => (bool) $source->enabled,
                 'default_doc_mode' => $source->default_doc_mode,
@@ -1717,6 +1721,18 @@ class Admin
             ] : null,
             'docs' => array_values($docs)
         ], 200);
+    }
+
+    /** @return array<string,mixed> */
+    private function getPostLocalization(\WP_Post $post): array
+    {
+        $localization = KnowledgeBaseLocalization::describe($post);
+        foreach ($localization['variants'] as &$variant) {
+            $source = $this->sources->getByPostId((int) $variant['postId']);
+            $variant['sourceEnabled'] = (bool) ($source && $source->enabled);
+        }
+        unset($variant);
+        return $localization;
     }
 
     /**

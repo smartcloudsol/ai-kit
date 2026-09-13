@@ -48,6 +48,7 @@ import { PoweredBy } from "../poweredBy";
 import { useAiRun } from "../useAiRun";
 import { AiKitShellInjectedProps, withAiKitShell } from "../withAiKitShell";
 import { normalizeInitialFilterValues } from "./initialFilters";
+import { buildLocalizedOptions } from "./localizedOptions";
 
 
 type Props = DocSearchProps & AiKitShellInjectedProps;
@@ -325,6 +326,16 @@ const DocSearchBase: FC<Props> = (props) => {
       .filter((subcat, index, self) => self.indexOf(subcat) === index);
   }, [selectedCategories, metadataOptions]);
 
+  const tagOptions = useMemo(
+    () =>
+      buildLocalizedOptions(
+        metadataOptions?.allowedTags ?? [],
+        (tag) => I18n.get(tag),
+        I18n.language,
+      ),
+    [I18n, metadataOptions],
+  );
+
   const startRecording = useCallback(async () => {
     try {
       // Clear query input when starting audio recording
@@ -509,6 +520,7 @@ const DocSearchBase: FC<Props> = (props) => {
             sessionId,
             ...(q && { query: q }),
             ...(audioBlob && { audio: audioBlob }), // Pass Blob directly
+            locale: language,
             topK,
             // Include user-selected filters if enabled
             // Always send userSelectedCategories array when enableUserFilters is true (even if empty)
@@ -1015,12 +1027,7 @@ const DocSearchBase: FC<Props> = (props) => {
                                   placeholder={I18n.get(
                                     "Select or type tags...",
                                   )}
-                                  data={metadataOptions.allowedTags.map(
-                                    (tag) => ({
-                                      value: tag,
-                                      label: I18n.get(tag),
-                                    }),
-                                  )}
+                                  data={tagOptions}
                                   value={selectedTags}
                                   onChange={setSelectedTags}
                                   searchValue={tagSearchValue}

@@ -9,6 +9,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/localization.php';
+
 /** Resolves authored base-document metadata independently of markdown locking. */
 final class KnowledgeSyncDocumentMetadata
 {
@@ -54,6 +56,7 @@ final class KnowledgeSyncDocumentMetadata
             ), static fn(string $tag): bool => $tag !== '')));
         }
         return array(
+            'locale' => KnowledgeBaseLocalization::localeForPost($post),
             'canonicalUrl' => $url,
             'title' => $text('title') !== '' ? $text('title') : trim(wp_strip_all_tags(get_the_title($post))),
             'excerpt' => $text('description') !== '' ? $text('description') : trim(wp_strip_all_tags(get_the_excerpt($post))),
@@ -332,7 +335,7 @@ final class KnowledgeSyncBaselineRepository
 
 final class KnowledgeSyncBaselineService
 {
-    public const SERIALIZER_VERSION = 'knowledge-sync-document-v2-authored-metadata';
+    public const SERIALIZER_VERSION = 'knowledge-sync-document-v3-content-locale';
 
     public static function serializerFingerprint(): string
     {
@@ -516,7 +519,7 @@ final class KnowledgeSyncProjectionBuilder
 
         $site_id = $this->siteId();
         $projection = array(
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'source' => array(
                 'producer' => 'wordpress',
                 'siteId' => $site_id,
@@ -572,6 +575,7 @@ final class KnowledgeSyncProjectionBuilder
 
         $projection['document'] = array(
             'profile' => (string) $policy['documentProfile'],
+            'locale' => (string) $resolved_metadata['locale'],
             'canonicalUrl' => $url,
             'title' => $title,
             'excerpt' => $resolved_metadata['excerpt'],

@@ -4,12 +4,12 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.24
+Stable tag: 1.4.25
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
 
-Add private, on-device AI to WordPress (write, translate, rewrite, proofread, summarize). Free runs locally; Pro connects to your own AWS backend.
+Add private, on-device AI to WordPress with 22-language frontend tools. Free runs locally; Pro connects to your own AWS backend.
 
 == Description ==
 
@@ -21,6 +21,8 @@ AI-Kit is part of the WP Suite product family by Smart Cloud Solutions, Inc. WP 
 AI-Kit uses Chrome’s built-in on-device AI capabilities (when available). In this mode, content is processed locally in the browser.
 
 **Key features**
+* **22-language frontend localization** — Frontend controls include **22 built-in languages**, follow the active WordPress or multilingual-provider locale, and support RTL where applicable.
+* **Shared WP Suite translation catalog** — Override matching strings once for Gatey, AI-Kit, and Flow, set a site-wide fallback locale, or add further locales from **SmartCloud → Global Settings → Custom Translations** without editing plugin files.
 * **Media Library: SEO image metadata generation**
   * Works in the **Media Library list view** and **grid view**
   * Supports both the **attachment details panel** and the **attachment edit screen**
@@ -199,13 +201,24 @@ All code that ships in the public (free) version of AI-Kit is available here: ht
 **Build & distribution:**
 AI-Kit is shipped to WordPress.org as a pre-built distribution. Build steps and developer notes are maintained in the GitHub repository documentation.
 
-**Shared WP Suite components:**
-Some admin UI modules may originate from shared WP Suite components to support workspace linking, license validation, and subscription management across WP Suite plugins.
+**Shared WP Suite admin and localization:**
+The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in https://github.com/smartcloudsol/smartcloud-wpsuite and is packaged under `smartcloud-wpsuite/`. It owns the site-wide custom translation catalog used by Gatey, AI-Kit, and Flow, alongside shared workspace linking, licence validation, and subscription management.
 
 **Pro-only features (source availability):**
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.25 =
+* Knowledge Base localization: Synchronize each WordPress language mutation as an independently searchable document with its normalized locale and localized URL, title, and excerpt.
+* Metadata overrides: Switch between linked Polylang or WPML translations in the same source editor and maintain independent title, description, taxonomy, tag, and section overrides for every locale.
+* Search and chat: Send the resolved site locale to the backend so retrieval stays inside one language, with deterministic locale and English fallback behavior.
+* Request transport: Preserve the resolved locale through the frontend request allowlist so DocSearch and chat calls reach the backend with their BCP 47 language tag.
+* AI agent responses: Generate end-user-facing prose and structured string values in the locale propagated by Flow.
+* DocSearch: Translate taxonomy filter labels before locale-aware sorting.
+* Chat citations: Accept the current structured document/chunk citation payload while retaining compatibility with legacy flat citations during rolling backend upgrades.
+* Localization: Correct block text domains and formalize key English, German, Spanish, French, and Hungarian frontend copy.
+* Compatibility: Require Knowledge Automation capability 6 and use the version 2 delivery contract for locale-aware documents; legacy version 1 records remain readable by the backend.
 
 = 1.4.24 =
 * Dependencies: Bundled WP Suite Hub 2.5.15 with the Amplify preview.3 runtime that supplies the corrected Authenticator translations.
@@ -511,6 +524,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.25 =
+Requires AI Kit backend 1.0.91 with API schema 12 and knowledge.automation capability 6. Run a Knowledge Base baseline synchronization after upgrading so existing WordPress documents receive locale metadata and language-specific document IDs.
 
 = 1.4.21 =
 Unifies metadata editors as YAML. Backend 1.0.86 also uses YAML for stored configuration layers; existing layer files require operator conversion before that backend update. Document .metadata.json sidecars remain unchanged.

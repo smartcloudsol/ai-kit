@@ -6,6 +6,7 @@
   "title": "AI-Kit Doc Search (PRO)",
   "category": "smartcloud-ai-kit",
   "description": "AI-Kit Doc Search - knowledge base search summary with sources",
+  "textdomain": "smartcloud-ai-kit",
   "attributes": {
     "variation": {
       "type": "string",

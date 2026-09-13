@@ -34,6 +34,7 @@ import {
   type AiChatbotProps,
   type AiKitStatusEvent,
   type HistoryStorageMode,
+  type ProcessedCitations,
 } from "@smart-cloud/ai-kit-core";
 import { useSelect } from "@wordpress/data";
 import { useAiKitI18n } from "../locale";
@@ -56,6 +57,10 @@ import {
   loadAttachmentBlob,
   persistAttachmentBlob,
 } from "./attachmentStorage";
+import {
+  normalizeChatCitations,
+  type CitationLike,
+} from "./citations";
 
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -113,17 +118,10 @@ export const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels> = {
   unexpectedErrorLabel: "Unexpected error",
 };
 
-type CitationLike = {
-  url?: string;
-  sourceUrl?: string;
-  title?: string;
-  snippet?: string;
-};
-
 type ChatResponse = {
   result: string;
   sessionId?: string;
-  citations?: CitationLike[];
+  citations?: ProcessedCitations | CitationLike[];
   metadata?: {
     citationCount?: number;
     modelId?: string;
@@ -1197,6 +1195,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             message: trimmed || undefined,
             audio: selectedAudio?.blob,
             images: selectedImages.map((img) => img.file),
+            locale: I18n.language,
             maxTokens,
           },
           {
@@ -1244,7 +1243,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         id: res.metadata?.messageId || createMessageId("assistant"),
         role: "assistant",
         content: resultText,
-        citations: res.citations,
+        citations: normalizeChatCitations(res.citations),
         createdAt: Date.now(),
       };
 
