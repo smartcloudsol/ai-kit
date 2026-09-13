@@ -15,5 +15,6 @@ php "${REPO_ROOT}/tests/kb-review-notice.test.php"
 php "${REPO_ROOT}/tests/source-publication-status.test.php"
 php "${REPO_ROOT}/tests/knowledge-sync-outbox.test.php"
 php "${REPO_ROOT}/tests/knowledge-sync-transport.test.php"
+php "${REPO_ROOT}/tests/kb-localization.test.php"
 while IFS= read -r -d '' php_file; do php -l "${php_file}" >/dev/null; done < <(find "${REPO_ROOT}" -type f -name '*.php' -not -path '*/vendor/*' -not -path '*/node_modules/*' -print0)
 echo "AI Kit checks passed."

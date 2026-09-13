@@ -32,6 +32,8 @@ https://wpsuite.io/docs/
 ### Free (local-only)
 AI-Kit uses Chrome’s built-in on-device AI capabilities (when available) to power:
 
+- **22-language frontend localization** that follows the active WordPress or multilingual-provider locale and supports RTL where applicable
+- A **shared WP Suite translation catalog** for overriding matching Gatey, AI-Kit, and Flow strings, setting a site-wide fallback locale, or adding further locales under **SmartCloud → Global Settings → Custom Translations**
 - **Media Library**: generate image SEO metadata (alt/title/caption/description)  
   - list view, grid view, attachment panel, attachment edit screen  
   - bulk preview + accept workflows
@@ -110,7 +112,7 @@ If you also work on the Hub codebase, you may build and link a local version ins
 ### Source of Shared WPSuite Hub Code
 
 The shared WordPress Hub code lives in the `wpsuite-admin/`, `wpsuite-main/`, and `wpsuite-*-vendor/` directories of the [SmartCloud WP Suite](https://github.com/smartcloudsol/smartcloud-wpsuite) repository.
-That repository hosts the shared administrative interface, global frontend assets, and vendor bundles used across WPSuite plugins, including AI-Kit.
+That repository hosts the shared administrative interface, site-wide localization catalog, global frontend assets, and vendor bundles used across WP Suite plugins, including Gatey, AI-Kit, and Flow.
 
 ---
 

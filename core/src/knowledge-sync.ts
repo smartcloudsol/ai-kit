@@ -1,4 +1,5 @@
 export const KNOWLEDGE_SYNC_CONTRACT_VERSION = 1 as const;
+export const KNOWLEDGE_SYNC_LOCALE_CONTRACT_VERSION = 2 as const;
 
 export type KnowledgeSyncOperation = "upsert" | "delete";
 export type KnowledgeSyncReviewPolicy =
@@ -32,6 +33,11 @@ export interface KnowledgeSyncDocumentV1 {
   metadata: KnowledgeSyncMetadataTermV1[];
 }
 
+export interface KnowledgeSyncDocumentV2 extends KnowledgeSyncDocumentV1 {
+  /** Canonical base-language BCP 47 tag used for single-language retrieval. */
+  locale: string;
+}
+
 interface KnowledgeSyncProjectionBaseV1 {
   schemaVersion: typeof KNOWLEDGE_SYNC_CONTRACT_VERSION;
   source: KnowledgeSyncSourceIdentityV1;
@@ -52,6 +58,31 @@ export type PublicContentProjectionV1 = KnowledgeSyncProjectionBaseV1 &
         lastPublicUrl?: string;
       }
   );
+
+interface KnowledgeSyncProjectionBaseV2 {
+  schemaVersion: typeof KNOWLEDGE_SYNC_LOCALE_CONTRACT_VERSION;
+  source: KnowledgeSyncSourceIdentityV1;
+  sourceVersion: string;
+  correlationId: string;
+  observedAt: string;
+}
+
+export type PublicContentProjectionV2 = KnowledgeSyncProjectionBaseV2 &
+  (
+    | {
+        operation: "upsert";
+        document: KnowledgeSyncDocumentV2;
+      }
+    | {
+        operation: "delete";
+        document: null;
+        lastPublicUrl?: string;
+      }
+  );
+
+export type PublicContentProjection =
+  | PublicContentProjectionV1
+  | PublicContentProjectionV2;
 
 export interface KnowledgeSyncPolicyV1 {
   schemaVersion: typeof KNOWLEDGE_SYNC_CONTRACT_VERSION;
@@ -153,6 +184,17 @@ function absoluteHttpUrl(value: unknown, field: string): string {
   return normalized;
 }
 
+function baseLanguageLocale(value: unknown, field: string): string {
+  const candidate = stringValue(value, field).replace(/_/g, "-");
+  try {
+    const language = new Intl.Locale(candidate).language.toLowerCase();
+    if (!/^[a-z]{2,8}$/.test(language)) throw new Error("invalid language");
+    return language;
+  } catch {
+    return fail("invalid_locale", field, `${field} must be a valid BCP 47 locale.`);
+  }
+}
+
 function parseSource(value: unknown): KnowledgeSyncSourceIdentityV1 {
   const source = record(value, "source");
   strictKeys(
@@ -230,6 +272,32 @@ function parseDocument(value: unknown): KnowledgeSyncDocumentV1 {
   };
 }
 
+function parseDocumentV2(value: unknown): KnowledgeSyncDocumentV2 {
+  const document = record(value, "document");
+  strictKeys(
+    document,
+    [
+      "profile",
+      "locale",
+      "canonicalUrl",
+      "title",
+      "excerpt",
+      "content",
+      "contentType",
+      "contentSha256",
+      "modifiedGmt",
+      "metadata",
+    ],
+    "document",
+  );
+  const legacyDocument = { ...document };
+  delete legacyDocument.locale;
+  return {
+    ...parseDocument(legacyDocument),
+    locale: baseLanguageLocale(document.locale, "document.locale"),
+  };
+}
+
 export function parsePublicContentProjectionV1(
   value: unknown,
   boundary?: KnowledgeSyncBoundary,
@@ -298,6 +366,95 @@ export function parsePublicContentProjectionV1(
     };
   }
   return fail("invalid_operation", "projection.operation", "Unsupported desired operation.");
+}
+
+export function parsePublicContentProjectionV2(
+  value: unknown,
+  boundary?: KnowledgeSyncBoundary,
+): PublicContentProjectionV2 {
+  const projection = record(value, "projection");
+  strictKeys(
+    projection,
+    [
+      "schemaVersion",
+      "source",
+      "sourceVersion",
+      "correlationId",
+      "observedAt",
+      "operation",
+      "document",
+      "lastPublicUrl",
+    ],
+    "projection",
+  );
+  if (projection.schemaVersion !== KNOWLEDGE_SYNC_LOCALE_CONTRACT_VERSION) {
+    fail("unsupported_schema", "projection.schemaVersion", "Unsupported contract version.");
+  }
+  const source = parseSource(projection.source);
+  if (
+    boundary &&
+    (source.producer !== boundary.producer || source.siteId !== boundary.siteId)
+  ) {
+    fail(
+      "source_boundary_mismatch",
+      "projection.source",
+      "Projection source does not match the authenticated producer boundary.",
+    );
+  }
+  const base = {
+    schemaVersion: KNOWLEDGE_SYNC_LOCALE_CONTRACT_VERSION,
+    source,
+    sourceVersion: decimalId(projection.sourceVersion, "projection.sourceVersion"),
+    correlationId: stringValue(
+      projection.correlationId,
+      "projection.correlationId",
+      /^[A-Za-z0-9._:-]+$/,
+    ),
+    observedAt: timestamp(projection.observedAt, "projection.observedAt"),
+  };
+  if (projection.operation === "upsert") {
+    if ("lastPublicUrl" in projection) {
+      fail(
+        "unknown_field",
+        "projection.lastPublicUrl",
+        "lastPublicUrl is valid only for delete projections.",
+      );
+    }
+    return {
+      ...base,
+      operation: "upsert",
+      document: parseDocumentV2(projection.document),
+    };
+  }
+  if (projection.operation === "delete") {
+    if (projection.document !== null) {
+      fail("invalid_delete", "projection.document", "Delete projections require document=null.");
+    }
+    return {
+      ...base,
+      operation: "delete",
+      document: null,
+      ...(projection.lastPublicUrl !== undefined
+        ? { lastPublicUrl: absoluteHttpUrl(projection.lastPublicUrl, "projection.lastPublicUrl") }
+        : {}),
+    };
+  }
+  return fail("invalid_operation", "projection.operation", "Unsupported desired operation.");
+}
+
+/** Parse either supported producer contract during the rolling upgrade. */
+export function parsePublicContentProjection(
+  value: unknown,
+  boundary?: KnowledgeSyncBoundary,
+): PublicContentProjection {
+  const schemaVersion = record(value, "projection").schemaVersion;
+  if (schemaVersion === KNOWLEDGE_SYNC_CONTRACT_VERSION) {
+    return parsePublicContentProjectionV1(value, boundary);
+  }
+  if (schemaVersion === KNOWLEDGE_SYNC_LOCALE_CONTRACT_VERSION) {
+    return parsePublicContentProjectionV2(value, boundary);
+  }
+  return fail("unsupported_schema", "projection.schemaVersion", "Unsupported contract version.");
 }
 
 export function parseKnowledgeSyncPolicyV1(value: unknown): KnowledgeSyncPolicyV1 {

@@ -139,7 +139,11 @@ function wp_remote_request(string $url, array $arguments): array
                 'product' => 'smartcloud-ai-kit-backend',
                 'release' => '1.0.75',
                 'apiSchemaVersion' => 7,
-                'capabilities' => array('knowledge.automation' => $capability_mode === 'v4' ? 4 : 5),
+                'capabilities' => array(
+                    'knowledge.automation' => $capability_mode === 'v4'
+                        ? 4
+                        : ($capability_mode === 'v5' ? 5 : 6),
+                ),
             ), JSON_THROW_ON_ERROR),
         );
     }
@@ -321,7 +325,16 @@ try {
 }
 transport_expect($v4_dispatch_rejected, 'Direct batch dispatch must also reject capability v4.');
 $capability_mode = 'v5';
-transport_expect(KnowledgeSyncTransport::create()->isContentDeliveryAvailable(), 'Capability v5 must enable authored-metadata delivery for enrolled sites.');
+transport_expect(!KnowledgeSyncTransport::create()->isContentDeliveryAvailable(), 'Capability v5 must not accept locale-aware content projections.');
+$v5_dispatch_rejected = false;
+try {
+    KnowledgeSyncTransport::create()->dispatchBatch(null, []);
+} catch (KnowledgeSyncTransportException $error) {
+    $v5_dispatch_rejected = $error->errorCode === 'backend_capability_unavailable';
+}
+transport_expect($v5_dispatch_rejected, 'Direct batch dispatch must reject capability v5 for locale-aware projections.');
+$capability_mode = 'verified';
+transport_expect(KnowledgeSyncTransport::create()->isContentDeliveryAvailable(), 'Capability v6 must enable locale-aware content delivery for enrolled sites.');
 $guard_requests = count($requests) - $before_guard_requests;
 $revoked = $transport->revoke();
 transport_expect($revoked['status'] === 'revoked', 'The current site key must be revocable over signed transport.');

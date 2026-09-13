@@ -85,3 +85,45 @@ test("all UI locales have full i18n key parity with en", () => {
     }
   }
 });
+
+const INFORMAL_ADDRESS_PATTERNS: Record<string, RegExp> = {
+  de: /(?<!\p{L})(?:du|dich|dir|dein(?:e|en|em|er|es)?|frag|fahre|versuche|melde|kontaktiere|warte|überprüfe)(?!\p{L})/iu,
+  es: /(?<!\p{L})(?:tú|tu|tus|te|quieres|verifica|pregúntame|haz|ayudarte|selecciona|escribe|inténtalo|tienes|inicia|contacta|espera|revisa|seas)(?!\p{L})/iu,
+  fr: /(?<!\p{L})(?:tu|toi|ta|tes|vérifie|réessaie|clique|sélectionne|saisis|connecte)(?!\p{L})/iu,
+  hu: /(?<!\p{L})(?:kérdezz|kattints|ellenőrizd|próbáld|jelentkezz|fordulj|várj|keresd|válassz|írj|írd|foglald|állítod|szöveged|jogosultságod|kapcsolatod)(?!\p{L})/iu,
+};
+
+test("customer-facing European locale catalogs avoid informal address", () => {
+  for (const [locale, pattern] of Object.entries(INFORMAL_ADDRESS_PATTERNS)) {
+    const entries = Object.entries(catalogs[locale] ?? {});
+    const informal = entries.filter(([, value]) => pattern.test(value));
+
+    assert.deepEqual(
+      informal,
+      [],
+      `Locale ${locale} contains informal customer address`,
+    );
+  }
+});
+
+test("English customer prompts remain neutral and professional", () => {
+  assert.equal(enDict["Ask anything…"], "Ask a question…");
+  assert.equal(enDict["Ask me"], "Ask");
+  assert.equal(enDict["I'm ready to assist you."], "Ready to assist.");
+  assert.equal(
+    enDict["No issues found. Your text looks great!"],
+    "No issues found. The text is ready.",
+  );
+});
+
+test("customer-facing action labels use the intended meaning", () => {
+  assert.equal(huDict.Show, "Megjelenítés");
+  assert.equal(huDict.Stop, "Leállítás");
+  assert.equal(deDict["Working…"], "Verarbeitung…");
+  assert.equal(esDict.Preview, "Vista previa");
+  assert.equal(esDict.Show, "Mostrar");
+  assert.equal(esDict.Translating, "Traducción");
+  assert.equal(frDict.Search, "Rechercher");
+  assert.equal(frDict.Show, "Afficher");
+  assert.equal(frDict.Type, "Type");
+});

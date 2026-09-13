@@ -6,6 +6,7 @@
   "title": "KB Section",
   "category": "smartcloud-ai-kit",
   "description": "Designate a section for Knowledge Base extraction",
+  "textdomain": "smartcloud-ai-kit",
   "supports": {
     "html": false,
     "align": true

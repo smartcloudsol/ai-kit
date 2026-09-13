@@ -567,6 +567,8 @@ export interface PromptArgs {
 export interface PromptResult {
   result: string;
   sessionId?: string;
+  /** Structured Knowledge Base citations returned by grounded chat requests. */
+  citations?: ProcessedCitations;
   metadata?: {
     messageId?: string;
     requestId?: string;
@@ -579,6 +581,9 @@ export interface PromptResult {
     kbId?: string;
     citationCount?: number;
     fallbackReason?: string;
+    requestedLocale?: string;
+    retrievalLocale?: string;
+    localeFallbackUsed?: boolean;
     usage?: {
       queryInputTokens?: number;
       queryOutputTokens?: number;
@@ -629,6 +634,9 @@ export interface SearchResult {
     kbId?: string;
     citationCount?: number;
     fallbackReason?: string;
+    requestedLocale?: string;
+    retrievalLocale?: string;
+    localeFallbackUsed?: boolean;
   };
 }
 
@@ -641,6 +649,12 @@ export interface SearchMessageArgs {
   sessionId?: string;
   /** Optional shared context (defaults to AiKit settings sharedContext). */
   sharedContext?: string;
+  /**
+   * Content locale used to select a single-language Knowledge Base corpus.
+   * Regional tags are normalized by the backend and fall back to English in a
+   * separate retrieval pass when the requested language has no useful result.
+   */
+  locale?: string;
   knowledgeBaseId?: string;
   /**
    * Optional on-device tuning:
@@ -661,6 +675,8 @@ export interface ChatMessageArgs {
   message?: string;
   audio?: Blob;
   sharedContext?: string;
+  /** Content locale used when the chatbot retrieves Knowledge Base context. */
+  locale?: string;
   images?: PromptImageInput[];
   /**
    * Optional on-device tuning:

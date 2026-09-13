@@ -9,8 +9,9 @@ import {
   TextControl,
   TextareaControl,
 } from "@wordpress/components";
+import { TEXT_DOMAIN } from "@smart-cloud/ai-kit-core";
 import { useEffect } from "@wordpress/element";
-import { __ } from "@wordpress/i18n";
+import { __, sprintf } from "@wordpress/i18n";
 import "./index.css";
 
 interface EditProps {
@@ -76,23 +77,23 @@ export default function Edit({
     <>
       <InspectorControls>
         <PanelBody
-          title={__("KB Section Settings", "smartcloud-ai-kit")}
+          title={__("KB Section Settings", TEXT_DOMAIN)}
           initialOpen={true}
         >
           <SelectControl
-            label={__("Mode", "smartcloud-ai-kit")}
+            label={__("Mode", TEXT_DOMAIN)}
             value={mode}
             options={[
               {
-                label: __("Inherit (part of base doc)", "smartcloud-ai-kit"),
+                label: __("Inherit (part of base doc)", TEXT_DOMAIN),
                 value: "inherit",
               },
               {
-                label: __("Separate Document", "smartcloud-ai-kit"),
+                label: __("Separate Document", TEXT_DOMAIN),
                 value: "separate_doc",
               },
               {
-                label: __("Exclude from KB", "smartcloud-ai-kit"),
+                label: __("Exclude from KB", TEXT_DOMAIN),
                 value: "exclude",
               },
             ]}
@@ -103,16 +104,16 @@ export default function Edit({
               mode === "inherit"
                 ? __(
                     "This section will be included in the base document",
-                    "smartcloud-ai-kit",
+                    TEXT_DOMAIN,
                   )
                 : mode === "separate_doc"
                 ? __(
                     "This section will be extracted as a separate document",
-                    "smartcloud-ai-kit",
+                    TEXT_DOMAIN,
                   )
                 : __(
                     "This section will be excluded from the knowledge base",
-                    "smartcloud-ai-kit",
+                    TEXT_DOMAIN,
                   )
             }
           />
@@ -120,48 +121,48 @@ export default function Edit({
           {mode === "separate_doc" && (
             <>
               <TextControl
-                label={__("Document Key", "smartcloud-ai-kit")}
+                label={__("Document Key", TEXT_DOMAIN)}
                 value={docKey || ""}
                 onChange={(value: string) => setAttributes({ docKey: value })}
                 help={__(
                   'Unique identifier for this document (e.g., "pricing", "faq")',
-                  "smartcloud-ai-kit",
+                  TEXT_DOMAIN,
                 )}
-                placeholder="e.g., pricing"
+                placeholder={__("e.g., pricing", TEXT_DOMAIN)}
               />
               <TextControl
-                label={__("Document Title", "smartcloud-ai-kit") + " *"}
+                label={__("Document Title", TEXT_DOMAIN) + " *"}
                 value={title || ""}
                 onChange={(value: string) => setAttributes({ title: value })}
                 help={__(
                   "Required: Title for this separate document",
-                  "smartcloud-ai-kit",
+                  TEXT_DOMAIN,
                 )}
-                placeholder="e.g., Pricing Information"
+                placeholder={__("e.g., Pricing Information", TEXT_DOMAIN)}
                 required
               />
               <TextareaControl
-                label={__("Document Description", "smartcloud-ai-kit")}
+                label={__("Document Description", TEXT_DOMAIN)}
                 value={description || ""}
                 onChange={(value: string) =>
                   setAttributes({ description: value })
                 }
                 help={__(
                   "Optional description stored in document metadata. Leave empty to fall back to the source post excerpt.",
-                  "smartcloud-ai-kit",
+                  TEXT_DOMAIN,
                 )}
                 placeholder={__(
                   "Short summary shown in Doc Search results...",
-                  "smartcloud-ai-kit",
+                  TEXT_DOMAIN,
                 )}
               />
               <TextControl
-                label={__("Source URL", "smartcloud-ai-kit")}
+                label={__("Source URL", TEXT_DOMAIN)}
                 value={postUrl || ""}
                 onChange={(value: string) => setAttributes({ postUrl: value })}
                 help={__(
                   "Optional URL stored in document metadata. Leave empty so separate documents can inherit the base document URL.",
-                  "smartcloud-ai-kit",
+                  TEXT_DOMAIN,
                 )}
                 placeholder="https://example.com/custom-page"
               />
@@ -169,69 +170,73 @@ export default function Edit({
           )}
 
           <TextControl
-            label={__("Section Key", "smartcloud-ai-kit")}
+            label={__("Section Key", TEXT_DOMAIN)}
             value={sectionKey || ""}
             onChange={(value: string) => setAttributes({ sectionKey: value })}
             help={__(
               "Optional: Custom section identifier. Defaults to block client ID.",
-              "smartcloud-ai-kit",
+              TEXT_DOMAIN,
             )}
-            placeholder={`Auto: ${clientId.substring(0, 8)}...`}
+            placeholder={sprintf(
+              /* translators: %s is the beginning of the generated block ID. */
+              __("Auto: %s…", TEXT_DOMAIN),
+              clientId.substring(0, 8),
+            )}
           />
         </PanelBody>
 
         {mode === "separate_doc" && (
           <PanelBody
-            title={__("Metadata Overrides", "smartcloud-ai-kit")}
+            title={__("Metadata Overrides", TEXT_DOMAIN)}
             initialOpen={false}
           >
             {mode !== "separate_doc" && (
               <TextControl
-                label={__("Title", "smartcloud-ai-kit")}
+                label={__("Title", TEXT_DOMAIN)}
                 value={title || ""}
                 onChange={(value: string) => setAttributes({ title: value })}
                 help={__(
                   "Override the title for this section",
-                  "smartcloud-ai-kit",
+                  TEXT_DOMAIN,
                 )}
               />
             )}
 
             <TextControl
-              label={__("Category", "smartcloud-ai-kit")}
+              label={__("Category", TEXT_DOMAIN)}
               value={category || ""}
               onChange={(value: string) => setAttributes({ category: value })}
               help={__(
                 "Override the category for this section",
-                "smartcloud-ai-kit",
+                TEXT_DOMAIN,
               )}
             />
 
             <TextControl
-              label={__("Subcategory", "smartcloud-ai-kit")}
+              label={__("Subcategory", TEXT_DOMAIN)}
               value={subcategory || ""}
               onChange={(value: string) =>
                 setAttributes({ subcategory: value })
               }
               help={__(
                 "Override the subcategory for this section",
-                "smartcloud-ai-kit",
+                TEXT_DOMAIN,
               )}
             />
 
             <TextareaControl
-              label={__("Tags", "smartcloud-ai-kit")}
+              label={__("Tags", TEXT_DOMAIN)}
               value={Array.isArray(tags) ? tags.join(", ") : ""}
               onChange={handleTagsChange}
               help={__(
                 "Comma-separated tags for this section",
-                "smartcloud-ai-kit",
+                TEXT_DOMAIN,
               )}
               placeholder="tag1, tag2, tag3"
             />
 
             <TextControl
-              label={__("Priority", "smartcloud-ai-kit")}
+              label={__("Priority", TEXT_DOMAIN)}
               type="number"
               value={priority?.toString() || ""}
               onChange={(value: string) =>
@@ -241,7 +246,7 @@ export default function Edit({
               }
               help={__(
                 "Optional: Sort order or importance ranking",
-                "smartcloud-ai-kit",
+                TEXT_DOMAIN,
               )}
             />
           </PanelBody>
@@ -253,10 +258,14 @@ export default function Edit({
           <span className="kb-section__icon">📚</span>
           <span className="kb-section__mode-badge">
             {mode === "inherit"
-              ? "Base Doc"
+              ? __("Base document", TEXT_DOMAIN)
               : mode === "separate_doc"
-              ? `Doc: ${docKey || "unnamed"}`
-              : "Excluded"}
+                ? sprintf(
+                    /* translators: %s is the Knowledge Base document key. */
+                    __("Document: %s", TEXT_DOMAIN),
+                    docKey || __("unnamed", TEXT_DOMAIN),
+                  )
+                : __("Excluded", TEXT_DOMAIN)}
           </span>
         </div>
         {innerBlocksProps.children}
