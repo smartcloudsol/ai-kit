@@ -38,11 +38,14 @@ final class KnowledgeSyncTestWpdb
     public string $prefix = 'wp_';
     /** @var list<array<int, mixed>> */
     public array $preparedArguments = [];
+    /** @var list<string> */
+    public array $preparedQueries = [];
     public int $queryCount = 0;
 
     public function prepare(string $query, mixed ...$arguments): string
     {
         $this->preparedArguments[] = $arguments;
+        $this->preparedQueries[] = $query;
         return $query;
     }
 
@@ -51,6 +54,24 @@ final class KnowledgeSyncTestWpdb
         unset($query);
         $this->queryCount++;
         return 1;
+    }
+
+    public function get_row(string $query): ?object
+    {
+        unset($query);
+        return null;
+    }
+
+    public function get_col(string $query): array
+    {
+        unset($query);
+        return [];
+    }
+
+    public function get_results(string $query): array
+    {
+        unset($query);
+        return $GLOBALS['test_db_results'] ?? [];
     }
 }
 
@@ -63,6 +84,9 @@ $post_type_objects = [
 $posts = [];
 $taxonomy_terms = [];
 $wpdb = new KnowledgeSyncTestWpdb();
+$cron_schedule = false;
+$cron_next = false;
+$cron_clear_count = 0;
 
 function expect(bool $condition, string $message): void
 {
@@ -82,6 +106,13 @@ function update_option(string $name, mixed $value, ?bool $autoload = null): bool
     global $options;
     unset($autoload);
     $options[$name] = $value;
+    return true;
+}
+
+function delete_option(string $name): bool
+{
+    global $options;
+    unset($options[$name]);
     return true;
 }
 
@@ -114,6 +145,59 @@ function add_action(string $hook, callable $callback, int $priority = 10, int $a
 function do_action(string $hook, mixed ...$args): void
 {
     unset($hook, $args);
+}
+
+function apply_filters(string $hook, mixed $value, mixed ...$args): mixed
+{
+    unset($hook);
+    $state = $GLOBALS['release_gate_provider_state'] ?? $value;
+    $query = is_array($args[0] ?? null) ? $args[0] : [];
+    if (is_array($state) && is_string($query['consumerId'] ?? null)) {
+        $state['verifiedReleases'] = array_values(array_filter(
+            $state['verifiedReleases'] ?? [],
+            static fn(array $release): bool => ($release['consumerId'] ?? '') === $query['consumerId']
+        ));
+    }
+    return $state;
+}
+
+function __(string $text, string $domain = 'default'): string
+{
+    unset($domain);
+    return $text;
+}
+
+function wp_get_schedule(string $hook, array $args = array()): string|false
+{
+    global $cron_schedule;
+    unset($hook, $args);
+    return $cron_schedule;
+}
+
+function wp_next_scheduled(string $hook, array $args = array()): int|false
+{
+    global $cron_next;
+    unset($hook, $args);
+    return $cron_next;
+}
+
+function wp_schedule_event(int $timestamp, string $recurrence, string $hook, array $args = array()): bool
+{
+    global $cron_schedule, $cron_next;
+    unset($hook, $args);
+    $cron_schedule = $recurrence;
+    $cron_next = $timestamp;
+    return true;
+}
+
+function wp_clear_scheduled_hook(string $hook, array $args = array(), bool $wp_error = false): int|false
+{
+    global $cron_schedule, $cron_next, $cron_clear_count;
+    unset($hook, $args, $wp_error);
+    $cron_schedule = false;
+    $cron_next = false;
+    $cron_clear_count++;
+    return 1;
 }
 
 function wp_json_encode(mixed $value, int $flags = 0): string|false
@@ -248,6 +332,25 @@ expect($strict_policy_rejected, 'Policy input must reject caller-selected storag
 
 $settings = new KnowledgeSyncSettingsStore();
 expect($settings->get()['includeSubsites'] === false, 'Subsite following must default to disabled.');
+expect($settings->get()['syncIntervalMinutes'] === 5, 'Knowledge sync must preserve the five-minute default interval.');
+$saved_settings = $settings->save(['syncIntervalMinutes' => 60]);
+expect($saved_settings['syncIntervalMinutes'] === 60, 'Knowledge sync interval must be configurable in minutes.');
+$saved_settings = $settings->save(['syncIntervalMinutes' => 2000]);
+expect($saved_settings['syncIntervalMinutes'] === 1440, 'Knowledge sync interval must be bounded to one day.');
+$settings->save(['syncIntervalMinutes' => 60]);
+$runtime = new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRuntime();
+$cron_schedules = $runtime->addCronSchedule(array());
+expect(
+    ($cron_schedules['smartcloud_ai_kit_knowledge_sync_60_minutes']['interval'] ?? 0) === 3600,
+    'The configured interval must be registered as the WordPress cron recurrence.'
+);
+$runtime->ensureScheduled();
+expect($cron_schedule === 'smartcloud_ai_kit_knowledge_sync_60_minutes', 'The runner must use the configured recurrence.');
+expect(is_int($cron_next) && $cron_next >= time() + 3599, 'The first automatic run must wait for the configured interval.');
+$settings->save(['syncIntervalMinutes' => 120]);
+$runtime->ensureScheduled();
+expect($cron_clear_count === 1, 'Changing the interval must clear the previous recurrence.');
+expect($cron_schedule === 'smartcloud_ai_kit_knowledge_sync_120_minutes', 'Changing the interval must reschedule the runner.');
 $subsite_setting_rejected = false;
 try {
     $settings->save(['includeSubsites' => true]);
@@ -393,5 +496,123 @@ $posts[42] = $published;
 $policies->saveForPostType('post', ['enabled' => false]);
 $capture->onBaseMetadataChanged(42, 'post-42/base', 'main');
 expect($wpdb->queryCount === $before_queries, 'Separate documents, drafts, private types and disabled policies must not enqueue base sync.');
+
+$invalid_gate_rejected = false;
+try {
+    $settings->save(['publicReleaseGate' => 'unknown-provider']);
+} catch (InvalidArgumentException) {
+    $invalid_gate_rejected = true;
+}
+expect($invalid_gate_rejected, 'Unknown public release gate providers must be rejected.');
+
+$before_queries = $wpdb->queryCount;
+$gated_settings = $settings->save(['publicReleaseGate' => 'static-publisher']);
+expect($gated_settings['publicReleaseGate'] === 'static-publisher', 'Static Publisher release gating must be explicitly selectable.');
+expect($wpdb->queryCount === $before_queries + 1, 'Enabling the gate must fail-close already-active outbox rows.');
+$transition_query = end($wpdb->preparedQueries);
+expect(str_contains($transition_query, "WHERE state <> 'complete'"), 'The enable transition must preserve completed rows.');
+expect(str_contains($transition_query, 'desired_publisher_sequence = NULL'), 'The enable transition must await an authoritative cutoff.');
+
+$GLOBALS['release_gate_provider_state'] = [
+    'contractVersion' => 1,
+    'provider' => 'smartcloud-static-publisher',
+    'available' => true,
+    'configuredConsumerIds' => ['content-sync:production'],
+    'lastPostEventSequence' => 73,
+    'verifiedReleases' => [[
+        'consumerId' => 'content-sync:production',
+        'rootBlogId' => 1,
+        'includeSubsites' => false,
+        'scopeFingerprint' => str_repeat('a', 64),
+        'baselineId' => str_repeat('b', 64),
+        'committedSequence' => 70,
+        'postTypes' => ['post'],
+        'acknowledgedGmt' => '2026-09-14T08:00:00Z',
+    ]],
+];
+$release_cursor = (object) [
+    'consumer_id' => 'content-sync:production',
+    'scope_fingerprint' => str_repeat('a', 64),
+    'baseline_id' => str_repeat('b', 64),
+    'verified_sequence' => 70,
+];
+$gate_class = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::class;
+expect(
+    $gate_class::postCoveredByCursor(1, 'post', 42, $release_cursor) === false,
+    'A post journaled after the verified publish cursor must not enter the baseline early.'
+);
+$GLOBALS['release_gate_provider_state']['lastPostEventSequence'] = 69;
+expect(
+    $gate_class::postCoveredByCursor(1, 'post', 42, $release_cursor) === true,
+    'A post at or before the verified publish cursor may enter the baseline.'
+);
+$GLOBALS['release_gate_provider_state']['lastPostEventSequence'] = 0;
+expect(
+    $gate_class::postCoveredByCursor(1, 'post', 42, $release_cursor) === true,
+    'A post predating the retained journal is covered by the verified full baseline.'
+);
+$GLOBALS['release_gate_provider_state']['lastPostEventSequence'] = 73;
+$policies->saveForPostType('post', ['enabled' => true, 'reviewPolicy' => 'wordpress-publish-is-approval']);
+$capture->onAfterInsertPost(42, $published, true, $published);
+$gated_args = end($wpdb->preparedArguments);
+expect($gated_args[10] === 1, 'Content-bound work must record that public release eligibility is required.');
+expect($gated_args[11] === 'content-sync:production', 'Desired work must bind to the selected publisher consumer.');
+expect($gated_args[12] === '73', 'Desired work must retain the publisher journal sequence.');
+
+$GLOBALS['release_gate_provider_state']['verifiedReleases'][] = array_merge(
+    $GLOBALS['release_gate_provider_state']['verifiedReleases'][0],
+    ['consumerId' => 'content-sync:staging']
+);
+$GLOBALS['release_gate_provider_state']['configuredConsumerIds'][] = 'content-sync:staging';
+$capture->onAfterInsertPost(42, $published, true, $published);
+$ambiguous_args = end($wpdb->preparedArguments);
+expect($ambiguous_args[11] === '' && $ambiguous_args[12] === '', 'Ambiguous publisher consumers must fail closed.');
+
+$capture->onBaseMetadataChanged(42, 'post-42/base', 'main');
+$metadata_args = end($wpdb->preparedArguments);
+expect($metadata_args[10] === 0, 'AI-only metadata for an existing public URL may remain ungated.');
+
+$outbox->claimBatch(25, 300, 'gate-test', null, null, true);
+$claim_query = end($wpdb->preparedQueries);
+expect(str_contains($claim_query, 'rc.consumer_id = o.desired_publisher_consumer_id'), 'A gated claim must bind its cutoff to the exact publisher consumer.');
+expect(str_contains($claim_query, 'rc.verified_sequence >= o.desired_publisher_sequence'), 'A gated claim must require a verified cutoff at or beyond the desired event.');
+
+$GLOBALS['release_gate_provider_state']['verifiedReleases'] = [
+    $GLOBALS['release_gate_provider_state']['verifiedReleases'][0],
+];
+$GLOBALS['release_gate_provider_state']['configuredConsumerIds'] = ['content-sync:production'];
+$gate_state = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::refresh(1, ['post']);
+expect($gate_state['configured'] === true, 'Exactly one verified consumer covering the complete policy scope must configure the gate.');
+$GLOBALS['release_gate_provider_state']['verifiedReleases'][] = array_merge(
+    $GLOBALS['release_gate_provider_state']['verifiedReleases'][0],
+    ['consumerId' => 'content-sync:staging']
+);
+$GLOBALS['release_gate_provider_state']['configuredConsumerIds'][] = 'content-sync:staging';
+\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::clearSelection();
+$gate_state = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::refresh(1, ['post']);
+expect($gate_state['configured'] === false, 'Multiple unselected consumers covering the same scope must fail closed.');
+expect($gate_state['reason'] === 'ambiguous-content-sync-consumer', 'Ambiguous coverage must expose an actionable status reason.');
+unset($GLOBALS['release_gate_provider_state']['configuredConsumerIds']);
+$gate_state = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::refresh(1, ['post']);
+expect($gate_state['configured'] === false, 'An older provider without active-consumer discovery must fail closed.');
+expect($gate_state['reason'] === 'provider-release-contract-incomplete', 'An incomplete provider contract must be visible in status.');
+$GLOBALS['release_gate_provider_state']['configuredConsumerIds'] = [];
+$gate_state = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::refresh(1, ['post']);
+expect($gate_state['reason'] === 'content-sync-consumer-not-configured', 'An empty active-consumer list must report missing content-sync configuration.');
+
+$GLOBALS['test_db_results'] = [(object) [
+    'blog_id' => 1,
+    'post_type' => 'post',
+    'consumer_id' => 'content-sync:production',
+]];
+\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::selectConsumer('content-sync:production');
+$GLOBALS['release_gate_provider_state']['configuredConsumerIds'] = ['content-sync:staging'];
+$gate_state = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::refresh(1, ['post']);
+expect($gate_state['configured'] === false, 'Removing the selected active consumer must fail closed.');
+expect($gate_state['reason'] === 'selected-consumer-no-longer-configured', 'A removed selection must expose its dedicated status reason.');
+$GLOBALS['test_db_results'] = [];
+$gate_state = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPublicReleaseGate::refresh(1, ['post']);
+expect($gate_state['reason'] === 'selected-consumer-no-longer-configured', 'A removed selection must not fall back to another historical consumer on a later run.');
+unset($GLOBALS['test_db_results']);
 
 echo "Knowledge-sync policy and outbox capture tests passed.\n";

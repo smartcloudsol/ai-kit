@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.25
+Stable tag: 1.4.26
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,13 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.4.26 =
+* Knowledge Sync scheduling: Configure how often WordPress sends queued content changes to the Knowledge Base backend, from 5 minutes to 24 hours; changing the interval automatically replaces the previous WP-Cron recurrence.
+* Optional public release gate: Sites using Static Publisher can hold content-bound Knowledge Sync work until a verified publish baseline or targeted content-sync acknowledgement covers the corresponding journal sequence. Directly served WordPress sites keep the existing periodic behavior by default.
+* Release safety: Bind baseline, queued, and leased changes to one exact Static Publisher consumer and revalidate its committed sequence before delivery; posts newer than the verified publish cursor wait for the next release, while unavailable, incomplete, or ambiguous publisher configuration fails closed without making Static Publisher a required dependency.
+* Operational status: Explain source verification, tombstones, local baselines, outbox work, vocabulary state, and WordPress versus Bedrock processing directly in the admin UI.
+* Ingestion counters: Identify committed/requested generation values as coordination counters rather than document totals, avoiding confusion with S3 and Bedrock document counts.
 
 = 1.4.25 =
 * Knowledge Base localization: Synchronize each WordPress language mutation as an independently searchable document with its normalized locale and localized URL, title, and excerpt.
@@ -524,6 +531,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.4.26 =
+The optional Static Publisher release gate requires Static Publisher 1.0.20 and one content-sync rule covering every enabled Knowledge Sync content type. Leave the gate disabled when WordPress itself is public. After enabling it, complete one successful publish to bind the verified public target; unreleased work remains queued until then.
 
 = 1.4.25 =
 Requires AI Kit backend 1.0.91 with API schema 12 and knowledge.automation capability 6. Run a Knowledge Base baseline synchronization after upgrading so existing WordPress documents receive locale metadata and language-specific document IDs.

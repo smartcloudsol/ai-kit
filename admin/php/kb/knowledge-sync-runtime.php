@@ -69,7 +69,7 @@ final class KnowledgeSyncSettingsStore
 {
     public const OPTION_NAME = 'smartcloud_ai_kit_kb_sync_settings';
 
-    /** @return array{includeSubsites:bool,baselinePageSize:int,transportBatchSize:int,backendBaseUrl:string,keyStorageMode:string,environment:string} */
+    /** @return array{includeSubsites:bool,baselinePageSize:int,transportBatchSize:int,syncIntervalMinutes:int,publicReleaseGate:string,backendBaseUrl:string,keyStorageMode:string,environment:string} */
     public function get(): array
     {
         $stored = get_option(self::OPTION_NAME, array());
@@ -81,6 +81,8 @@ final class KnowledgeSyncSettingsStore
             'includeSubsites' => is_multisite() && !empty($stored['includeSubsites']),
             'baselinePageSize' => max(10, min(200, absint($stored['baselinePageSize'] ?? 50))),
             'transportBatchSize' => max(1, min(100, absint($stored['transportBatchSize'] ?? 25))),
+            'syncIntervalMinutes' => max(5, min(1440, absint($stored['syncIntervalMinutes'] ?? 5))),
+            'publicReleaseGate' => $this->normalizePublicReleaseGate($stored['publicReleaseGate'] ?? 'disabled'),
             'backendBaseUrl' => $this->normalizeBackendBaseUrl($stored['backendBaseUrl'] ?? ''),
             'keyStorageMode' => $this->normalizeKeyStorageMode($stored['keyStorageMode'] ?? 'disabled'),
             'environment' => $this->normalizeEnvironment($stored['environment'] ?? 'prod'),
@@ -88,7 +90,7 @@ final class KnowledgeSyncSettingsStore
     }
 
     /** @param array<string, mixed> $settings
-     *  @return array{includeSubsites:bool,baselinePageSize:int,transportBatchSize:int,backendBaseUrl:string,keyStorageMode:string,environment:string}
+     *  @return array{includeSubsites:bool,baselinePageSize:int,transportBatchSize:int,syncIntervalMinutes:int,publicReleaseGate:string,backendBaseUrl:string,keyStorageMode:string,environment:string}
      */
     public function save(array $settings): array
     {
@@ -98,6 +100,8 @@ final class KnowledgeSyncSettingsStore
                 'includeSubsites',
                 'baselinePageSize',
                 'transportBatchSize',
+                'syncIntervalMinutes',
+                'publicReleaseGate',
                 'backendBaseUrl',
                 'keyStorageMode',
                 'environment',
@@ -114,17 +118,38 @@ final class KnowledgeSyncSettingsStore
             'includeSubsites' => is_multisite() && !empty($settings['includeSubsites']),
             'baselinePageSize' => max(10, min(200, absint($settings['baselinePageSize'] ?? 50))),
             'transportBatchSize' => max(1, min(100, absint($settings['transportBatchSize'] ?? 25))),
+            'syncIntervalMinutes' => max(5, min(1440, absint($settings['syncIntervalMinutes'] ?? 5))),
+            'publicReleaseGate' => $this->normalizePublicReleaseGate(
+                $settings['publicReleaseGate'] ?? $previous['publicReleaseGate']
+            ),
             'backendBaseUrl' => $this->normalizeBackendBaseUrl($settings['backendBaseUrl'] ?? ''),
             'keyStorageMode' => $this->normalizeKeyStorageMode($settings['keyStorageMode'] ?? 'disabled'),
             'environment' => $this->normalizeEnvironment($settings['environment'] ?? 'prod'),
         );
         update_option(self::OPTION_NAME, $normalized, false);
+        if (
+            $previous['publicReleaseGate'] === 'disabled' &&
+            $normalized['publicReleaseGate'] === 'static-publisher' &&
+            class_exists(KnowledgeSyncOutboxRepository::class)
+        ) {
+            KnowledgeSyncPublicReleaseGate::clearSelection();
+            (new KnowledgeSyncOutboxRepository())->requireReleaseForActiveRows();
+        }
         if ($previous['backendBaseUrl'] !== $normalized['backendBaseUrl']) {
             KnowledgeSyncVocabularyService::invalidate();
         }
         do_action('smartcloud_ai_kit_knowledge_sync_settings_changed', $normalized);
 
         return $normalized;
+    }
+
+    private function normalizePublicReleaseGate(mixed $value): string
+    {
+        $mode = is_string($value) ? $value : 'disabled';
+        if (!in_array($mode, array('disabled', 'static-publisher'), true)) {
+            throw new \InvalidArgumentException('Unsupported public release gate.');
+        }
+        return $mode;
     }
 
     private function canIncludeSubsites(): bool
@@ -339,7 +364,11 @@ final class KnowledgeSyncBaselineService
 
     public static function serializerFingerprint(): string
     {
-        return hash('sha256', self::SERIALIZER_VERSION . ':' . KnowledgeSyncDocumentMetadata::baseUrlOverride());
+        $contract = self::SERIALIZER_VERSION . ':' . KnowledgeSyncDocumentMetadata::baseUrlOverride();
+        if (KnowledgeSyncPublicReleaseGate::enabled()) {
+            $contract .= ':static-publisher-release-gate-v1';
+        }
+        return hash('sha256', $contract);
     }
 
     public function __construct(
@@ -359,6 +388,23 @@ final class KnowledgeSyncBaselineService
 
         $blog_id = get_current_blog_id();
         $consumer_id = 'wordpress-blog-' . $blog_id;
+        $publisher_sequence = null;
+        $publisher_consumer_id = null;
+        if (KnowledgeSyncPublicReleaseGate::enabled()) {
+            $publisher_cursor = (new KnowledgeSyncReleaseCursorRepository())->verifiedCursor(
+                $blog_id,
+                $post_type
+            );
+            if ($publisher_cursor === null) {
+                return array(
+                    'status' => 'waiting-public-release',
+                    'processed' => 0,
+                    'postType' => $post_type,
+                );
+            }
+            $publisher_sequence = (int) $publisher_cursor->verified_sequence;
+            $publisher_consumer_id = (string) $publisher_cursor->consumer_id;
+        }
         $serializer_fingerprint = self::serializerFingerprint();
         $policy_fingerprint = $this->policies->fingerprint($policy);
         $baseline = $this->baselines->ensure(
@@ -393,6 +439,25 @@ final class KnowledgeSyncBaselineService
             if (!$post instanceof \WP_Post || $post->post_status !== 'publish') {
                 continue;
             }
+            if ($publisher_cursor !== null) {
+                $covered_by_release = KnowledgeSyncPublicReleaseGate::postCoveredByCursor(
+                    $blog_id,
+                    $post_type,
+                    $post_id,
+                    $publisher_cursor
+                );
+                if ($covered_by_release === null) {
+                    return array(
+                        'status' => 'waiting-public-release',
+                        'processed' => 0,
+                        'postType' => $post_type,
+                    );
+                }
+                if (!$covered_by_release) {
+                    $cursor = max($cursor, $post_id);
+                    continue;
+                }
+            }
             $manual_review = $policy['reviewPolicy'] === 'manual-kb-review';
             $url = get_permalink($post);
             $this->outbox->enqueue(
@@ -403,7 +468,10 @@ final class KnowledgeSyncBaselineService
                 wp_generate_uuid4(),
                 $manual_review ? 'blocked' : 'pending',
                 is_string($url) && !str_contains($url, '__trashed') ? $url : null,
-                $manual_review ? 'manual_review_required' : null
+                $manual_review ? 'manual_review_required' : null,
+                KnowledgeSyncPublicReleaseGate::enabled(),
+                $publisher_consumer_id,
+                $publisher_sequence
             );
             $cursor = max($cursor, $post_id);
         }
@@ -555,6 +623,13 @@ final class KnowledgeSyncProjectionBuilder
         }
 
         $resolved_metadata = KnowledgeSyncDocumentMetadata::resolve($post);
+        if (
+            !empty($lease->publisher_gate_required) &&
+            is_string($lease->last_public_url ?? null) &&
+            $lease->last_public_url !== ''
+        ) {
+            $resolved_metadata['canonicalUrl'] = $lease->last_public_url;
+        }
         $title = $resolved_metadata['title'];
         if ($title === '') {
             $title = sprintf('Untitled WordPress source %d', (int) $post->ID);
@@ -942,7 +1017,7 @@ final class KnowledgeSyncRuntime
 {
     public const CRON_HOOK = 'smartcloud_ai_kit_knowledge_sync_tick';
     public const LAST_RUN_OPTION = 'smartcloud_ai_kit_kb_sync_last_run';
-    private const CRON_SCHEDULE = 'smartcloud_ai_kit_five_minutes';
+    private const CRON_SCHEDULE_PREFIX = 'smartcloud_ai_kit_knowledge_sync_';
     private const DRIFT_CHECK_OPTION = 'smartcloud_ai_kit_kb_sync_last_drift_check';
     private const DRIFT_CURSOR_OPTION = 'smartcloud_ai_kit_kb_sync_drift_cursor';
     private const MASS_DELETE_MINIMUM = 10;
@@ -955,6 +1030,88 @@ final class KnowledgeSyncRuntime
         add_action(self::CRON_HOOK, array($this, 'run'));
         add_action('smartcloud_ai_kit_knowledge_sync_policy_changed', array($this, 'onPolicyChanged'), 10, 3);
         add_action('smartcloud_ai_kit_knowledge_sync_settings_changed', array($this, 'ensureScheduled'));
+        add_action(KnowledgeSyncPublicReleaseGate::RELEASE_ACTION, array($this, 'onPublicRelease'), 10, 1);
+    }
+
+    /** @param array<string, mixed> $receipt */
+    public function onPublicRelease(array $receipt): void
+    {
+        if (!KnowledgeSyncPublicReleaseGate::enabled()) {
+            return;
+        }
+        $receipt_consumer = is_string($receipt['consumerId'] ?? null) ? trim($receipt['consumerId']) : '';
+        $scope_fingerprint = is_string($receipt['scopeFingerprint'] ?? null) ? trim($receipt['scopeFingerprint']) : '';
+        $baseline_id = is_string($receipt['baselineId'] ?? null) ? trim($receipt['baselineId']) : '';
+        if (
+            (int) ($receipt['contractVersion'] ?? 0) !== 1 ||
+            !in_array($receipt['releaseType'] ?? '', array('baseline', 'acknowledgement'), true) ||
+            $receipt_consumer === '' ||
+            preg_match('/^[A-Za-z0-9._:-]+$/', $receipt_consumer) !== 1 ||
+            $scope_fingerprint === '' ||
+            preg_match('/^[A-Za-z0-9._:-]+$/', $scope_fingerprint) !== 1 ||
+            $baseline_id === '' ||
+            preg_match('/^[A-Za-z0-9._:-]+$/', $baseline_id) !== 1 ||
+            !is_numeric($receipt['committedSequence'] ?? null) ||
+            !is_array($receipt['postTypes'] ?? null)
+        ) {
+            return;
+        }
+        $root_blog_id = isset($receipt['rootBlogId']) ? absint($receipt['rootBlogId']) : get_current_blog_id();
+        if ($root_blog_id < 1) {
+            return;
+        }
+        $blog_ids = array($root_blog_id);
+        if (!empty($receipt['includeSubsites']) && is_multisite() && function_exists('get_sites')) {
+            $blog_ids = array_values(array_unique(array_map('intval', get_sites(array(
+                'fields' => 'ids',
+                'number' => 0,
+                'deleted' => 0,
+                'archived' => 0,
+                'spam' => 0,
+            )))));
+        }
+        $original_blog_id = get_current_blog_id();
+        $accepted = false;
+        foreach ($blog_ids as $blog_id) {
+            $switched = is_multisite() && $blog_id !== get_current_blog_id();
+            if ($switched) {
+                switch_to_blog($blog_id);
+            }
+            $enabled_post_types = array_keys(array_filter(
+                (new KnowledgeSyncPolicyStore())->getAll(),
+                static fn(array $policy): bool =>
+                    !empty($policy['enabled']) && $policy['reviewPolicy'] !== 'disabled'
+            ));
+            $receipt_post_types = array_values(array_unique(array_filter(array_map(
+                static fn(mixed $post_type): string => sanitize_key((string) $post_type),
+                (array) ($receipt['postTypes'] ?? array())
+            ))));
+            $receipt_covers_scope =
+                KnowledgeSyncPublicReleaseGate::releaseCoversBlog($receipt, $blog_id) &&
+                $enabled_post_types !== array() &&
+                array_diff($enabled_post_types, $receipt_post_types) === array();
+            $gate = $receipt_covers_scope
+                ? KnowledgeSyncPublicReleaseGate::refresh($blog_id, $enabled_post_types)
+                : array('configured' => false);
+            if (($gate['reason'] ?? null) === 'selected-consumer-no-longer-configured') {
+                KnowledgeSyncPublicReleaseGate::clearSelection();
+                $gate = KnowledgeSyncPublicReleaseGate::refresh($blog_id, $enabled_post_types);
+            }
+            if (!empty($gate['configured']) && ($gate['consumerId'] ?? '') === $receipt_consumer) {
+                $accepted = true;
+            }
+            if ($switched) {
+                restore_current_blog();
+            }
+        }
+        if (is_multisite() && get_current_blog_id() !== $original_blog_id) {
+            while (ms_is_switched()) {
+                restore_current_blog();
+            }
+        }
+        if ($accepted && function_exists('wp_schedule_single_event')) {
+            wp_schedule_single_event(time() + 1, self::CRON_HOOK);
+        }
     }
 
     /** @param array<string, array<string, int|string>> $schedules
@@ -962,9 +1119,13 @@ final class KnowledgeSyncRuntime
      */
     public function addCronSchedule(array $schedules): array
     {
-        $schedules[self::CRON_SCHEDULE] = array(
-            'interval' => 300,
-            'display' => __('Every five minutes (AI Kit knowledge sync)', 'smartcloud-ai-kit'),
+        $minutes = (new KnowledgeSyncSettingsStore())->get()['syncIntervalMinutes'];
+        $schedules[$this->cronScheduleName($minutes)] = array(
+            'interval' => $minutes * 60,
+            'display' => sprintf(
+                __('Every %d minutes (AI Kit knowledge sync)', 'smartcloud-ai-kit'),
+                $minutes
+            ),
         );
         return $schedules;
     }
@@ -975,9 +1136,20 @@ final class KnowledgeSyncRuntime
             wp_clear_scheduled_hook(self::CRON_HOOK);
             return;
         }
-        if (!wp_next_scheduled(self::CRON_HOOK)) {
-            wp_schedule_event(time() + 60, self::CRON_SCHEDULE, self::CRON_HOOK);
+        $minutes = (new KnowledgeSyncSettingsStore())->get()['syncIntervalMinutes'];
+        $schedule = $this->cronScheduleName($minutes);
+        $current_schedule = wp_get_schedule(self::CRON_HOOK);
+        if (is_string($current_schedule) && $current_schedule !== $schedule) {
+            wp_clear_scheduled_hook(self::CRON_HOOK);
         }
+        if (!wp_next_scheduled(self::CRON_HOOK)) {
+            wp_schedule_event(time() + ($minutes * 60), $schedule, self::CRON_HOOK);
+        }
+    }
+
+    private function cronScheduleName(int $minutes): string
+    {
+        return self::CRON_SCHEDULE_PREFIX . $minutes . '_minutes';
     }
 
     /** @param array<string, mixed> $policy
@@ -1029,6 +1201,22 @@ final class KnowledgeSyncRuntime
                     }
                     $policies = new KnowledgeSyncPolicyStore();
                     $settings = (new KnowledgeSyncSettingsStore())->get();
+                    $enabled_post_types = array_keys(array_filter(
+                        $policies->getAll(),
+                        static fn(array $policy): bool =>
+                            !empty($policy['enabled']) && $policy['reviewPolicy'] !== 'disabled'
+                    ));
+                    if (KnowledgeSyncPublicReleaseGate::enabled()) {
+                        $gate = KnowledgeSyncPublicReleaseGate::refresh($blog_id, $enabled_post_types);
+                        if (empty($gate['available']) || empty($gate['configured'])) {
+                            $results[] = array(
+                                'blogId' => $blog_id,
+                                'status' => 'waiting-public-release',
+                                'errorCode' => (string) ($gate['reason'] ?? 'verified-release-required'),
+                            );
+                            continue;
+                        }
+                    }
                     $service = new KnowledgeSyncBaselineService(
                         $policies,
                         new KnowledgeSyncOutboxRepository(),
@@ -1217,7 +1405,8 @@ final class KnowledgeSyncRuntime
 
         $lease_owner = wp_generate_uuid4();
         $outbox = new KnowledgeSyncOutboxRepository();
-        $leases = $outbox->claimBatch($batch_size, 300, $lease_owner);
+        $release_gate = KnowledgeSyncPublicReleaseGate::enabled();
+        $leases = $outbox->claimBatch($batch_size, 300, $lease_owner, null, null, $release_gate);
         if ($leases === array()) {
             return array('status' => 'outbox-idle', 'processed' => 0);
         }
@@ -1257,6 +1446,11 @@ final class KnowledgeSyncRuntime
         $processed = 0;
         foreach ($leases as $lease) {
             try {
+                if (!$outbox->leaseIsCurrentAndEligible((int) $lease->id, $lease_owner, $release_gate)) {
+                    $outbox->retryLease((int) $lease->id, $lease_owner, 'release_gate_changed');
+                    $processed++;
+                    continue;
+                }
                 $projection = $builder->build($lease);
                 $encoded = wp_json_encode($projection, JSON_UNESCAPED_SLASHES);
                 if (!is_string($encoded)) {
@@ -1293,6 +1487,18 @@ final class KnowledgeSyncRuntime
 
         if ($projections === array()) {
             return array('status' => 'projection-failed', 'processed' => $processed);
+        }
+
+        foreach (array_keys($projections) as $outbox_id) {
+            if ($outbox->leaseIsCurrentAndEligible($outbox_id, $lease_owner, $release_gate)) {
+                continue;
+            }
+            unset($projections[$outbox_id], $fingerprints[$outbox_id], $reviewed_delete_generations[$outbox_id]);
+            $outbox->retryLease($outbox_id, $lease_owner, 'release_gate_changed');
+            $processed++;
+        }
+        if ($projections === array()) {
+            return array('status' => 'release-gate-changed', 'processed' => $processed);
         }
 
         try {
