@@ -1014,6 +1014,12 @@ class Admin
     public function restGetKnowledgeSyncStatus(): \WP_REST_Response
     {
         $post_types = array();
+        $release_gate_post_types = array();
+        foreach ($this->knowledge_sync_policies->getAll() as $post_type => $policy) {
+            if (!empty($policy['enabled']) && $policy['reviewPolicy'] !== 'disabled') {
+                $release_gate_post_types[] = $post_type;
+            }
+        }
         foreach (get_post_types(array('public' => true, 'show_ui' => true), 'objects') as $post_type) {
             if (
                 !$post_type instanceof \WP_Post_Type ||
@@ -1057,6 +1063,7 @@ class Admin
             'baselines' => $this->knowledge_sync_baselines->listAll(),
             'outbox' => $this->knowledge_sync_outbox->counts(),
             'blockedReasons' => $this->knowledge_sync_outbox->blockedReasonCounts(),
+            'publicReleaseGate' => KnowledgeSyncPublicReleaseGate::status($release_gate_post_types),
             'lastRun' => get_option(KnowledgeSyncRuntime::LAST_RUN_OPTION, null),
             'vocabulary' => get_option('smartcloud_ai_kit_kb_sync_vocabulary_state', null),
             'nextRunGmt' => ($timestamp = wp_next_scheduled(KnowledgeSyncRuntime::CRON_HOOK))

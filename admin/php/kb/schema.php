@@ -119,6 +119,11 @@ class Schema
             reviewed_generation BIGINT UNSIGNED NULL,
             leased_generation BIGINT UNSIGNED NULL,
             leased_operation VARCHAR(10) NULL,
+            publisher_gate_required TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
+            desired_publisher_consumer_id VARCHAR(190) NULL,
+            desired_publisher_sequence BIGINT UNSIGNED NULL,
+            leased_publisher_consumer_id VARCHAR(190) NULL,
+            leased_publisher_sequence BIGINT UNSIGNED NULL,
             source_sequence BIGINT UNSIGNED NOT NULL DEFAULT 1,
             source_version VARCHAR(32) NOT NULL,
             leased_source_version VARCHAR(32) NULL,
@@ -182,6 +187,24 @@ class Schema
             KEY ix_status (status, recorded_gmt)
         ) $charset_collate;";
 
+        // Table 9: kb_sync_release_cursors. This is an AI Kit-owned cache of
+        // verified Static Publisher receipts. Consumer-bound post-type rows
+        // keep outbox eligibility independent from request-local hooks
+        // and allows recovery after either plugin was temporarily inactive.
+        $sql_sync_release_cursors = "CREATE TABLE {$prefix}kb_sync_release_cursors (
+            blog_id BIGINT UNSIGNED NOT NULL,
+            post_type VARCHAR(50) NOT NULL,
+            consumer_id VARCHAR(190) NOT NULL,
+            scope_fingerprint VARCHAR(128) NOT NULL,
+            baseline_id VARCHAR(64) NOT NULL,
+            verified_sequence BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            acknowledged_gmt DATETIME NOT NULL,
+            updated_gmt DATETIME NOT NULL,
+            PRIMARY KEY (blog_id, post_type, consumer_id),
+            KEY ix_consumer (consumer_id, baseline_id),
+            KEY ix_verified (verified_sequence)
+        ) $charset_collate;";
+
         dbDelta($sql_sources);
         dbDelta($sql_generated);
         dbDelta($sql_overrides);
@@ -190,6 +213,7 @@ class Schema
         dbDelta($sql_sync_outbox);
         dbDelta($sql_sync_baselines);
         dbDelta($sql_sync_audit);
+        dbDelta($sql_sync_release_cursors);
 
         Logger::info('KB Admin database tables created/updated', [
             'db_version' => SMARTCLOUD_AI_KIT_DB_VERSION ?? 'unknown'
@@ -212,7 +236,8 @@ class Schema
             "{$prefix}kb_dependencies",
             "{$prefix}kb_sync_outbox",
             "{$prefix}kb_sync_baselines",
-            "{$prefix}kb_sync_audit"
+            "{$prefix}kb_sync_audit",
+            "{$prefix}kb_sync_release_cursors"
         ];
 
         Logger::info('Dropping KB Admin tables', ['tables' => $tables]);

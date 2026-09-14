@@ -894,7 +894,7 @@ final class KnowledgeSyncTransport
         return $decoded;
     }
 
-    /** @return array{backendBaseUrl:string,keyStorageMode:string,environment:string,includeSubsites:bool,baselinePageSize:int,transportBatchSize:int} */
+    /** @return array{backendBaseUrl:string,keyStorageMode:string,environment:string,includeSubsites:bool,baselinePageSize:int,transportBatchSize:int,syncIntervalMinutes:int,publicReleaseGate:string} */
     private function configuredSettings(): array
     {
         $settings = $this->settings->get();
