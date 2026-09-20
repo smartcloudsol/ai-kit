@@ -330,7 +330,7 @@ final class Provider extends Product_Provider_Base
         );
     }
 
-    private function validate_nodes(array $blocks, string $path, array &$errors, ?string $parent = null): void
+    private function validate_nodes(array $blocks, string $path, array &$errors, ?string $parent = null, bool $allow_container_descendants = false): void
     {
         if ($this->count_blocks($blocks) > 500) {
             $errors[] = $this->validation_issue('smartcloud_ai_kit_block_tree_too_large', 'The AI-Kit block tree exceeds the provider block limit.', $path);
@@ -352,7 +352,18 @@ final class Provider extends Product_Provider_Base
                 continue;
             }
             if (!in_array($name, $this->blocks, true)) {
-                $errors[] = $this->validation_issue('smartcloud_ai_kit_unknown_block', 'Only current AI-Kit blocks are accepted.', $current_path);
+                if (!$allow_container_descendants) {
+                    $errors[] = $this->validation_issue('smartcloud_ai_kit_unknown_block', 'Only current AI-Kit blocks are accepted.', $current_path);
+                    continue;
+                }
+
+                $this->validate_nodes(
+                    is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : array(),
+                    $current_path . '/innerBlocks',
+                    $errors,
+                    $name,
+                    true
+                );
                 continue;
             }
 
@@ -372,7 +383,13 @@ final class Provider extends Product_Provider_Base
                 $errors[] = $this->validation_issue($metadata_error->get_error_code(), $metadata_error->get_error_message(), $current_path . '/attrs');
             }
 
-            $this->validate_nodes(is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : array(), $current_path . '/innerBlocks', $errors, $name);
+            $this->validate_nodes(
+                is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : array(),
+                $current_path . '/innerBlocks',
+                $errors,
+                $name,
+                'smartcloud-ai-kit/kb-section' === $name
+            );
         }
     }
 

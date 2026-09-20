@@ -64,6 +64,23 @@ namespace SmartCloud\WPSuite\AiKit\Abilities {
     $validateNodes->invokeArgs($provider, $invalidArgs);
     expect(($invalidErrors[0]['code'] ?? '') === 'smartcloud_ai_kit_fallback_parent_invalid', 'React fallback must remain restricted to supported AI Kit roots.');
 
+    $nativeTree = array(
+        'blockName' => 'core/group',
+        'attrs' => array('className' => 'smartcloud-canvas-section'),
+        'innerBlocks' => array(
+            array('blockName' => 'core/paragraph', 'attrs' => array(), 'innerBlocks' => array()),
+        ),
+    );
+    $kbSectionErrors = array();
+    $kbSectionArgs = array(array($nativeTree), '', &$kbSectionErrors, 'smartcloud-ai-kit/kb-section', true);
+    $validateNodes->invokeArgs($provider, $kbSectionArgs);
+    expect($kbSectionErrors === array(), 'KB sections must accept governed native Gutenberg and Canvas descendants.');
+
+    $strictErrors = array();
+    $strictArgs = array(array($nativeTree), '', &$strictErrors, 'smartcloud-ai-kit/feature', false);
+    $validateNodes->invokeArgs($provider, $strictArgs);
+    expect(($strictErrors[0]['code'] ?? '') === 'smartcloud_ai_kit_unknown_block', 'Native Gutenberg descendants must remain restricted outside KB section containers.');
+
     $pluginSource = file_get_contents(dirname(__DIR__) . '/smartcloud-ai-kit.php');
     $loaderSource = file_get_contents(dirname(__DIR__) . '/hub-loader.php');
     expect(is_string($pluginSource) && is_string($loaderSource), 'AI Kit runtime contract sources must be readable.');
