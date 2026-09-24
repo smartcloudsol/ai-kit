@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.1
+Stable tag: 1.5.2
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,11 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.2 =
+* Cost visibility: Distinguish backend-recorded AI usage from historical AWS account billing and show the scope and freshness of each figure. Unavailable or delayed billing data is shown as unknown rather than zero.
+* Cost controls: Clarify monthly spend status, remaining allowance, and reconciliation information in API Settings.
+* Error messages: Distinguish spending limits, an explicit AI pause, and temporary service or request failures in frontend feedback.
 
 = 1.5.1 =
 * Localization: Show accurate localized messages for grounding failures, request timeouts, and backend errors.
@@ -550,6 +555,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.5.2 =
+Update the AI Kit backend to Deployment Access orchestration v1.0.100 or the equivalent legacy backend release before using the new cost reconciliation details. Historical AWS billing can cover the AWS account beyond this backend and is delayed; unavailable billing data does not mean zero spending.
 
 = 1.5.0 =
 Refresh the AI Kit backend and its capability manifest before using conversation-profile administration, grounded agent chat, the optional isolated executor, or monthly AI spend controls. During the coordinated upgrade, resave the pre-release Conversation Profile with HTTPS URL prefixes; the former host-only web-grounding field is intentionally not retained.

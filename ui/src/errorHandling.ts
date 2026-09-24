@@ -176,6 +176,7 @@ export function normalizeAiRunError(error: unknown): AiRunErrorDetails {
     .map((record) => asNonEmptyString(record.code ?? record.errorCode))
     .filter((value): value is string => Boolean(value));
   const code =
+    codes.find((value) => /^AI_(?:MONTHLY_LIMIT_REACHED|COST_GATE_UNAVAILABLE)$/i.test(value)) ??
     codes.find((value) => /^GROUNDING_/i.test(value)) ?? codes[0];
   const safeMessage = records
     .map((record) =>
@@ -265,6 +266,16 @@ export function getAiRunErrorMessage(
   details: AiRunErrorDetails,
   translate: (message: string) => string = (message) => message,
 ): string {
+  if (details.code?.toUpperCase() === "AI_MONTHLY_LIMIT_REACHED") {
+    return translate(
+      "The monthly AI spending limit has been reached. Contact the site administrator.",
+    );
+  }
+  if (details.code?.toUpperCase() === "AI_COST_GATE_UNAVAILABLE") {
+    return translate(
+      "AI spending protection cannot be checked right now. Please try again later or contact the site administrator.",
+    );
+  }
   if (details.code?.toUpperCase() === "MODEL_CAPABILITY_ERROR") {
     return translate(
       "The configured AI model does not support image attachments. Contact the site administrator.",

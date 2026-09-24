@@ -1,7 +1,7 @@
 {
   "name": "@smart-cloud/ai-kit-admin",
   "private": true,
-  "version": "1.4.24",
+  "version": "1.4.25",
   "type": "module",
   "license": "ISC",
   "scripts": {
@@ -23,7 +23,7 @@
     "@hello-pangea/dnd": "^18.0.1",
     "@monaco-editor/react": "^4.7.0",
     "@smart-cloud/ai-kit-core": "^1.5.12",
-    "@smart-cloud/ai-kit-ui": "^1.5.20",
+    "@smart-cloud/ai-kit-ui": "^1.5.21",
     "@smart-cloud/gatey-core": "^2.3.7",
     "@smart-cloud/wpsuite-core": "^2.4.2",
     "@tabler/icons-react": "^3.46.0",

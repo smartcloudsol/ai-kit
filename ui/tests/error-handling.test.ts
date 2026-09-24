@@ -146,6 +146,51 @@ test("explains a configured model capability mismatch", () => {
   );
 });
 
+test("explains a monthly spending limit using the translation callback", () => {
+  const feedback = createAiRunErrorFeedback(
+    backendError(429, {
+      code: "AI_MONTHLY_LIMIT_REACHED",
+      message: "Internal budget policy and account details",
+    }),
+    (message) => `translated: ${message}`,
+  );
+  assert.equal(feedback.details?.code, "AI_MONTHLY_LIMIT_REACHED");
+  assert.equal(
+    feedback.message,
+    "translated: The monthly AI spending limit has been reached. Contact the site administrator.",
+  );
+  assert.doesNotMatch(feedback.message ?? "", /Internal budget|Too many requests/);
+});
+
+test("distinguishes unavailable spending protection from an AI service outage", () => {
+  const feedback = createAiRunErrorFeedback(
+    backendError(503, {
+      error: {
+        code: "AI_COST_GATE_UNAVAILABLE",
+        message: "Internal storage diagnostic",
+      },
+    }),
+    (message) => `translated: ${message}`,
+  );
+  assert.equal(feedback.details?.code, "AI_COST_GATE_UNAVAILABLE");
+  assert.equal(
+    feedback.message,
+    "translated: AI spending protection cannot be checked right now. Please try again later or contact the site administrator.",
+  );
+  assert.doesNotMatch(feedback.message ?? "", /Internal storage|AI service is temporarily unavailable/);
+});
+
+test("structured spend error codes take priority over generic transport wrapper codes", () => {
+  for (const code of ["AI_MONTHLY_LIMIT_REACHED", "AI_COST_GATE_UNAVAILABLE"]) {
+    const details = normalizeAiRunError({
+      code: "BACKEND_REQUEST_FAILED",
+      cause: backendError(503, { error: { code } }),
+    });
+    assert.equal(details.code, code);
+    assert.match(getAiRunErrorMessage(details), /spending/);
+  }
+});
+
 test("treats intentional cancellation as non-error feedback", () => {
   const feedback = createAiRunErrorFeedback(
     new DOMException("Aborted", "AbortError"),
