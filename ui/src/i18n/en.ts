@@ -187,6 +187,10 @@ export const enDict: Record<string, string> = {
     "You are not authorized to use this AI feature. Please sign in or contact the site owner.",
   "Too many requests. Please wait a moment and try again.":
     "Too many requests. Please wait a moment and try again.",
+  "I couldn't find enough reliable information to answer that. Please rephrase the question or narrow the topic.":
+    "I couldn't find enough reliable information to answer that. Please rephrase the question or narrow the topic.",
+  "The AI response took too long. Please try again.":
+    "The AI response took too long. Please try again.",
   "The request could not be processed. Review your input and try again.":
     "The request could not be processed. Review your input and try again.",
   "We couldn't reach the AI service. Check your connection and try again.":

@@ -3,6 +3,8 @@ export type AiRunErrorKind =
   | "human-verification"
   | "authorization"
   | "throttled"
+  | "grounding"
+  | "timeout"
   | "validation"
   | "network"
   | "server"
@@ -119,6 +121,10 @@ function collectErrorRecords(error: unknown): UnknownRecord[] {
       records.push(body);
       const nestedError = asRecord(body.error);
       if (nestedError) records.push(nestedError);
+      const details = asRecord(body.details);
+      if (details) records.push(details);
+      const nestedDetails = asRecord(nestedError?.details);
+      if (nestedDetails) records.push(nestedDetails);
     }
 
     const embedded = parsePayload(record.message);
@@ -126,6 +132,10 @@ function collectErrorRecords(error: unknown): UnknownRecord[] {
       records.push(embedded);
       const nestedError = asRecord(embedded.error);
       if (nestedError) records.push(nestedError);
+      const details = asRecord(embedded.details);
+      if (details) records.push(details);
+      const nestedDetails = asRecord(nestedError?.details);
+      if (nestedDetails) records.push(nestedDetails);
     }
 
     current = record.cause;
@@ -162,9 +172,11 @@ export function normalizeAiRunError(error: unknown): AiRunErrorDetails {
       ),
     )
     .find((value) => value !== undefined);
-  const code = records
+  const codes = records
     .map((record) => asNonEmptyString(record.code ?? record.errorCode))
-    .find(Boolean);
+    .filter((value): value is string => Boolean(value));
+  const code =
+    codes.find((value) => /^GROUNDING_/i.test(value)) ?? codes[0];
   const safeMessage = records
     .map((record) =>
       parsePayload(record.message)
@@ -213,6 +225,14 @@ export function normalizeAiRunError(error: unknown): AiRunErrorDetails {
     kind = "authorization";
   } else if (status === 429 || /THROTTL|RATE_LIMIT|TOO_MANY/.test(combined)) {
     kind = "throttled";
+  } else if (/GROUNDING_(?:EVIDENCE|RETRIEVAL|CITATION)/.test(combined)) {
+    kind = "grounding";
+  } else if (
+    status === 408 ||
+    status === 504 ||
+    /\b(?:TIMEOUT|TIMED_OUT|TIMED OUT)\b/.test(combined)
+  ) {
+    kind = "timeout";
   } else if (
     status === 400 ||
     status === 409 ||
@@ -262,6 +282,9 @@ export function getAiRunErrorMessage(
     authorization:
       "You are not authorized to use this AI feature. Please sign in or contact the site owner.",
     throttled: "Too many requests. Please wait a moment and try again.",
+    grounding:
+      "I couldn't find enough reliable information to answer that. Please rephrase the question or narrow the topic.",
+    timeout: "The AI response took too long. Please try again.",
     validation:
       "The request could not be processed. Review your input and try again.",
     network:

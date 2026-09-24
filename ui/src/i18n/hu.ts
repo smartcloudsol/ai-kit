@@ -188,6 +188,10 @@ export const huDict: Record<string, string> = {
     "Ön nem jogosult ennek az AI-funkciónak a használatára. Jelentkezzen be, vagy forduljon a webhely gazdájához.",
   "Too many requests. Please wait a moment and try again.":
     "Túl sok kérés érkezett. Várjon egy kicsit, majd próbálja újra.",
+  "I couldn't find enough reliable information to answer that. Please rephrase the question or narrow the topic.":
+    "Nem található elegendő megbízható információ a válaszhoz. Fogalmazza át a kérdést, vagy szűkítse a témát.",
+  "The AI response took too long. Please try again.":
+    "Az AI-válaszra túl sokat kellett várni. Próbálja újra.",
   "The request could not be processed. Review your input and try again.":
     "A kérést nem sikerült feldolgozni. Ellenőrizze a bevitt adatokat, majd próbálja újra.",
   "We couldn't reach the AI service. Check your connection and try again.":

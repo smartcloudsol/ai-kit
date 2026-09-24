@@ -52,6 +52,8 @@ const catalogs: Record<string, Record<string, string>> = {
 
 const REQUIRED_KEYS = [
   "Something went wrong. Please try again.",
+  "I couldn't find enough reliable information to answer that. Please rephrase the question or narrow the topic.",
+  "The AI response took too long. Please try again.",
   "The AI service is temporarily unavailable. Please try again.",
   "The request could not be processed. Review your input and try again.",
   "Too many requests. Please wait a moment and try again.",

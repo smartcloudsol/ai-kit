@@ -4695,10 +4695,10 @@
     "@smart-cloud/wpsuite-core" "^2.4.1"
     aws-amplify "^6.20.0"
 
-"@smart-cloud/ai-kit-ui@^1.5.19":
-  version "1.5.19"
-  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-ui/-/ai-kit-ui-1.5.19.tgz#b35a7f9881f12498ed4c17a868dc82f993090c5f"
-  integrity sha512-Q1aDKIxC0DtAG/WhZbRsxjY7hsASCr3U9Q6qugt+/RQoh4lk+sbqyLODK6BaHdhqgXj6bPJV6v0+fRNejJE+kA==
+"@smart-cloud/ai-kit-ui@^1.5.20":
+  version "1.5.20"
+  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-ui/-/ai-kit-ui-1.5.20.tgz#c0feb0defc34af68b227849d679a8149f8ee2d6e"
+  integrity sha512-1kdajA2H3bFmQCJIBba4XTtMbAOZArseRuYCkSWZjBmSAelb3S0xt7mQ5lrlY491syXQ8kEfZ5gTfqbFNlY40A==
   dependencies:
     "@emotion/cache" "^11.14.0"
     "@emotion/react" "^11.14.0"

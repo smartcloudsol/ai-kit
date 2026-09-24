@@ -102,6 +102,31 @@ test("distinguishes authorization, throttling, network, and backend failures", (
     normalizeAiRunError(backendError(503, { code: "UPSTREAM_ERROR" })).kind,
     "server",
   );
+  assert.equal(
+    normalizeAiRunError(backendError(504, { message: "Gateway Timeout" })).kind,
+    "timeout",
+  );
+});
+
+test("distinguishes a grounding policy outcome from generic validation", () => {
+  const details = normalizeAiRunError(
+    backendError(422, {
+      code: "KNOWLEDGE_BASE_ERROR",
+      message: "The Knowledge Base returned no evidence.",
+      details: { code: "GROUNDING_EVIDENCE_UNAVAILABLE" },
+    }),
+  );
+
+  assert.equal(details.kind, "grounding");
+  assert.equal(details.code, "GROUNDING_EVIDENCE_UNAVAILABLE");
+  assert.equal(
+    getAiRunErrorMessage(details),
+    "I couldn't find enough reliable information to answer that. Please rephrase the question or narrow the topic.",
+  );
+  assert.equal(
+    getAiRunErrorMessage({ kind: "timeout", status: 504 }),
+    "The AI response took too long. Please try again.",
+  );
 });
 
 test("explains a configured model capability mismatch", () => {
