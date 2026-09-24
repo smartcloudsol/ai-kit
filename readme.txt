@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.4.28
+Stable tag: 1.5.0
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,16 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.0 =
+* Conversation profiles: Replace request-carried shared context with a structured, server-owned profile for site scope, response policy, escalation guidance, action catalog, Knowledge Base behavior, grounding, memory, and agent controls.
+* Conversation profile editor: Keep multiline topic and policy fields editable, make them vertically resizable, and add contextual help throughout the profile.
+* Restricted web grounding: Replace host-wide rules with exact HTTPS URL prefixes so administrators can allow a whole site or only a path such as the AWS Marketplace section.
+* Admin compatibility: Remove duplicate checkbox marks caused by overlapping WordPress and Mantine styles.
+* Grounded chat: Add evidence-aware conversation behavior, bounded answer repair, citation finalization, topic-aware memory, compact source previews, and safe recovery when a model proposes an unsupported Knowledge Base metadata filter.
+* Agent tools: Advertise the optional isolated script runner and Knowledge Base tool capabilities without granting the browser or WordPress process code-execution privileges.
+* Escalation: Add visitor-language safety responses and a structured backend handoff event for support workflows.
+* Cost safety: Add an API Settings editor for the backend-wide monthly AI spend circuit breaker, including a lower operational limit, explicit emergency pause, estimated UTC-month usage, remaining allowance, and graceful API status responses. The infrastructure hard cap remains authoritative.
 
 = 1.4.28 =
 * Dependencies: Bundle WP Suite Hub 2.5.16 so Static Publisher is notified when the shared translation catalog changes.
@@ -537,6 +547,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.5.0 =
+Refresh the AI Kit backend and its capability manifest before using conversation-profile administration, grounded agent chat, the optional isolated executor, or monthly AI spend controls. During the coordinated upgrade, resave the pre-release Conversation Profile with HTTPS URL prefixes; the former host-only web-grounding field is intentionally not retained.
 
 = 1.4.26 =
 The optional Static Publisher release gate requires Static Publisher 1.0.20 and one content-sync rule covering every enabled Knowledge Sync content type. Leave the gate disabled when WordPress itself is public. After enabling it, complete one successful publish to bind the verified public target; unreleased work remains queued until then.

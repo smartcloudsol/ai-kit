@@ -11,6 +11,21 @@ input[readonly].mantine-Select-input {
   padding: 1rem;
 }
 
+/* WordPress adds a native checkbox mark; Mantine already renders its own. */
+:global(#smartcloud-ai-kit-admin) .wpc-container input[type="checkbox"]::before,
+:global(#smartcloud-ai-kit-admin)
+  .wpc-container
+  input[type="checkbox"]:checked::before,
+:global(#smartcloud-ai-kit-admin) .wpc-container input[type="checkbox"]::after,
+:global(#smartcloud-ai-kit-admin)
+  .wpc-container
+  input[type="checkbox"]:checked::after {
+  content: none !important;
+  display: none !important;
+  visibility: hidden !important;
+  background: none !important;
+}
+
 .wpc-tabs-label {
   display: flex;
   gap: 4px;

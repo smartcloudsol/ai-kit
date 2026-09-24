@@ -26,6 +26,8 @@ export type BackendTransport = "gatey" | "fetch";
 
 export type AiKitBackendCapability =
   | `ai.${BuiltInAiFeature}.${ContextKind}`
+  | "ai.conversation-profile.admin"
+  | "ai.cost-policy.admin"
   | "knowledge.admin"
   | "knowledge.query.frontend"
   | "knowledge.automation";
@@ -80,11 +82,6 @@ export interface AiKitFeatures {
 }
 
 export interface AiKitSettings {
-  /**
-   * Context injected into supported Chrome APIs (Writer/Rewriter/Summarizer) and/or backend.
-   */
-  sharedContext?: string;
-
   /**
    * Optional language configuration used to resolve default input/output languages.
    * Keep this lightweight: most users will rely on defaults.

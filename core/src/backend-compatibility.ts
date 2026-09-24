@@ -50,6 +50,12 @@ export function capabilityForCustomPath(
   context: ContextKind,
   path: string,
 ): AiKitBackendCapability | undefined {
+  if (path === "/conversation-profile") {
+    return context === "admin" ? "ai.conversation-profile.admin" : undefined;
+  }
+  if (path === "/cost-policy") {
+    return context === "admin" ? "ai.cost-policy.admin" : undefined;
+  }
   if (path.startsWith("/kb/")) {
     return context === "admin" ? "knowledge.admin" : "knowledge.query.frontend";
   }

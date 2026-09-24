@@ -12,7 +12,6 @@ import {
   Stack,
   Switch,
   Text,
-  Textarea,
   Title,
 } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
@@ -148,11 +147,29 @@ const ApiSettingsEditor = lazy(
     ),
 );
 
+const AiSpendPolicyEditor = lazy(
+  () =>
+    import(
+      process.env.WPSUITE_PREMIUM
+        ? "./paid-features/ai-spend-policy/AiSpendPolicyEditor"
+        : "./free-features/NullEditor"
+    ),
+);
+
 const ChatbotSettingsEditor = lazy(
   () =>
     import(
       process.env.WPSUITE_PREMIUM
         ? "./paid-features/ChatbotSettingsEditor"
+        : "./free-features/NullEditor"
+    ),
+);
+
+const ConversationProfileEditor = lazy(
+  () =>
+    import(
+      process.env.WPSUITE_PREMIUM
+        ? "./paid-features/conversation-profile/ConversationProfileEditor"
         : "./free-features/NullEditor"
     ),
 );
@@ -197,10 +214,9 @@ const SettingsTitle = () => {
           WordPress site.
         </Text>
         <Text>
-          Set an optional <strong>Shared context</strong>, configure{" "}
-          <strong>reCAPTCHA</strong> for bot protection, and control whether to
-          show a small <strong>Powered by AI-Kit</strong> attribution (where
-          applicable).
+          Configure output defaults and diagnostics here, then use the Pro
+          sections to manage chatbot presentation, its server-side conversation
+          profile, and the Knowledge Base.
         </Text>
         <NoRegistrationRequiredBanner />
         {!wpSuiteSiteSettings.siteId && (
@@ -264,7 +280,6 @@ const Main = (props: MainProps) => {
   const [site, setSite] = useState<Site | null>();
 
   const [settingsFormData, setSettingsFormData] = useState<AiKitSettings>({
-    sharedContext: settings?.sharedContext || "",
     defaultOutputLanguage: settings?.defaultOutputLanguage || "en",
     enablePoweredBy: settings?.enablePoweredBy || false,
     debugLoggingEnabled: settings?.debugLoggingEnabled || false,
@@ -500,6 +515,12 @@ const Main = (props: MainProps) => {
           disabled: paidSettingsDisabled,
         },
         {
+          value: "conversation-profile",
+          label: __("Conversation Profile", TEXT_DOMAIN),
+          icon: <IconMessage size={16} stroke={1.5} />,
+          disabled: paidSettingsDisabled,
+        },
+        {
           value: "kb-admin",
           label: __("Knowledge Base", TEXT_DOMAIN),
           icon: <IconBook size={16} stroke={1.5} />,
@@ -541,7 +562,7 @@ const Main = (props: MainProps) => {
       <DocSidebar
         opened={opened}
         close={close}
-        page={activePage as never}
+        page={activePage}
         scrollToId={scrollToId}
       />
       <SettingsTitle />
@@ -716,11 +737,7 @@ const Main = (props: MainProps) => {
                       active={activePage === item.value}
                       onClick={() => {
                         setActivePage(
-                          item.value as
-                            | "general"
-                            | "api-settings"
-                            | "chatbot-settings"
-                            | "kb-admin",
+                          item.value as AiKitAdminPage,
                         );
                       }}
                       disabled={item.disabled}
@@ -752,11 +769,7 @@ const Main = (props: MainProps) => {
                       onClick={() => {
                         if (!item.disabled) {
                           setActivePage(
-                            item.value as
-                              | "general"
-                              | "api-settings"
-                              | "chatbot-settings"
-                              | "kb-admin",
+                            item.value as AiKitAdminPage,
                           );
                         }
                       }}
@@ -790,11 +803,7 @@ const Main = (props: MainProps) => {
                         active={activePage === item.value}
                         onClick={() =>
                           setActivePage(
-                            item.value as
-                              | "general"
-                              | "api-settings"
-                              | "chatbot-settings"
-                              | "kb-admin",
+                            item.value as AiKitAdminPage,
                           )
                         }
                         disabled={item.disabled}
@@ -824,11 +833,7 @@ const Main = (props: MainProps) => {
                       onClick={() => {
                         if (!item.disabled) {
                           setActivePage(
-                            item.value as
-                              | "general"
-                              | "api-settings"
-                              | "chatbot-settings"
-                              | "kb-admin",
+                            item.value as AiKitAdminPage,
                           );
                         }
                       }}
@@ -848,31 +853,10 @@ const Main = (props: MainProps) => {
               </Title>
 
               <Text mb="md">
-                Control how AI-Kit behaves across your site — global context,
-                bot protection, and UI attribution.
+                Control AI-Kit output defaults, diagnostics, and UI attribution.
               </Text>
 
               <Stack gap="sm">
-                <Textarea
-                  disabled={savingSettings}
-                  label={
-                    <InfoLabel
-                      text="Shared Context"
-                      scrollToId="shared-context"
-                      onOpen={openInfo}
-                    />
-                  }
-                  description="Optional. A global context string sent with AI requests. Use your site’s frontend language or English. If you generate content in multiple languages (write, rewrite, SEO metadata), keep this context in English for consistency."
-                  resize="vertical"
-                  minRows={3}
-                  value={settingsFormData.sharedContext}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                    setSettingsFormData({
-                      ...settingsFormData,
-                      sharedContext: e.target.value,
-                    })
-                  }
-                />
                 <Select
                   disabled={savingSettings}
                   label={
@@ -1002,6 +986,7 @@ const Main = (props: MainProps) => {
                     InfoLabel={InfoLabel}
                     openInfo={openInfo}
                   />
+                  <AiSpendPolicyEditor />
                 </Suspense>
               )}
             </>
@@ -1053,6 +1038,38 @@ const Main = (props: MainProps) => {
                     InfoLabel={InfoLabel}
                     openInfo={openInfo}
                     store={store}
+                  />
+                </Suspense>
+              )}
+            </>
+          )}
+          {activePage === "conversation-profile" && (
+            <>
+              <Title order={2} mb="md">
+                {__("Conversation Profile", TEXT_DOMAIN)}
+              </Title>
+              <Text mb="md">
+                Define the server-owned identity, scope, goals, actions,
+                grounding, tools, model, safety, and memory policy used for
+                visitor conversations.
+              </Text>
+              {!(formConfig ?? decryptedConfig)?.subscriptionType && (
+                <Alert
+                  variant="light"
+                  color="yellow"
+                  title="PRO Feature"
+                  icon={<IconExclamationCircle />}
+                  mb="md"
+                >
+                  This feature requires the <strong>PRO</strong> plugin and a
+                  compatible AI Kit backend.
+                </Alert>
+              )}
+              {(formConfig ?? decryptedConfig) && (
+                <Suspense fallback={<Text>Loading...</Text>}>
+                  <ConversationProfileEditor
+                    InfoLabel={InfoLabel}
+                    openInfo={openInfo}
                   />
                 </Suspense>
               )}

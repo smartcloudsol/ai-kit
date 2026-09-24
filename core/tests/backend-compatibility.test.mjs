@@ -69,3 +69,42 @@ test("verified manifests enforce advertised capability versions", async () => {
     false,
   );
 });
+
+test("conversation profile admin calls require their dedicated capability", async () => {
+  const compatibility = await loadCompatibility();
+
+  assert.equal(
+    compatibility.capabilityForCustomPath(
+      "admin",
+      "/conversation-profile",
+    ),
+    "ai.conversation-profile.admin",
+  );
+  assert.equal(
+    compatibility.capabilityForCustomPath(
+      "frontend",
+      "/conversation-profile",
+    ),
+    undefined,
+  );
+});
+
+test("cost policy admin calls require their dedicated capability", async () => {
+  const compatibility = await loadCompatibility();
+
+  assert.equal(
+    compatibility.capabilityForCustomPath("admin", "/cost-policy"),
+    "ai.cost-policy.admin",
+  );
+  assert.equal(
+    compatibility.capabilityForCustomPath("frontend", "/cost-policy"),
+    undefined,
+  );
+  assert.equal(
+    compatibility.supportsBackendCapability(
+      { status: "legacy", reason: "manifest unavailable" },
+      "ai.cost-policy.admin",
+    ),
+    false,
+  );
+});

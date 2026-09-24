@@ -2,12 +2,14 @@ export type AiKitAdminPage =
   | "general"
   | "api-settings"
   | "chatbot-settings"
+  | "conversation-profile"
   | "kb-admin";
 
 const AI_KIT_ADMIN_PAGES: ReadonlySet<string> = new Set([
   "general",
   "api-settings",
   "chatbot-settings",
+  "conversation-profile",
   "kb-admin",
 ]);
 

@@ -1,9 +1,10 @@
 import { Code, Drawer, List, Stack, Text, Title } from "@mantine/core";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import type { AiKitAdminPage } from "./admin-page";
 import classes from "./main.module.css";
 import "./doc-sidebar.css";
 
-const pages = {
+const pages: Record<AiKitAdminPage, ReactNode> = {
   general: (
     <>
       <Title order={2}>AI-Kit settings</Title>
@@ -12,29 +13,6 @@ const pages = {
         Click the <strong>info</strong> icon next to any field to jump to its
         description here.
       </Text>
-      <Title order={3} mt="md" id="shared-context">
-        <span className="highlightable">Shared context</span>
-      </Title>
-      <Text>
-        Optional. A global piece of context that AI-Kit sends along with your AI
-        requests. Use it to enforce your preferred style and constraints across
-        the whole site.
-      </Text>
-      <Text mt="xs">
-        <strong>Language tip:</strong> write this either in your site’s frontend
-        language or in English. If you generate content in multiple languages
-        (for example with Write, Rewrite, or SEO metadata), keep the shared
-        context in <strong>English</strong> to stay consistent across languages
-        and avoid confusing the model.
-      </Text>
-      <List size="sm" spacing="xs" mt="xs" withPadding>
-        <List.Item>
-          Example: <Code>Write in a friendly, concise tone. Avoid hype.</Code>
-        </List.Item>
-        <List.Item>
-          Example: <Code>Use British English and our brand terminology.</Code>
-        </List.Item>
-      </List>
       <Title order={3} mt="md" id="default-output-language">
         <span className="highlightable">Default output language</span>
       </Title>
@@ -139,6 +117,30 @@ const pages = {
         Shown when using <strong>Fetch (base URL)</strong>. Provide the base URL
         of your backend, e.g.{" "}
         <Code>https://xyz.execute-api.eu-central-1.amazonaws.com/prod</Code>.
+      </Text>
+
+      <Title order={3} mt="md" id="aikit-ai-spend-policy">
+        <span className="highlightable">Backend-wide AI spend policy</span>
+      </Title>
+      <Text>
+        Sets an operational monthly USD limit shared by every site and feature
+        that uses the selected AI Kit backend. Leave the field empty to inherit
+        the infrastructure hard cap. The admin value may lower that cap but
+        cannot raise it.
+      </Text>
+      <Text mt="xs">
+        The displayed usage is AI Kit&apos;s UTC-month estimate, not an AWS bill
+        or a real-time AWS Budgets total. The safety percentage is applied
+        before the configured ceiling to leave room for delayed and concurrent
+        requests.
+      </Text>
+      <Title order={4} mt="md" id="aikit-ai-emergency-pause">
+        <span className="highlightable">Emergency pause</span>
+      </Title>
+      <Text>
+        Immediately rejects new backend model calls while leaving non-AI
+        administration available. Turn it off explicitly when model access may
+        resume; the monthly reset does not clear this switch.
       </Text>
     </>
   ),
@@ -380,6 +382,135 @@ const pages = {
       <Text>
         Maximum allowed image size in bytes. This helps avoid large uploads and
         keeps requests within backend limits.
+      </Text>
+    </>
+  ),
+
+  "conversation-profile": (
+    <>
+      <Title order={2}>Conversation Profile</Title>
+      <Text>
+        Defines the server-owned policy used for every visitor conversation.
+        Changes take effect without sending the profile from the browser with
+        each chat request.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-identity-scope">
+        <span className="highlightable">Identity and scope</span>
+      </Title>
+      <Text>
+        Describe the assistant&apos;s role, the site&apos;s purpose, audience, and
+        the topics it may or must not cover. Put one topic per line. The
+        configured scope keeps answers relevant to the site rather than acting
+        as a general-purpose assistant.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-out-of-scope">
+        <span className="highlightable">Out-of-scope behavior</span>
+      </Title>
+      <Text>
+        Choose whether unrelated requests are declined, redirected toward an
+        allowed topic, or escalated. Escalation can publish a structured
+        backend event for a support workflow when that integration is enabled.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-common-context">
+        <span className="highlightable">Common context</span>
+      </Title>
+      <Text>
+        Store durable site-owned background in Markdown. Use headings and
+        lists to separate product facts, policies, and guidance. Claims that
+        require evidence still follow the grounding settings.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-response-guidance">
+        <span className="highlightable">Response and guidance</span>
+      </Title>
+      <Text>
+        Controls the default language, tone, response style, primary goals,
+        conversion goals, and the directions the assistant should prefer.
+        These are guidance, not permission to invent facts or bypass grounding.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-language">
+        <span className="highlightable">Visitor-language messages</span>
+      </Title>
+      <Text>
+        Out-of-scope and escalation messages express the intended meaning. The
+        agent is instructed to render normal out-of-scope replies in the latest
+        visitor language. Guardrail intervention bypasses the model, so the
+        backend translates that configured fallback using the request locale
+        and uses the original text if translation is unavailable.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-actions">
+        <span className="highlightable">Action catalog</span>
+      </Title>
+      <Text>
+        Lists only the actions the assistant may recommend. Use stable,
+        lowercase IDs and optionally restrict each action to particular topics.
+        Targets can point to approved links, contact routes, handoffs, or other
+        application-defined destinations.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-model">
+        <span className="highlightable">Model</span>
+      </Title>
+      <Text>
+        Selects the model or inference profile, reasoning effort, response
+        limit, and temperature. Automatic inference-profile selection follows
+        the backend Region and the profiles available there.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-tools">
+        <span className="highlightable">Tools</span>
+      </Title>
+      <Text>
+        Enables the capabilities the model may call. Automatic policy lets the
+        model decide when evidence or computation is necessary; requiring a
+        tool forces at least one tool call for each request.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-kb-tool">
+        <span className="highlightable">Knowledge Base and metadata</span>
+      </Title>
+      <Text>
+        The Knowledge Base tool receives the backend metadata configuration so
+        it knows the available categories, tags, and their grounding policies.
+        Profile metadata keys can further restrict which filters the model may
+        construct; they cannot expand the backend configuration.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-url-prefixes">
+        <span className="highlightable">Allowed HTTPS URL prefixes</span>
+      </Title>
+      <Text>
+        Web grounding can fetch only URLs below these prefixes. Enter one
+        absolute HTTPS URL per line, without credentials, a query string, or a
+        fragment. A root prefix such as <Code>https://example.com/</Code>
+        permits the full host. A path prefix such as{" "}
+        <Code>https://aws.amazon.com/marketplace/</Code> permits only that
+        section and its descendants.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-grounding-safety">
+        <span className="highlightable">Grounding, guardrails, and escalation</span>
+      </Title>
+      <Text>
+        Evidence policy decides when the assistant must use grounded sources
+        and what happens when evidence is missing. Metadata category policies
+        may require stricter grounding for selected subjects. Guardrails add
+        independent input and output checks; pin a numbered guardrail version
+        together with its identifier.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-memory">
+        <span className="highlightable">Conversation memory</span>
+      </Title>
+      <Text>
+        Topic tracking separates context changes without deleting history.
+        Summaries keep long conversations within model limits, while evidence
+        references can be retained so earlier grounded claims remain traceable.
       </Text>
     </>
   ),
@@ -822,7 +953,7 @@ const pages = {
 interface DocSidebarProps {
   opened: boolean;
   close: () => void;
-  page: keyof typeof pages;
+  page: AiKitAdminPage;
   scrollToId: string;
 }
 

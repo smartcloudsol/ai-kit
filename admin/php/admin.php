@@ -25,7 +25,6 @@ class Admin
     public function __construct()
     {
         $defaultSettings = new AiKitSettings(
-            sharedContext: "",
             enablePoweredBy: false,
             defaultOutputLanguage: "",
             debugLoggingEnabled: false
@@ -133,9 +132,6 @@ class Admin
             $settings_param = is_array($decoded) ? $decoded : [];
         }
 
-        $sharedContext = isset($settings_param['sharedContext'])
-            ? (string) $settings_param['sharedContext']
-            : "";
         $defaultOutputLanguage = isset($settings_param['defaultOutputLanguage'])
             ? (string) $settings_param['defaultOutputLanguage']
             : "";
@@ -143,7 +139,6 @@ class Admin
         $debugLoggingEnabled = (bool) ($settings_param['debugLoggingEnabled'] ?? false);
 
         $this->settings = new AiKitSettings(
-            sharedContext: sanitize_textarea_field($sharedContext),
             enablePoweredBy: (bool) ($settings_param['enablePoweredBy'] ?? false),
             defaultOutputLanguage: $defaultOutputLanguage,
             debugLoggingEnabled: $debugLoggingEnabled
@@ -155,7 +150,6 @@ class Admin
         Logger::info('AI-Kit settings updated', [
             'debugLoggingEnabled' => $debugLoggingEnabled,
             'enablePoweredBy' => $this->settings->enablePoweredBy,
-            'hasSharedContext' => !empty($sharedContext),
             'defaultOutputLanguage' => $defaultOutputLanguage
         ]);
 

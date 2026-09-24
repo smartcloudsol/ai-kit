@@ -14,7 +14,6 @@ if (!defined('ABSPATH')) {
 class AiKitSettings
 {
     public function __construct(
-        public string $sharedContext = "",
         public bool $enablePoweredBy = false,
         public string $defaultOutputLanguage = "",
         public bool $debugLoggingEnabled = false,
@@ -26,19 +25,6 @@ class AiKitSettings
      */
     public static function fromMixed(mixed $raw): self
     {
-        if ($raw instanceof self) {
-            return $raw;
-        }
-        // Backward compatible: older class name.
-        if ($raw instanceof Settings) {
-            return new self(
-                sharedContext: (string) ($raw->sharedContext ?? ""),
-                enablePoweredBy: (bool) ($raw->enablePoweredBy ?? false),
-                defaultOutputLanguage: (string) ($raw->defaultOutputLanguage ?? ""),
-                debugLoggingEnabled: (bool) ($raw->debugLoggingEnabled ?? false),
-            );
-        }
-
         // WP may return associative array, stdClass, or anything else.
         $arr = [];
         if (is_array($raw)) {
@@ -48,7 +34,6 @@ class AiKitSettings
         }
 
         return new self(
-            sharedContext: (string) ($arr['sharedContext'] ?? ""),
             enablePoweredBy: (bool) ($arr['enablePoweredBy'] ?? false),
             defaultOutputLanguage: (string) ($arr['defaultOutputLanguage'] ?? ""),
             debugLoggingEnabled: (bool) ($arr['debugLoggingEnabled'] ?? false),
