@@ -108,6 +108,21 @@ test("distinguishes authorization, throttling, network, and backend failures", (
   );
 });
 
+test("uses actionable messages for asynchronous chat transport errors", () => {
+  assert.equal(
+    getAiRunErrorMessage(normalizeAiRunError({ code: "CONVERSATION_BUSY", status: 409 })),
+    "Please wait for the current answer before sending another question.",
+  );
+  assert.equal(
+    getAiRunErrorMessage(normalizeAiRunError({ code: "CHAT_STREAM_DISCONNECTED", retryable: true })),
+    "The chat connection was interrupted. Please check your connection and try again.",
+  );
+  assert.equal(
+    getAiRunErrorMessage(normalizeAiRunError({ code: "CHAT_STREAM_WORKER_TIMEOUT", status: 503 })),
+    "The AI response took too long. Please try again.",
+  );
+});
+
 test("distinguishes a grounding policy outcome from generic validation", () => {
   const details = normalizeAiRunError(
     backendError(422, {
@@ -207,4 +222,18 @@ test("beginning a successful retry clears stale error feedback", () => {
 
   const retry = clearAiRunErrorFeedback();
   assert.deepEqual(retry, { message: null, details: null });
+});
+
+test("distinguishes source repair and citation failures from service outages", () => {
+  for (const [code, expected] of [
+    ["GROUNDING_REPAIR_INCOMPLETE", "The answer's source check could not be completed. Please try again."],
+    ["GROUNDING_CITATION_INVALID", "The answer could not be verified against its cited sources. Please try again."],
+    ["GROUNDING_RETRIEVAL_REQUIRED", "The knowledge base search could not be completed. Please try again."],
+  ]) {
+    const details = normalizeAiRunError(backendError(502, {
+      code: "KNOWLEDGE_BASE_ERROR", details: { code },
+    }));
+    assert.equal(details.kind, "grounding");
+    assert.equal(getAiRunErrorMessage(details), expected);
+  }
 });

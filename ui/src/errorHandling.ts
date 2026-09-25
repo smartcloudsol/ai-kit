@@ -226,7 +226,7 @@ export function normalizeAiRunError(error: unknown): AiRunErrorDetails {
     kind = "authorization";
   } else if (status === 429 || /THROTTL|RATE_LIMIT|TOO_MANY/.test(combined)) {
     kind = "throttled";
-  } else if (/GROUNDING_(?:EVIDENCE|RETRIEVAL|CITATION)/.test(combined)) {
+  } else if (/GROUNDING_(?:EVIDENCE|RETRIEVAL|CITATION|REPAIR)/.test(combined)) {
     kind = "grounding";
   } else if (
     status === 408 ||
@@ -266,6 +266,15 @@ export function getAiRunErrorMessage(
   details: AiRunErrorDetails,
   translate: (message: string) => string = (message) => message,
 ): string {
+  if (details.code?.toUpperCase() === "GROUNDING_CITATION_INVALID") {
+    return translate("The answer could not be verified against its cited sources. Please try again.");
+  }
+  if (details.code?.toUpperCase() === "GROUNDING_RETRIEVAL_REQUIRED") {
+    return translate("The knowledge base search could not be completed. Please try again.");
+  }
+  if (details.code?.toUpperCase() === "GROUNDING_REPAIR_INCOMPLETE") {
+    return translate("The answer's source check could not be completed. Please try again.");
+  }
   if (details.code?.toUpperCase() === "AI_MONTHLY_LIMIT_REACHED") {
     return translate(
       "The monthly AI spending limit has been reached. Contact the site administrator.",
@@ -274,6 +283,29 @@ export function getAiRunErrorMessage(
   if (details.code?.toUpperCase() === "AI_COST_GATE_UNAVAILABLE") {
     return translate(
       "AI spending protection cannot be checked right now. Please try again later or contact the site administrator.",
+    );
+  }
+  if (details.code?.toUpperCase() === "AI_INCOMPLETE_RESPONSE") {
+    return translate(
+      "The request could not be processed. Review your input and try again.",
+    );
+  }
+  if (details.code?.toUpperCase() === "AI_TURN_CANCELLED") {
+    return "";
+  }
+  if (details.code?.toUpperCase() === "CONVERSATION_BUSY") {
+    return translate(
+      "Please wait for the current answer before sending another question.",
+    );
+  }
+  if (details.code?.toUpperCase() === "CHAT_STREAM_DISCONNECTED") {
+    return translate(
+      "The chat connection was interrupted. Please check your connection and try again.",
+    );
+  }
+  if (["CHAT_STREAM_QUEUE_TIMEOUT", "CHAT_STREAM_WORKER_TIMEOUT"].includes(details.code?.toUpperCase() ?? "")) {
+    return translate(
+      "The AI response took too long. Please try again.",
     );
   }
   if (details.code?.toUpperCase() === "MODEL_CAPABILITY_ERROR") {

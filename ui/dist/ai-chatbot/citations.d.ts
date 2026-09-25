@@ -3,6 +3,7 @@ export type CitationLike = {
     url?: string;
     sourceUrl?: string;
     title?: string;
+    description?: string;
     snippet?: string;
 };
 type CitationPayload = ProcessedCitations | CitationLike[] | undefined;

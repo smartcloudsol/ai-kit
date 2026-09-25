@@ -39,6 +39,13 @@ test("legacy fallback permits only capabilities that predate discovery", async (
     ),
     false,
   );
+  assert.equal(
+    compatibility.supportsBackendCapability(
+      legacy,
+      "ai.chat.stream.frontend",
+    ),
+    false,
+  );
 });
 
 test("verified manifests enforce advertised capability versions", async () => {
@@ -67,6 +74,27 @@ test("verified manifests enforce advertised capability versions", async () => {
       2,
     ),
     false,
+  );
+});
+
+test("streaming chat is available only when a verified backend advertises it", async () => {
+  const compatibility = await loadCompatibility();
+  const verified = {
+    status: "verified",
+    manifest: {
+      schemaVersion: 1,
+      product: "smartcloud-ai-kit-backend",
+      release: "1.0.102",
+      capabilities: { "ai.chat.stream.frontend": 1 },
+    },
+  };
+
+  assert.equal(
+    compatibility.supportsBackendCapability(
+      verified,
+      "ai.chat.stream.frontend",
+    ),
+    true,
   );
 });
 

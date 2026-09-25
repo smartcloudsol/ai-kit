@@ -4,13 +4,19 @@ export type AiModePreference = "local-only" | "backend-fallback" | "backend-only
 export type BuiltInAiFeature = "prompt" | "summarizer" | "writer" | "rewriter" | "proofreader" | "language-detector" | "translator";
 export type CapabilitySource = "on-device" | "backend" | "none";
 export type BackendTransport = "gatey" | "fetch";
-export type AiKitBackendCapability = `ai.${BuiltInAiFeature}.${ContextKind}` | "ai.conversation-profile.admin" | "ai.cost-policy.admin" | "knowledge.admin" | "knowledge.query.frontend" | "knowledge.automation";
+export type AiKitBackendCapability = `ai.${BuiltInAiFeature}.${ContextKind}` | "ai.chat.stream.frontend" | "ai.conversation-profile.admin" | "ai.cost-policy.admin" | "knowledge.admin" | "knowledge.query.frontend" | "knowledge.automation";
 export interface BackendManifest {
     schemaVersion: 1;
     product: "smartcloud-ai-kit-backend";
     release: string;
     apiSchemaVersion?: number;
     capabilities: Partial<Record<AiKitBackendCapability, number>>;
+    transports?: {
+        /** HTTPS endpoint that issues a short-lived chat WebSocket connection ticket. */
+        chatStreamTicketUrl?: string;
+        /** WSS endpoint; never connect without a server-issued ticket. */
+        chatWebSocketUrl?: string;
+    };
 }
 export interface BackendCompatibility {
     status: "verified" | "legacy";

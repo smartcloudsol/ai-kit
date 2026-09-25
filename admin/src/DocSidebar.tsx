@@ -444,13 +444,58 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
       </Text>
 
       <Title order={3} mt="md" id="conversation-profile-actions">
-        <span className="highlightable">Action catalog</span>
+        <span className="highlightable">Suggested visitor actions</span>
       </Title>
       <Text>
-        Lists only the actions the assistant may recommend. Use stable,
-        lowercase IDs and optionally restrict each action to particular topics.
-        Targets can point to approved links, contact routes, handoffs, or other
-        application-defined destinations.
+        These entries tell the assistant which next steps it may recommend in
+        its replies. Use unique, stable IDs, a visitor-facing label, a clear
+        description, and optional topic guidance. Enabling an action does not
+        create a button, call an API or MCP tool, or connect an account.
+      </Text>
+
+      <Title order={4} mt="md" id="conversation-profile-action-kind">
+        <span className="highlightable">Kind and examples</span>
+      </Title>
+      <Text>
+        Kind describes the recommendation to the assistant. It is not an
+        execution mode. The examples below use placeholder destinations;
+        replace them with your own approved pages.
+      </Text>
+      <List size="sm" spacing="xs" withPadding>
+        <List.Item>
+          <strong>Link</strong>: <Code>read-docs</Code>, “Read the setup guide,”
+          target <Code>https://example.com/docs</Code>. Recommend it when a
+          visitor wants installation steps.
+        </List.Item>
+        <List.Item>
+          <strong>Contact</strong>: <Code>contact-sales</Code>, “Contact sales,”
+          target <Code>https://example.com/contact</Code>. Recommend it for a
+          pricing or purchase discussion.
+        </List.Item>
+        <List.Item>
+          <strong>Human handoff</strong>: <Code>talk-to-support</Code>, “Talk to
+          support,” target <Code>https://example.com/support</Code>. Recommend
+          the human support route for a complex issue. This catalog entry alone
+          does not publish <Code>chat.escalation.requested</Code>; that event
+          belongs to the separate escalation tool and policy.
+        </List.Item>
+        <List.Item>
+          <strong>Custom recommendation</strong>: <Code>request-demo</Code>,
+          “Request a demo,” target <Code>https://example.com/demo</Code>.
+          Describe a site-specific next step that does not fit the other kinds.
+          It remains a recommendation, not a custom API call.
+        </List.Item>
+      </List>
+
+      <Title order={4} mt="md" id="conversation-profile-action-target">
+        <span className="highlightable">Target</span>
+      </Title>
+      <Text>
+        Optional destination text passed to the assistant with the action.
+        Typically this is a public HTTPS page or contact route. The backend
+        does not fetch the target, validate it as a tool endpoint, or use it for
+        authentication. Configure callable capabilities under Tools; OAuth,
+        pairing, and credentials are not configured in the action catalog.
       </Text>
 
       <Title order={3} mt="md" id="conversation-profile-model">

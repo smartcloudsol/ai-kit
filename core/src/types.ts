@@ -26,6 +26,7 @@ export type BackendTransport = "gatey" | "fetch";
 
 export type AiKitBackendCapability =
   | `ai.${BuiltInAiFeature}.${ContextKind}`
+  | "ai.chat.stream.frontend"
   | "ai.conversation-profile.admin"
   | "ai.cost-policy.admin"
   | "knowledge.admin"
@@ -38,6 +39,12 @@ export interface BackendManifest {
   release: string;
   apiSchemaVersion?: number;
   capabilities: Partial<Record<AiKitBackendCapability, number>>;
+  transports?: {
+    /** HTTPS endpoint that issues a short-lived chat WebSocket connection ticket. */
+    chatStreamTicketUrl?: string;
+    /** WSS endpoint; never connect without a server-issued ticket. */
+    chatWebSocketUrl?: string;
+  };
 }
 
 export interface BackendCompatibility {

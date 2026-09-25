@@ -8,6 +8,7 @@ export * from "./types";
 export * from "./ai-disclosures";
 export * from "./knowledge-sync";
 export * from "./backend-compatibility";
+export * from "./chat-stream-types";
 export declare const LANGUAGE_OPTIONS: {
     label: string;
     value: AiKitLanguageCode;

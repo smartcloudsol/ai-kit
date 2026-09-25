@@ -22,6 +22,12 @@ import {
   IconSend,
   IconTrash,
   IconX,
+  IconWorld,
+  IconSearch,
+  IconCalculator,
+  IconCode,
+  IconBrain,
+  IconSparkles,
 } from "@tabler/icons-react";
 
 import {
@@ -61,6 +67,18 @@ import {
   normalizeChatCitations,
   type CitationLike,
 } from "./citations";
+import {
+  discoverChatStreamUrl,
+  runChatStreamTurn,
+  sendChatStreamCancel,
+  type ChatActivity,
+  type ChatStreamCheckpoint,
+  type ChatStreamResult,
+  type ChatStreamView,
+  summarizeChatActivities,
+  isToolActivity,
+  isSummaryActivity,
+} from "./chatStream";
 
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -81,7 +99,7 @@ export const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels> = {
 
   userLabel: "User",
   assistantLabel: "Assistant",
-  assistantThinkingLabel: "Assistant is thinking...",
+  assistantThinkingLabel: "{name} is working…",
 
   askMeLabel: "Ask me",
 
@@ -122,6 +140,8 @@ type ChatResponse = {
   result: string;
   sessionId?: string;
   citations?: ProcessedCitations | CitationLike[];
+  activities?: ChatActivity[];
+  completion?: "complete" | "partial" | "truncated";
   metadata?: {
     citationCount?: number;
     modelId?: string;
@@ -154,6 +174,10 @@ type ChatMessage = {
   feedback?: "accepted" | "rejected";
   clientStatus?: "pending" | "canceled";
   attachments?: ChatMessageAttachment[];
+  activities?: ChatActivity[];
+  completion?: "complete" | "partial" | "truncated";
+  error?: boolean;
+  retryText?: string;
 };
 
 type ComposerImage = {
@@ -201,7 +225,6 @@ const isAbortLike = (e: Error & { code?: string }) => {
 
 const formatStatusEvent = (
   event: AiKitStatusEvent | null,
-  labels: AiChatbotLabels,
   I18n: ReturnType<typeof useAiKitI18n>,
 ): string | null => {
   if (!event) return null;
@@ -227,10 +250,7 @@ const formatStatusEvent = (
     case "backend:request":
     case "backend:waiting":
     case "backend:response":
-      return I18n.get(
-        labels.assistantThinkingLabel ??
-          DEFAULT_CHATBOT_LABELS.assistantThinkingLabel,
-      );
+      return I18n.get("Waiting for reply…");
     case "done":
       return msg || I18n.get("Done.");
     case "error":
@@ -238,6 +258,112 @@ const formatStatusEvent = (
     default:
       return msg || null;
   }
+};
+
+const activityLabel = (
+  activity: ChatActivity,
+  I18n: ReturnType<typeof useAiKitI18n>,
+  settled = false,
+): string => {
+  if (activity.status === "failed") return I18n.get("Action failed");
+  if (settled && activity.status === "running") return I18n.get("Action interrupted");
+  if (activity.status === "completed" && isToolActivity(activity)) {
+    const key = activity.kind === "knowledge_search" ? "Knowledge base searched"
+      : activity.kind === "web_search" || activity.kind === "web_read" ? "Web search completed"
+      : activity.kind === "calculation" ? "Calculation completed"
+      : activity.kind === "script" ? "Script completed"
+      : activity.kind === "validation" ? "Check completed" : "Action completed";
+    return I18n.get(key);
+  }
+  const action = activity.kind === "thinking"
+    ? I18n.get("Thinking…")
+    : activity.kind === "generating_response"
+      ? I18n.get("Generating response…")
+    : activity.kind === "checking_sources"
+      ? I18n.get("Checking sources…")
+    : activity.kind === "knowledge_search"
+      ? I18n.get("Searching knowledge base…")
+      : activity.kind === "web_search" || activity.kind === "web_read"
+        ? I18n.get("Searching…")
+        : activity.kind === "calculation"
+          ? I18n.get("Calculating…")
+          : activity.kind === "script"
+            ? I18n.get("Running a script…")
+            : I18n.get("Checking…");
+  return activity.safeDomain ? `${action} ${activity.safeDomain}` : action;
+};
+
+const ActivityIcon: FC<{ kind: ChatActivity["kind"] }> = ({ kind }) => {
+  const Icon = kind === "web_search" || kind === "web_read" ? IconWorld
+    : kind === "knowledge_search" ? IconSearch
+    : kind === "calculation" ? IconCalculator
+    : kind === "script" ? IconCode
+    : kind === "thinking" ? IconBrain : IconSparkles;
+  return <Icon size={14} aria-hidden="true" />;
+};
+
+const ActivityTrace: FC<{
+  activities: ChatActivity[];
+  I18n: ReturnType<typeof useAiKitI18n>;
+}> = ({ activities, I18n }) => {
+  if (!activities.length) return null;
+  const tools = activities.filter(isSummaryActivity);
+  const summary = summarizeChatActivities(activities);
+  const failedCount = tools.filter((activity) => activity.status === "failed").length;
+  const summaryParts = [
+    summary.knowledgeSearches > 0
+      ? I18n.get("Knowledge Base searches: {count}").replace("{count}", String(summary.knowledgeSearches))
+      : null,
+    summary.websites > 0
+      ? I18n.get("Websites searched: {count}").replace("{count}", String(summary.websites))
+      : null,
+    summary.otherTools > 0
+      ? I18n.get("Other tools used: {count}").replace("{count}", String(summary.otherTools))
+      : null,
+    failedCount > 0
+      ? I18n.get("Failed actions: {count}").replace("{count}", String(failedCount))
+      : null,
+  ].filter((part): part is string => Boolean(part));
+  if (summaryParts.length === 0) return null;
+  return (
+    <details className="ai-chat-activity-trace">
+      <summary>
+        {summaryParts.join(" · ")}
+      </summary>
+      <ol>
+        {tools.map((activity) => (
+          <li key={activity.activityId} data-status={activity.status}>
+            <ActivityIcon kind={activity.kind} />
+            <span>{activityLabel(activity, I18n, true)}</span>
+            {activity.query && (
+              <div className="ai-chat-activity-detail">
+                {I18n.get("Search query: {query}").replace("{query}", activity.query)}
+              </div>
+            )}
+            <div className="ai-chat-activity-detail">
+              {([
+                ["categoryCount", "Categories: {count}"],
+                ["subcategoryCount", "Subcategories: {count}"],
+                ["tagCount", "Tags: {count}"],
+                ["resultCount", "Results: {count}"],
+              ] as const).flatMap(([field, key]) => {
+                const count = activity[field];
+                return count !== undefined && (count > 0 || field === "resultCount")
+                  ? [I18n.get(key).replace("{count}", String(count))] : [];
+              }).join(" · ")}
+            </div>
+            {!!activity.urls?.length && (
+              <ul className="ai-chat-activity-urls">
+                {activity.urls.map((url) => (
+                  <li key={url}><Anchor href={url} target="_blank" rel="noopener noreferrer" size="xs">{url}</Anchor></li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
 };
 
 // New: small helpers for storage
@@ -285,10 +411,17 @@ const disposeMessagesAttachments = (messages: ChatMessage[]) => {
 };
 
 type PersistedChat = {
-  version: 1;
+  version: 1 | 2;
   lastUserSentAt: number | null;
   session?: { id: string; storedAt: number } | null;
   messages: PersistedChatMessage[];
+  activeStream?: {
+    checkpoint: ChatStreamCheckpoint;
+    userMessageId: string;
+    text: string;
+    locale: string;
+    view?: ChatStreamView;
+  };
 };
 
 const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
@@ -346,6 +479,14 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streamView, setStreamView] = useState<ChatStreamView | null>(null);
+  const [streamTransportState, setStreamTransportState] = useState<"sending" | "waiting" | "receiving" | "reconnecting" | null>(null);
+  const streamViewRef = useRef<ChatStreamView | null>(null);
+  const [activeStream, setActiveStream] = useState<PersistedChat["activeStream"]>();
+  const [streamToResume, setStreamToResume] = useState<PersistedChat["activeStream"]>();
+  const streamSocketRef = useRef<WebSocket | null>(null);
+  const streamCheckpointRef = useRef<ChatStreamCheckpoint>();
+  const lastStreamPersistedAtRef = useRef(0);
   const [statusLineError, setStatusLineError] = useState<string | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -704,11 +845,6 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     }
   }, [opened]);
 
-  const statusText = useMemo(() => {
-    if (!ai.busy) return null;
-    return formatStatusEvent(ai.statusEvent, labels, I18n) || I18n.get("Working…");
-  }, [I18n, ai.busy, ai.statusEvent, language, labels]);
-
   const lastCanceledUserMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
@@ -742,17 +878,34 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   );
 
   const cancelChat = useCallback(() => {
-    if (!ai.busy || activeOpRef.current !== "chat") return;
+    if (!ai.busy || activeOpRef.current !== "chat" || cancelRequestedRef.current) return;
 
     cancelRequestedRef.current = true;
+    const partial = streamViewRef.current;
+    if (partial?.text.trim()) {
+      setMessages((previous) => [...previous, {
+        id: partial.checkpoint?.assistantMessageId ?? createMessageId("assistant-partial"),
+        role: "assistant",
+        content: partial.text,
+        citations: normalizeChatCitations(partial.citations),
+        activities: partial.activities,
+        completion: "partial",
+        createdAt: Date.now(),
+      }]);
+    }
+    sendChatStreamCancel(streamSocketRef.current, streamCheckpointRef.current);
     try {
       ai.cancel();
     } catch {
       // ignore
     }
 
-    // UI: treat as "not sent"
-    markLastPendingAs("canceled");
+    // Keep text that already arrived; only an unaccepted request is "not sent".
+    if (!partial?.checkpoint) markLastPendingAs("canceled");
+    streamViewRef.current = null;
+    setStreamView(null);
+    setActiveStream(undefined);
+    streamCheckpointRef.current = undefined;
     setActiveOp(null);
 
     // feedback-only status line error should not persist into chat cancel
@@ -1142,17 +1295,18 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     [sendFeedbackToServer],
   );
 
-  const ask = useCallback(async () => {
-    const trimmed = questionRef.current.trim();
-    const selectedAudio = composerAudioRef.current;
+  const ask = useCallback(async (retryText?: string) => {
+    const trimmed = (retryText ?? questionRef.current).trim();
+    const selectedAudio = retryText === undefined ? composerAudioRef.current : null;
 
     // Can send if we have text OR audio
     if ((!trimmed && !selectedAudio) || ai.busy) return;
 
     cancelRequestedRef.current = false;
     setStatusLineError(null);
+    setStreamTransportState(null);
     setActiveOp("chat");
-    const selectedImages = imageAttachmentsEnabled
+    const selectedImages = imageAttachmentsEnabled && retryText === undefined
       ? [...composerImagesRef.current]
       : [];
     const userAttachments = await buildUserAttachments(
@@ -1172,14 +1326,17 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     };
 
     // optimistic UI
-    setQuestion("");
-    clearComposerImages();
-    clearComposerAudio();
+    if (retryText === undefined) {
+      setQuestion("");
+      clearComposerImages();
+      clearComposerAudio();
+    }
     setMessages((prev) => [...prev, userMessage]);
 
     if (!opened) setOpened(true);
     scrollToBottom();
 
+    let latestStreamView: ChatStreamView | null = null;
     try {
       const activeSessionId =
         sessionRef.current &&
@@ -1189,6 +1346,69 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           : undefined;
 
       const res = (await ai.run(async ({ signal, onStatus }) => {
+        if (trimmed && !selectedAudio && selectedImages.length === 0) {
+          const streamUrl = await discoverChatStreamUrl();
+          if (streamUrl && !signal.aborted) {
+            const requestId = createMessageId("chat-turn");
+            const streamed = await runChatStreamTurn({
+              url: streamUrl,
+              text: trimmed,
+              locale: I18n.language,
+              sessionId: activeSessionId,
+              requestId,
+              signal,
+              onTransportState: setStreamTransportState,
+              onSocket: (socket) => {
+                streamSocketRef.current = socket;
+              },
+              onSession: (id) => {
+                sessionRef.current = { id, storedAt: Date.now() };
+              },
+              onAccepted: (checkpoint, id) => {
+                streamCheckpointRef.current = checkpoint;
+                lastStreamPersistedAtRef.current = Date.now();
+                setActiveStream({
+                  checkpoint,
+                  userMessageId,
+                  text: trimmed,
+                  locale: I18n.language,
+                  view: latestStreamView ?? undefined,
+                });
+                sessionRef.current = { id, storedAt: Date.now() };
+                setLastUserSentAt(userMessageCreatedAt);
+                markLastPendingAs(null);
+              },
+              onView: (view) => {
+                latestStreamView = view;
+                streamViewRef.current = view;
+                setStreamView(view);
+                if (view.checkpoint) {
+                  streamCheckpointRef.current = view.checkpoint;
+                  if (Date.now() - lastStreamPersistedAtRef.current >= 250) {
+                    lastStreamPersistedAtRef.current = Date.now();
+                    setActiveStream({
+                      checkpoint: view.checkpoint,
+                      userMessageId,
+                      text: trimmed,
+                      locale: I18n.language,
+                      view,
+                    });
+                  }
+                }
+              },
+            });
+            return {
+              result: streamed.result,
+              sessionId: streamed.sessionId,
+              citations: streamed.citations,
+              metadata: {
+                ...streamed.metadata,
+                messageId: streamed.messageId ?? streamed.metadata?.messageId,
+              },
+              activities: latestStreamView?.activities,
+            };
+          }
+        }
         const out = await sendChatMessage(
           {
             sessionId: activeSessionId,
@@ -1244,6 +1464,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         role: "assistant",
         content: resultText,
         citations: normalizeChatCitations(res.citations),
+        activities: res.activities,
         createdAt: Date.now(),
       };
 
@@ -1253,6 +1474,10 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         );
         return [...cleared, assistantMessage];
       });
+      setStreamView(null);
+      streamViewRef.current = null;
+      setActiveStream(undefined);
+      streamCheckpointRef.current = undefined;
 
       // mark last sent timestamp on successful request completion
       setLastUserSentAt(userMessageCreatedAt);
@@ -1262,12 +1487,19 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         cancelRequestedRef.current ||
         isAbortLike(e as Error & { code?: string })
       ) {
-        markLastPendingAs("canceled");
+        if (!streamCheckpointRef.current) markLastPendingAs("canceled");
+        setStreamView(null);
+        streamViewRef.current = null;
+        setActiveStream(undefined);
         return;
       }
 
-      const msg =
-        (e as Error)?.message?.trim() || I18n.get(labels.unexpectedErrorLabel);
+      const errorCode = (e as Error & { code?: string; details?: { code?: string } })?.details?.code ??
+        (e as Error & { code?: string })?.code;
+      const rawMessage = errorCode === "CONVERSATION_BUSY"
+        ? "A response is still running. Wait for it to finish or cancel it."
+        : (e as Error)?.message?.trim() || labels.unexpectedErrorLabel;
+      const msg = I18n.get(rawMessage);
       setStatusLineError(msg);
 
       // show error inside chat (assistant side)
@@ -1280,15 +1512,26 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           {
             id: createMessageId("assistant-error"),
             role: "assistant",
-            content: `⚠️ ${msg}`,
+            content: latestStreamView?.text
+              ? `${latestStreamView.text}\n\n⚠️ ${msg}`
+              : `⚠️ ${msg}`,
+            activities: latestStreamView?.activities,
+            error: true,
+            retryText: !selectedAudio && selectedImages.length === 0 ? trimmed : undefined,
             createdAt: Date.now(),
           },
         ];
       });
+      setStreamView(null);
+      streamViewRef.current = null;
+      setActiveStream(undefined);
 
       // still consider the message "sent" (server error happened after sending)
       setLastUserSentAt(userMessageCreatedAt);
     } finally {
+      setStreamTransportState(null);
+      streamSocketRef.current = null;
+      streamCheckpointRef.current = undefined;
       setActiveOp((prev) => (prev === "chat" ? null : prev));
       cancelRequestedRef.current = false;
       if (questionInputRef.current) questionInputRef.current.focus();
@@ -1307,6 +1550,111 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     language,
     imageAttachmentsEnabled,
   ]);
+
+  useEffect(() => {
+    if (!historyReady || !streamToResume) return;
+    const pending = streamToResume;
+    const run = async () => {
+      cancelRequestedRef.current = false;
+      activeOpRef.current = "chat";
+      setActiveOp("chat");
+      setStreamView(pending.view ?? null);
+      streamViewRef.current = pending.view ?? null;
+      streamCheckpointRef.current = pending.checkpoint;
+      let latestView = pending.view;
+      try {
+        const url = await discoverChatStreamUrl();
+        if (!url) {
+          throw new Error("The AI service is temporarily unavailable. Please try again.");
+        }
+        const result = (await ai.run(async ({ signal }) =>
+          runChatStreamTurn({
+            url,
+            text: pending.text,
+            locale: pending.locale,
+            sessionId: pending.checkpoint.conversationId,
+            requestId: pending.checkpoint.requestId,
+            resume: pending.checkpoint,
+            initialView: pending.view,
+            signal,
+            onTransportState: setStreamTransportState,
+            onSocket: (socket) => {
+              streamSocketRef.current = socket;
+            },
+            onSession: (id) => {
+              sessionRef.current = { id, storedAt: Date.now() };
+            },
+            onView: (view) => {
+              latestView = view;
+              streamViewRef.current = view;
+              setStreamView(view);
+              if (view.checkpoint) {
+                streamCheckpointRef.current = view.checkpoint;
+                if (Date.now() - lastStreamPersistedAtRef.current >= 250) {
+                  lastStreamPersistedAtRef.current = Date.now();
+                  setActiveStream({ ...pending, checkpoint: view.checkpoint, view });
+                }
+              }
+            },
+          }),
+        )) as ChatStreamResult | null;
+        if (cancelRequestedRef.current || !result) return;
+        if (!result.result.trim()) {
+          throw new Error(I18n.get(labels.emptyResponseLabel));
+        }
+        setMessages((previous) => [
+          ...previous.map((message) =>
+            message.id === pending.userMessageId
+              ? { ...message, clientStatus: undefined }
+              : message,
+          ),
+          {
+            id: result.messageId ?? createMessageId("assistant"),
+            role: "assistant",
+            content: result.result,
+            citations: normalizeChatCitations(result.citations),
+            activities: latestView?.activities,
+            createdAt: Date.now(),
+          },
+        ]);
+      } catch (error) {
+        if (!cancelRequestedRef.current && !isAbortLike(error as Error)) {
+          const message = I18n.get(
+            (error as Error)?.message?.trim() || labels.unexpectedErrorLabel,
+          );
+          setMessages((previous) => [
+            ...previous.map((item) =>
+              item.id === pending.userMessageId
+                ? { ...item, clientStatus: undefined }
+                : item,
+            ),
+            {
+              id: createMessageId("assistant-error"),
+              role: "assistant",
+              content: latestView?.text
+                ? `${latestView.text}\n\n⚠️ ${message}`
+                : `⚠️ ${message}`,
+              activities: latestView?.activities,
+              error: true,
+              retryText: pending.text,
+              createdAt: Date.now(),
+            },
+          ]);
+        }
+      } finally {
+        setStreamTransportState(null);
+        setStreamToResume(undefined);
+        setStreamView(null);
+        streamViewRef.current = null;
+        setActiveStream(undefined);
+        streamSocketRef.current = null;
+        streamCheckpointRef.current = undefined;
+        activeOpRef.current = null;
+        setActiveOp(null);
+      }
+    };
+    void run();
+  }, [historyReady, streamToResume]);
 
   const handleQuestionKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1437,13 +1785,22 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   const showStatusBubble = useMemo(() => isChatBusy, [isChatBusy]);
 
-  // Status line: hidden only while waiting for assistant (no duplicate).
-  const showStatusLine = useMemo(() => {
-    if (isChatBusy) return false;
-    return true;
-  }, [isChatBusy]);
+  const currentStreamActivity = useMemo(() =>
+    [...(streamView?.activities ?? [])].reverse().find((activity) => activity.status === "running"),
+  [streamView?.activities]);
 
   const statusLineText = useMemo(() => {
+    if (isChatBusy) {
+      if (streamTransportState === "reconnecting") return I18n.get("Reconnecting…");
+      if (streamTransportState === "sending") return I18n.get("Sending request…");
+      if (streamTransportState === "waiting") return I18n.get("Waiting for reply…");
+      if (currentStreamActivity) return activityLabel(currentStreamActivity, I18n);
+      if (streamView?.text) return I18n.get("Generating response…");
+      const latest = streamView?.activities.at(-1);
+      if (latest) return I18n.get(latest.kind === "checking_sources" || latest.kind === "generating_response"
+        ? "Generating response…" : "Thinking…");
+      return formatStatusEvent(ai.statusEvent, I18n) || I18n.get("Sending request…");
+    }
     if (statusLineError) return statusLineError;
     return hasMessages
       ? I18n.get(labels.readyLabel)
@@ -1454,6 +1811,11 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     labels.readyLabel,
     labels.readyEmptyLabel,
     language,
+    isChatBusy,
+    streamTransportState,
+    streamView,
+    currentStreamActivity,
+    ai.statusEvent,
   ]);
 
   const sendOrCancelLabel = useMemo(() => {
@@ -1581,7 +1943,11 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           : [];
 
         const normalized = loadedMessages.map((m) => {
-          if (m?.role === "user" && m.clientStatus === "pending") {
+          if (
+            m?.role === "user" &&
+            m.clientStatus === "pending" &&
+            m.id !== parsed.activeStream?.userMessageId
+          ) {
             return { ...m, clientStatus: "canceled" as const };
           }
           return m;
@@ -1599,6 +1965,14 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
         if (parsed.session && parsed.session.id) {
           sessionRef.current = parsed.session;
+        }
+        if (
+          parsed.version === 2 &&
+          parsed.activeStream?.checkpoint?.turnId &&
+          parsed.activeStream.checkpoint.conversationId
+        ) {
+          setActiveStream(parsed.activeStream);
+          setStreamToResume(parsed.activeStream);
         }
       } catch (error) {
         console.warn("[AiChatbot] Failed to load history", error);
@@ -1650,10 +2024,11 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     );
 
     const payload: PersistedChat = {
-      version: 1,
+      version: 2,
       lastUserSentAt: last,
       session: sessionRef.current,
       messages: persistableMessages,
+      activeStream,
     };
 
     try {
@@ -1676,6 +2051,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     lastUserSentAt,
     historyStorage,
     emptyHistoryAfterDays,
+    activeStream,
   ]);
 
   if (
@@ -1796,7 +2172,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                           >
                             {isUser
                               ? I18n.get(labels.userLabel)
-                              : I18n.get(labels.assistantLabel)}
+                              : labels.assistantLabel === DEFAULT_CHATBOT_LABELS.assistantLabel
+                                ? modalTitle : I18n.get(labels.assistantLabel)}
                           </Text>
                           &nbsp;
                           <Text size="xs" style={{ whiteSpace: "nowrap" }}>
@@ -1808,15 +2185,26 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                         </Text>
 
                         {msg.role === "assistant" ? (
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {msg.content}
-                          </ReactMarkdown>
+                          <>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {msg.content}
+                            </ReactMarkdown>
+                          </>
                         ) : (
                           <Text size="sm" miw="100px">
                             {msg.content}
                           </Text>
                         )}
                       </Stack>
+                      {msg.role === "assistant" && msg.completion === "partial" && (
+                        <Text size="xs" c="dimmed">{I18n.get("Response stopped.")}</Text>
+                      )}
+                      {msg.role === "assistant" && !!msg.activities?.length && (
+                        <ActivityTrace
+                          activities={msg.activities}
+                          I18n={I18n}
+                        />
+                      )}
 
                       {msg.attachments && msg.attachments.length > 0 && (
                         <Stack
@@ -1982,7 +2370,13 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                         </Stack>
                       )}
 
-                      {msg.role === "assistant" && (
+                      {msg.role === "assistant" && msg.error && msg.retryText && (
+                        <Button variant="subtle" size="xs" disabled={ai.busy}
+                          onClick={() => void ask(msg.retryText)}>
+                          {I18n.get("Retry")}
+                        </Button>
+                      )}
+                      {msg.role === "assistant" && !msg.error && !msg.id.startsWith("assistant-error") && (
                         <Group className="ai-feedback" gap="xs">
                           <Button
                             className={
@@ -2020,13 +2414,16 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                   justify="flex-start"
                   className="ai-chat-row assistant status"
                 >
-                  <Stack className="ai-chat-bubble typing">
-                    {statusText ? (
-                      <Text size="sm" c="dimmed">
-                        <em>{statusText}</em>
-                      </Text>
-                    ) : null}
-                    <div className="typing-indicator">
+                  <Stack className={`ai-chat-bubble typing${streamView?.text ? "" : " waiting"}`}>
+                    <Text className="ai-chat-header" fw="bolder" size="xs">
+                      {modalTitle}
+                    </Text>
+                    {!!streamView?.text && (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {streamView.text}
+                      </ReactMarkdown>
+                    )}
+                    <div className="typing-indicator" aria-hidden="true">
                       <span />
                       <span />
                       <span />
@@ -2037,17 +2434,15 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             </Modal.Body>
 
             {/* Status line (below bubbles) */}
-            {showStatusLine && (
-              <Group
-                className="ai-status-line"
-                role={statusLineError ? "alert" : "status"}
-                aria-live={statusLineError ? "assertive" : "polite"}
-              >
-                <Text className="ai-status-text">
-                  <em>{statusLineText}</em>
-                </Text>
-              </Group>
-            )}
+            <Group
+              className="ai-status-line"
+              role={statusLineError ? "alert" : "status"}
+              aria-live={statusLineError ? "assertive" : "polite"}
+            >
+              <Text className="ai-status-text">
+                <em>{statusLineText}</em>
+              </Text>
+            </Group>
 
             <Text
               className="ai-generated-content-disclosure ai-chatbot-generated-content-disclosure"

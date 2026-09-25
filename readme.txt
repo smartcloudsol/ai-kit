@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.2
+Stable tag: 1.5.3
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,12 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.3 =
+* Chat streaming: Add a WebSocket client for incremental answers and tool activity, with the existing HTTP chat path retained when streaming is unavailable.
+* Chat experience: Keep partial answers when a turn is cancelled, show precise failures and retry options, and summarize completed Knowledge Base searches without cluttering the live response.
+* Sources and localization: Clean up citation previews and localize the new chat activity and error messages across all supported interface languages.
+* Conversation Profile: Clarify action kinds in the editor and contextual help, including examples for links, contact actions, and handoffs.
 
 = 1.5.2 =
 * Cost visibility: Distinguish backend-recorded AI usage from historical AWS account billing and show the scope and freshness of each figure. Unavailable or delayed billing data is shown as unknown rather than zero.
@@ -555,6 +561,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.5.3 =
+Streaming chat requires an AI Kit backend built from Deployment Access orchestration v1.0.102 or later with chat streaming enabled. Without that optional backend capability, the chatbot continues to use the existing HTTP path.
 
 = 1.5.2 =
 Update the AI Kit backend to Deployment Access orchestration v1.0.100 or the equivalent legacy backend release before using the new cost reconciliation details. Historical AWS billing can cover the AWS account beyond this backend and is delayed; unavailable billing data does not mean zero spending.

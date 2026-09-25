@@ -65,13 +65,22 @@ export function capabilityForCustomPath(
 function isManifest(value: unknown): value is BackendManifest {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
+  const transports = record.transports;
+  const validTransports = transports === undefined || (
+    !!transports && typeof transports === "object" && !Array.isArray(transports) &&
+    ((transports as Record<string, unknown>).chatWebSocketUrl === undefined ||
+      typeof (transports as Record<string, unknown>).chatWebSocketUrl === "string") &&
+    ((transports as Record<string, unknown>).chatStreamTicketUrl === undefined ||
+      typeof (transports as Record<string, unknown>).chatStreamTicketUrl === "string")
+  );
   return (
     record.schemaVersion === 1 &&
     record.product === "smartcloud-ai-kit-backend" &&
     typeof record.release === "string" &&
     !!record.capabilities &&
     typeof record.capabilities === "object" &&
-    !Array.isArray(record.capabilities)
+    !Array.isArray(record.capabilities) &&
+    validTransports
   );
 }
 
