@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/ai-kit-main",
-  "version": "1.5.20",
+  "version": "1.5.21",
   "type": "module",
   "license": "ISC",
   "scripts": {
@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@smart-cloud/ai-kit-core": "^1.5.13",
-    "@smart-cloud/ai-kit-ui": "^1.5.22",
+    "@smart-cloud/ai-kit-ui": "^1.5.23",
     "@smart-cloud/wpsuite-core": "^2.4.2"
   },
   "peerDependencies": {

@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.3
+Stable tag: 1.5.4
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,10 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.4 =
+* Chat readability: Improve muted text contrast in dark themes, including expanded activity details on mobile.
+* Backend compatibility: Pair with orchestration v1.0.103 for stronger response-format recovery and reliable Cognito authorizer updates.
 
 = 1.5.3 =
 * Chat streaming: Add a WebSocket client for incremental answers and tool activity, with the existing HTTP chat path retained when streaming is unavailable.
@@ -561,6 +565,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.5.4 =
+Update the AI Kit backend to Deployment Access orchestration v1.0.103, or apply the equivalent AI handler and authorizer fixes to a legacy deployment, to receive the response-format and Cognito authorizer repairs. The UI contrast improvement works independently.
 
 = 1.5.3 =
 Streaming chat requires an AI Kit backend built from Deployment Access orchestration v1.0.102 or later with chat streaming enabled. Without that optional backend capability, the chatbot continues to use the existing HTTP path.

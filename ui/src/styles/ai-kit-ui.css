@@ -187,6 +187,15 @@
   font-family: var(--ai-kit-font-family);
 }
 
+/* Keep muted copy legible on dark surfaces, including the expanded chat trace.
+   The light-theme value above remains the default. */
+:host([data-mantine-color-scheme="dark"]),
+#ai-kit-inline-root[data-mantine-color-scheme="dark"],
+#ai-kit-portal-root[data-mantine-color-scheme="dark"],
+[data-ai-kit-theme="dark"] {
+  --ai-kit-color-text-muted: rgba(235, 240, 248, 0.72);
+}
+
 /* Variation defaults */
 :host[data-ai-kit-variation="default"] {
   --ai-kit-background-color: transparent;
