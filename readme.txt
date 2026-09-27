@@ -211,6 +211,7 @@ AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backen
 
 = 1.5.5 =
 * Chatbot: Configure a welcome greeting and up to six starter questions; visitors can send a localized question with one click.
+* Chatbot: Wrap longer starter questions, show live thinking steps above the typing dots, and keep references collapsed until opened.
 * Localization: Resolve authored welcome text and starter questions through the active site translation catalog.
 * Dependencies: Refresh AI Kit core and UI packages for the updated chatbot configuration.
 

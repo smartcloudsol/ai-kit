@@ -22,12 +22,6 @@ import {
   IconSend,
   IconTrash,
   IconX,
-  IconWorld,
-  IconSearch,
-  IconCalculator,
-  IconCode,
-  IconBrain,
-  IconSparkles,
 } from "@tabler/icons-react";
 
 import {
@@ -75,9 +69,7 @@ import {
   type ChatStreamCheckpoint,
   type ChatStreamResult,
   type ChatStreamView,
-  summarizeChatActivities,
   isToolActivity,
-  isSummaryActivity,
 } from "./chatStream";
 import { resolveChatWelcome } from "./welcome";
 
@@ -294,77 +286,30 @@ const activityLabel = (
   return activity.safeDomain ? `${action} ${activity.safeDomain}` : action;
 };
 
-const ActivityIcon: FC<{ kind: ChatActivity["kind"] }> = ({ kind }) => {
-  const Icon = kind === "web_search" || kind === "web_read" ? IconWorld
-    : kind === "knowledge_search" ? IconSearch
-    : kind === "calculation" ? IconCalculator
-    : kind === "script" ? IconCode
-    : kind === "thinking" ? IconBrain : IconSparkles;
-  return <Icon size={14} aria-hidden="true" />;
-};
-
-const ActivityTrace: FC<{
-  activities: ChatActivity[];
-  I18n: ReturnType<typeof useAiKitI18n>;
-}> = ({ activities, I18n }) => {
-  if (!activities.length) return null;
-  const tools = activities.filter(isSummaryActivity);
-  const summary = summarizeChatActivities(activities);
-  const failedCount = tools.filter((activity) => activity.status === "failed").length;
-  const summaryParts = [
-    summary.knowledgeSearches > 0
-      ? I18n.get("Knowledge Base searches: {count}").replace("{count}", String(summary.knowledgeSearches))
-      : null,
-    summary.websites > 0
-      ? I18n.get("Websites searched: {count}").replace("{count}", String(summary.websites))
-      : null,
-    summary.otherTools > 0
-      ? I18n.get("Other tools used: {count}").replace("{count}", String(summary.otherTools))
-      : null,
-    failedCount > 0
-      ? I18n.get("Failed actions: {count}").replace("{count}", String(failedCount))
-      : null,
-  ].filter((part): part is string => Boolean(part));
-  if (summaryParts.length === 0) return null;
-  return (
-    <details className="ai-chat-activity-trace">
-      <summary>
-        {summaryParts.join(" · ")}
-      </summary>
-      <ol>
-        {tools.map((activity) => (
-          <li key={activity.activityId} data-status={activity.status}>
-            <ActivityIcon kind={activity.kind} />
-            <span>{activityLabel(activity, I18n, true)}</span>
-            {activity.query && (
-              <div className="ai-chat-activity-detail">
-                {I18n.get("Search query: {query}").replace("{query}", activity.query)}
-              </div>
-            )}
-            <div className="ai-chat-activity-detail">
-              {([
-                ["categoryCount", "Categories: {count}"],
-                ["subcategoryCount", "Subcategories: {count}"],
-                ["tagCount", "Tags: {count}"],
-                ["resultCount", "Results: {count}"],
-              ] as const).flatMap(([field, key]) => {
-                const count = activity[field];
-                return count !== undefined && (count > 0 || field === "resultCount")
-                  ? [I18n.get(key).replace("{count}", String(count))] : [];
-              }).join(" · ")}
-            </div>
-            {!!activity.urls?.length && (
-              <ul className="ai-chat-activity-urls">
-                {activity.urls.map((url) => (
-                  <li key={url}><Anchor href={url} target="_blank" rel="noopener noreferrer" size="xs">{url}</Anchor></li>
-                ))}
-              </ul>
-            )}
-          </li>
-        ))}
-      </ol>
-    </details>
-  );
+const activityDetails = (
+  activity: ChatActivity,
+  I18n: ReturnType<typeof useAiKitI18n>,
+): string | null => {
+  const details: string[] = [];
+  if (activity.kind === "knowledge_search" && activity.query?.trim()) {
+    const query = Array.from(activity.query.trim()).slice(0, 100).join("");
+    details.push(I18n.get("Search query: {query}").replace("{query}", query));
+  }
+  if (activity.resultCount !== undefined) {
+    details.push(I18n.get("Results: {count}").replace("{count}", String(activity.resultCount)));
+  } else if (activity.kind === "knowledge_search") {
+    for (const [count, key] of [
+      [activity.categoryCount, "Categories: {count}"],
+      [activity.subcategoryCount, "Subcategories: {count}"],
+      [activity.tagCount, "Tags: {count}"],
+    ] as const) {
+      if (count) details.push(I18n.get(key).replace("{count}", String(count)));
+    }
+  }
+  if (!details.length && activity.safeDomains?.length) {
+    details.push(activity.safeDomains.slice(0, 2).join(", "));
+  }
+  return details.length ? details.slice(0, 2).join(" · ") : null;
 };
 
 // New: small helpers for storage
@@ -844,7 +789,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     if (el.scrollHeight > el.clientHeight) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages, ai.busy, stickToBottom, scrollerEl]);
+  }, [messages, streamView, ai.busy, stickToBottom, scrollerEl]);
 
   useEffect(() => {
     if (!opened) {
@@ -1803,39 +1748,33 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     openButtonIconLayout,
   ]);
 
-  const showStatusBubble = useMemo(() => isChatBusy, [isChatBusy]);
+  const progressActivities = streamView?.activities ?? [];
 
-  const currentStreamActivity = useMemo(() =>
-    [...(streamView?.activities ?? [])].reverse().find((activity) => activity.status === "running"),
-  [streamView?.activities]);
+  const progressFallbackText = useMemo(() => {
+    if (streamTransportState === "reconnecting") return I18n.get("Reconnecting…");
+    if (streamTransportState === "sending") return I18n.get("Sending request…");
+    if (streamTransportState === "waiting") return I18n.get("Waiting for reply…");
+    return formatStatusEvent(ai.statusEvent, I18n) || I18n.get("Thinking…");
+  }, [I18n, streamTransportState, ai.statusEvent]);
 
   const statusLineText = useMemo(() => {
     if (isChatBusy) {
-      if (streamTransportState === "reconnecting") return I18n.get("Reconnecting…");
-      if (streamTransportState === "sending") return I18n.get("Sending request…");
-      if (streamTransportState === "waiting") return I18n.get("Waiting for reply…");
-      if (currentStreamActivity) return activityLabel(currentStreamActivity, I18n);
-      if (streamView?.text) return I18n.get("Generating response…");
-      const latest = streamView?.activities.at(-1);
-      if (latest) return I18n.get(latest.kind === "checking_sources" || latest.kind === "generating_response"
-        ? "Generating response…" : "Thinking…");
-      return formatStatusEvent(ai.statusEvent, I18n) || I18n.get("Sending request…");
+      const configuredTemplate = labels.assistantThinkingLabel;
+      const template = configuredTemplate !== "{name} is thinking…" && configuredTemplate.includes("{name}")
+        ? configuredTemplate
+        : DEFAULT_CHATBOT_LABELS.assistantThinkingLabel;
+      return I18n.get(template).replace("{name}", modalTitle);
     }
     if (statusLineError) return statusLineError;
-    return hasMessages
-      ? I18n.get(labels.readyLabel)
-      : I18n.get(labels.readyEmptyLabel);
+    return hasMessages ? null : I18n.get(labels.readyEmptyLabel);
   }, [I18n,
     statusLineError,
     hasMessages,
-    labels.readyLabel,
+    labels.assistantThinkingLabel,
     labels.readyEmptyLabel,
     language,
     isChatBusy,
-    streamTransportState,
-    streamView,
-    currentStreamActivity,
-    ai.statusEvent,
+    modalTitle,
   ]);
 
   const sendOrCancelLabel = useMemo(() => {
@@ -2167,7 +2106,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                     </Group>
                   )}
                   {welcomeQuestions.length > 0 && (
-                    <Group gap="xs">
+                    <Group gap="xs" className="ai-chat-starters">
                       {welcomeQuestions.map((question, index) => (
                         <Button
                           key={`${index}-${question}`}
@@ -2175,7 +2114,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                           size="sm"
                           variant="outline"
                           radius="xl"
-                          style={{ height: "auto", minHeight: 36, whiteSpace: "normal", textAlign: "start" }}
+                          className="ai-chat-starter"
                           disabled={ai.busy || sendLockRef.current}
                           onClick={() => void ask(question, true)}
                         >
@@ -2248,13 +2187,6 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                       {msg.role === "assistant" && msg.completion === "partial" && (
                         <Text size="xs" c="dimmed">{I18n.get("Response stopped.")}</Text>
                       )}
-                      {msg.role === "assistant" && !!msg.activities?.length && (
-                        <ActivityTrace
-                          activities={msg.activities}
-                          I18n={I18n}
-                        />
-                      )}
-
                       {msg.attachments && msg.attachments.length > 0 && (
                         <Stack
                           gap="xs"
@@ -2383,10 +2315,10 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                       )}
 
                       {msg.citations && msg.citations.length > 0 && (
-                        <Stack className="ai-citations">
-                          <Text fw="bold" size="sm" mb="xs">
+                        <details className="ai-citations">
+                          <summary>
                             {I18n.get(labels.referencesLabel)}
-                          </Text>
+                          </summary>
                           <List spacing="xs" size="sm">
                             {msg.citations.map((c, i) => {
                               const link = c.sourceUrl || c.url;
@@ -2416,7 +2348,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                               );
                             })}
                           </List>
-                        </Stack>
+                        </details>
                       )}
 
                       {msg.role === "assistant" && msg.error && msg.retryText && (
@@ -2457,41 +2389,40 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                 );
               })}
 
-              {/* Progress/status bubble (assistant side) - ONLY while waiting for chat answer */}
-              {showStatusBubble && (
-                <Group
-                  justify="flex-start"
-                  className="ai-chat-row assistant status"
-                >
-                  <Stack className={`ai-chat-bubble typing${streamView?.text ? "" : " waiting"}`}>
-                    <Text className="ai-chat-header" fw="bolder" size="xs">
-                      {modalTitle}
-                    </Text>
-                    {!!streamView?.text && (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {streamView.text}
-                      </ReactMarkdown>
-                    )}
-                    <div className="typing-indicator" aria-hidden="true">
-                      <span />
-                      <span />
-                      <span />
-                    </div>
-                  </Stack>
-                </Group>
+              {isChatBusy && (
+                <Stack className="ai-chat-progress" gap="xs" role="status" aria-live="polite">
+                  {progressActivities.length > 0 ? progressActivities.map((activity) => {
+                    const details = activityDetails(activity, I18n);
+                    return (
+                      <Stack key={activity.activityId} gap={2} data-status={activity.status}>
+                        <Text size="sm">{activityLabel(activity, I18n)}</Text>
+                        {details && <Text size="xs" className="ai-chat-progress-detail">{details}</Text>}
+                      </Stack>
+                    );
+                  }) : (
+                    <Text size="sm">{progressFallbackText}</Text>
+                  )}
+                  <div className="typing-indicator" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                </Stack>
               )}
             </Modal.Body>
 
             {/* Status line (below bubbles) */}
-            <Group
-              className="ai-status-line"
-              role={statusLineError ? "alert" : "status"}
-              aria-live={statusLineError ? "assertive" : "polite"}
-            >
-              <Text className="ai-status-text">
-                <em>{statusLineText}</em>
-              </Text>
-            </Group>
+            {statusLineText && (
+              <Group
+                className="ai-status-line"
+                role={statusLineError ? "alert" : "status"}
+                aria-live={statusLineError ? "assertive" : "polite"}
+              >
+                <Text className="ai-status-text">
+                  <em>{statusLineText}</em>
+                </Text>
+              </Group>
+            )}
 
             <Text
               className="ai-generated-content-disclosure ai-chatbot-generated-content-disclosure"

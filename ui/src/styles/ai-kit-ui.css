@@ -798,18 +798,51 @@
   margin: 0;
 }
 
-.ai-chat-bubble.typing.waiting {
-  min-width: min(260px, 80vw);
+.ai-chat-starters {
+  width: 100%;
 }
 
-.ai-chat-waiting-label {
-  font-size: inherit;
-  line-height: inherit;
-  color: inherit;
+.ai-chat-starter {
+  height: auto;
+  min-height: 44px;
+  min-width: min(220px, 100%);
+  max-width: min(100%, 340px);
+  padding: 8px 14px;
+  text-align: start;
+  white-space: normal;
+}
+
+.ai-chat-starter .mantine-Button-inner {
+  min-width: 0;
+  height: auto;
+}
+
+.ai-chat-starter .mantine-Button-label {
   max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  text-align: start;
+}
+
+.ai-chat-progress {
+  max-width: 100%;
+  margin: var(--ai-kit-space-2) 0;
+  color: var(--ai-kit-color-text-muted, var(--ai-kit-color-text));
+  overflow-wrap: anywhere;
+}
+
+.ai-chat-progress [data-status="failed"] {
+  color: var(--ai-kit-color-danger);
+}
+
+.ai-chat-progress-detail {
+  padding-inline-start: var(--ai-kit-space-3);
+  color: var(--ai-kit-color-text-muted, var(--ai-kit-color-text));
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .ai-chat-row.user .ai-chat-bubble {
@@ -902,68 +935,20 @@
 
 /* Citations / status / feedback */
 .ai-citations {
+  max-width: 100%;
   margin-top: var(--ai-kit-space-2);
   font-size: 0.8rem;
+}
+
+.ai-citations summary {
+  cursor: pointer;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .ai-citations ul {
   padding-left: 16px;
-  margin: 4px 0 0;
-}
-
-.ai-chat-activity-trace {
-  max-width: min(600px, 100%);
-  margin-top: var(--ai-kit-space-2);
-  padding: 6px 10px;
-  border: 1px solid var(--ai-kit-color-border, #d7dce3);
-  border-radius: 10px;
-  color: var(--ai-kit-color-text-muted, var(--ai-kit-color-text));
-  font-size: 0.8rem;
-}
-
-.ai-chat-activity-trace summary {
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
-
-.ai-status-text svg,
-.ai-chat-activity-trace summary svg {
-  margin-right: 6px;
-  vertical-align: text-bottom;
-}
-
-.ai-chat-activity-detail,
-.ai-chat-activity-urls {
-  margin-top: 4px;
-  overflow-wrap: anywhere;
-}
-
-.ai-chat-activity-detail:empty {
-  display: none;
-}
-
-.ai-chat-activity-urls {
-  padding-left: 18px;
-}
-
-.ai-chat-activity-trace ol {
-  display: grid;
-  gap: 5px;
-  padding-left: 18px;
   margin: 6px 0 0;
-}
-
-.ai-chat-activity-trace li {
-  padding-left: 2px;
-}
-
-.ai-chat-activity-trace li svg {
-  margin-right: 6px;
-  vertical-align: text-bottom;
-}
-
-.ai-chat-activity-trace li[data-status="failed"] {
-  color: var(--ai-kit-color-danger);
 }
 
 .ai-chat-site-icons {
