@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.4
+Stable tag: 1.5.5
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,11 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.5 =
+* Chatbot: Configure a welcome greeting and up to six starter questions; visitors can send a localized question with one click.
+* Localization: Resolve authored welcome text and starter questions through the active site translation catalog.
+* Dependencies: Refresh AI Kit core and UI packages for the updated chatbot configuration.
 
 = 1.5.4 =
 * Chat readability: Improve muted text contrast in dark themes, including expanded activity details on mobile.
@@ -565,6 +570,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.5.5 =
+To show the new greeting and starter questions in each visitor language, add each authored source string and its translations to the shared WP Suite translation catalog. Existing chatbot settings continue to work without changes.
 
 = 1.5.4 =
 Update the AI Kit backend to Deployment Access orchestration v1.0.103, or apply the equivalent AI handler and authorizer fixes to a legacy deployment, to receive the response-format and Cognito authorizer repairs. The UI contrast improvement works independently.

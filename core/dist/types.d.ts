@@ -190,6 +190,10 @@ export type AiChatbotLabels = Partial<{
 export type AiChatbotProps = AiWorkerProps & {
     context?: ContextKind;
     placeholder?: string;
+    /** Authored welcome text shown before the visitor sends a message. */
+    greeting?: string;
+    /** Authored questions offered before the first message. */
+    starterQuestions?: string[];
     maxImages?: number;
     maxImageBytes?: number;
     maxTokens?: number;

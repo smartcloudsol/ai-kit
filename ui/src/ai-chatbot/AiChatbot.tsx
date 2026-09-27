@@ -79,6 +79,7 @@ import {
   isToolActivity,
   isSummaryActivity,
 } from "./chatStream";
+import { resolveChatWelcome } from "./welcome";
 
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -444,6 +445,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     // AiChatbotProps
     context,
     placeholder,
+    greeting,
+    starterQuestions,
     maxImages,
     maxImageBytes,
     maxTokens,
@@ -657,6 +660,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   const lastUserSentAtRef = useRef(lastUserSentAt);
   const composerImagesRef = useRef(composerImages);
   const composerAudioRef = useRef(composerAudio);
+  const sendLockRef = useRef(false);
 
   useEffect(() => {
     questionRef.current = question;
@@ -733,6 +737,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     const raw = placeholder ? placeholder : labels.placeholder;
     return I18n.get(raw);
   }, [I18n, placeholder, labels.placeholder, language]);
+
+  const { greeting: welcomeGreeting, questions: welcomeQuestions } =
+    resolveChatWelcome(greeting, starterQuestions, I18n.get);
 
   const aiDisclosure = useMemo(() => {
     const template = I18n.get(
@@ -1295,24 +1302,35 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     [sendFeedbackToServer],
   );
 
-  const ask = useCallback(async (retryText?: string) => {
+  const ask = useCallback(async (retryText?: string, fromStarter = false) => {
     const trimmed = (retryText ?? questionRef.current).trim();
     const selectedAudio = retryText === undefined ? composerAudioRef.current : null;
 
     // Can send if we have text OR audio
-    if ((!trimmed && !selectedAudio) || ai.busy) return;
+    if ((!trimmed && !selectedAudio) || ai.busy || sendLockRef.current) return;
+    sendLockRef.current = true;
+    if (fromStarter) {
+      setQuestion("");
+      questionRef.current = "";
+      clearComposerImages();
+      clearComposerAudio();
+    }
 
     cancelRequestedRef.current = false;
     setStatusLineError(null);
     setStreamTransportState(null);
-    setActiveOp("chat");
     const selectedImages = imageAttachmentsEnabled && retryText === undefined
       ? [...composerImagesRef.current]
       : [];
-    const userAttachments = await buildUserAttachments(
-      selectedImages,
-      selectedAudio,
-    );
+    let userAttachments: ChatMessageAttachment[];
+    try {
+      userAttachments = await buildUserAttachments(selectedImages, selectedAudio);
+    } catch (error) {
+      sendLockRef.current = false;
+      setStatusLineError((error as Error)?.message || I18n.get("Unexpected error"));
+      return;
+    }
+    setActiveOp("chat");
 
     const userMessageId = createMessageId("user");
     const userMessageCreatedAt = Date.now();
@@ -1328,6 +1346,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     // optimistic UI
     if (retryText === undefined) {
       setQuestion("");
+      questionRef.current = "";
       clearComposerImages();
       clearComposerAudio();
     }
@@ -1529,6 +1548,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       // still consider the message "sent" (server error happened after sending)
       setLastUserSentAt(userMessageCreatedAt);
     } finally {
+      sendLockRef.current = false;
       setStreamTransportState(null);
       streamSocketRef.current = null;
       streamCheckpointRef.current = undefined;
@@ -2137,6 +2157,35 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               ref={setScrollerEl}
               data-scrollable={bodyScrollable ? "true" : "false"}
             >
+              {historyReady && !hasMessages && (welcomeGreeting || welcomeQuestions.length > 0) && (
+                <Stack gap="md" className="ai-chat-welcome">
+                  {welcomeGreeting && (
+                    <Group justify="flex-start" className="ai-chat-row assistant">
+                      <Stack className="ai-chat-bubble">
+                        <Text>{welcomeGreeting}</Text>
+                      </Stack>
+                    </Group>
+                  )}
+                  {welcomeQuestions.length > 0 && (
+                    <Group gap="xs">
+                      {welcomeQuestions.map((question, index) => (
+                        <Button
+                          key={`${index}-${question}`}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          radius="xl"
+                          style={{ height: "auto", minHeight: 36, whiteSpace: "normal", textAlign: "start" }}
+                          disabled={ai.busy || sendLockRef.current}
+                          onClick={() => void ask(question, true)}
+                        >
+                          {question}
+                        </Button>
+                      ))}
+                    </Group>
+                  )}
+                </Stack>
+              )}
               {messages.map((msg) => {
                 const isUser = msg.role === "user";
                 const isLastCanceled =
@@ -2494,6 +2543,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                   value={question}
                   onChange={(e) => {
                     setQuestion(e.target.value);
+                    questionRef.current = e.target.value;
                     // Clear audio when typing
                     if (composerAudio) {
                       clearComposerAudio();

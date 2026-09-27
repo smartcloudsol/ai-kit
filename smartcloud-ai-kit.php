@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.5.4
+ * Version:           1.5.5
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.5.4';
+const VERSION = '1.5.5';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {
@@ -88,6 +88,7 @@ final class AiKit
     {
         add_filter('smartcloud_ai_kit_apply_chatbot_presentation', array($this, 'applyChatbotPresentation'), 10, 2);
         add_filter('smartcloud_ai_kit_restore_chatbot_presentation', array($this, 'restoreChatbotPresentation'), 10, 2);
+        add_filter('smartcloud_ai_kit_apply_chatbot_welcome', array($this, 'applyChatbotWelcome'), 10, 2);
         add_filter('block_bindings_supported_attributes', array($this, 'filterBlockBindingsSupportedAttributes'), 20, 2);
         add_filter('block_bindings_supported_attributes_smartcloud-ai-kit/feature', array($this, 'filterAiFeatureBlockBindingsSupportedAttributes'), 20, 1);
         add_filter('block_bindings_supported_attributes_smartcloud-ai-kit/doc-search', array($this, 'filterDocSearchBlockBindingsSupportedAttributes'), 20, 1);
@@ -203,6 +204,104 @@ final class AiKit
             return $refresh;
         }
         return array('restored' => true);
+    }
+
+    /**
+     * Save only the authored chatbot welcome copy. The site remains responsible
+     * for translating these exact strings through its translation catalog.
+     *
+     * @param mixed $previous_result Earlier filter result.
+     * @param array<string, mixed> $spec Greeting and starter questions.
+     * @return array<string, mixed>|\WP_Error
+     */
+    public function applyChatbotWelcome(mixed $previous_result, array $spec): array|\WP_Error
+    {
+        if (is_array($previous_result) && !empty($previous_result['applied'])) {
+            return $previous_result;
+        }
+        if (!current_user_can('manage_options')) {
+            return new \WP_Error('smartcloud_ai_kit_chatbot_welcome_forbidden', __('You are not allowed to update Chatbot welcome settings.', 'smartcloud-ai-kit'));
+        }
+
+        $welcome = $this->validateChatbotWelcome($spec);
+        if ($welcome instanceof \WP_Error) {
+            return $welcome;
+        }
+
+        $current = $this->fetchRemoteSiteSettings();
+        if ($current instanceof \WP_Error) {
+            return $current;
+        }
+        $chatbot = is_array($current['chatbot'] ?? null) ? $current['chatbot'] : array();
+        $previous = array(
+            'greeting' => $chatbot['greeting'] ?? null,
+            'starterQuestions' => $chatbot['starterQuestions'] ?? null,
+        );
+        $chatbot['greeting'] = $welcome['greeting'];
+        $chatbot['starterQuestions'] = $welcome['starterQuestions'];
+        $next = $current;
+        $next['chatbot'] = $chatbot;
+        $updated = $this->putRemoteSiteSettings($next);
+        if ($updated instanceof \WP_Error) {
+            return $updated;
+        }
+
+        $refresh = $this->refreshLocalLicenseConfig();
+        if ($refresh instanceof \WP_Error) {
+            $this->putRemoteSiteSettings($current);
+            $this->refreshLocalLicenseConfig();
+            return $refresh;
+        }
+
+        return array(
+            'applied' => true,
+            'enabled' => !empty($updated['enableChatbot']),
+            'previous' => $previous,
+            'welcome' => $welcome,
+        );
+    }
+
+    /** @param array<string, mixed> $spec @return array{greeting: string, starterQuestions: list<string>}|\WP_Error */
+    private function validateChatbotWelcome(array $spec): array|\WP_Error
+    {
+        $keys = array_keys($spec);
+        sort($keys, SORT_STRING);
+        if ($keys !== array('greeting', 'starterQuestions')
+            || !is_string($spec['greeting'])
+            || !is_array($spec['starterQuestions'])
+            || !array_is_list($spec['starterQuestions'])
+            || count($spec['starterQuestions']) < 1
+            || count($spec['starterQuestions']) > 6
+        ) {
+            return new \WP_Error('smartcloud_ai_kit_chatbot_welcome_invalid', __('The Chatbot welcome text is invalid.', 'smartcloud-ai-kit'));
+        }
+
+        $greeting = trim($spec['greeting']);
+        if (!$this->isValidChatbotWelcomeText($greeting, 2048)) {
+            return new \WP_Error('smartcloud_ai_kit_chatbot_welcome_invalid', __('The Chatbot welcome text is invalid.', 'smartcloud-ai-kit'));
+        }
+
+        $questions = array();
+        foreach ($spec['starterQuestions'] as $question) {
+            if (!is_string($question)) {
+                return new \WP_Error('smartcloud_ai_kit_chatbot_welcome_invalid', __('The Chatbot welcome text is invalid.', 'smartcloud-ai-kit'));
+            }
+            $question = trim($question);
+            if (!$this->isValidChatbotWelcomeText($question, 512) || in_array($question, $questions, true)) {
+                return new \WP_Error('smartcloud_ai_kit_chatbot_welcome_invalid', __('The Chatbot welcome text is invalid.', 'smartcloud-ai-kit'));
+            }
+            $questions[] = $question;
+        }
+
+        return array('greeting' => $greeting, 'starterQuestions' => $questions);
+    }
+
+    private function isValidChatbotWelcomeText(string $text, int $max_bytes): bool
+    {
+        return $text !== ''
+            && strlen($text) <= $max_bytes
+            && preg_match('//u', $text) === 1
+            && preg_match('/[\x00-\x1F\x7F<>]/u', $text) === 0;
     }
 
     /** @return array<string, mixed>|\WP_Error */

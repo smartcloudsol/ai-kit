@@ -1585,6 +1585,8 @@ Follow these additional instructions: ${instructions}`
                           <Button
                             variant="subtle"
                             size="xs"
+                            className="ai-feature-options-toggle"
+                            aria-expanded={optionsOpen}
                             style={{ minWidth: "fit-content" }}
                             onClick={(e) => {
                               e.stopPropagation();

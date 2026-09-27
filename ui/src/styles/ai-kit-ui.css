@@ -86,6 +86,9 @@
   --ai-kit-text-color: var(--ai-kit-color-text);
   --ai-kit-background-color: var(--ai-kit-color-surface);
   --ai-kit-options-background-color: var(--ai-kit-color-surface-2);
+  --ai-kit-options-toggle-color: var(--ai-kit-color-text);
+  --ai-kit-options-toggle-bg-hover: rgba(0, 0, 0, 0.07);
+  --ai-kit-options-toggle-border-hover: rgba(0, 0, 0, 0.24);
 
   --ai-kit-color-text-light: var(--ai-kit-color-text-muted);
   --ai-kit-color-border-light: rgba(0, 0, 0, 0.1);
@@ -194,6 +197,8 @@
 #ai-kit-portal-root[data-mantine-color-scheme="dark"],
 [data-ai-kit-theme="dark"] {
   --ai-kit-color-text-muted: rgba(235, 240, 248, 0.72);
+  --ai-kit-options-toggle-bg-hover: rgba(255, 255, 255, 0.1);
+  --ai-kit-options-toggle-border-hover: rgba(255, 255, 255, 0.28);
 }
 
 /* Variation defaults */
@@ -270,6 +275,30 @@
 
 .ai-feature-options-summary {
   --group-wrap: nowrap !important;
+}
+
+.ai-feature-options-summary .ai-feature-options-toggle {
+  --button-bg: transparent;
+  --button-hover: var(--ai-kit-options-toggle-bg-hover);
+  --button-color: var(--ai-kit-options-toggle-color);
+  color: var(--ai-kit-options-toggle-color);
+  background-color: transparent;
+  border: 1px solid var(--ai-kit-color-border);
+  border-radius: var(--ai-kit-radius-pill);
+  min-height: 32px;
+  padding-inline: var(--ai-kit-space-3);
+  transition: var(--ai-kit-action-transition);
+}
+
+.ai-feature-options-summary .ai-feature-options-toggle:hover {
+  color: var(--ai-kit-options-toggle-color);
+  background-color: var(--ai-kit-options-toggle-bg-hover);
+  border-color: var(--ai-kit-options-toggle-border-hover);
+}
+
+.ai-feature-options-summary .ai-feature-options-toggle:focus-visible {
+  outline: 2px solid var(--ai-kit-action-focus-ring);
+  outline-offset: 2px;
 }
 
 .ai-feature-status-text {

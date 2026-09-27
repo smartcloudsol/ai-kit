@@ -4,6 +4,8 @@ export declare const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels>;
 export declare const AiChatbot: React.FC<import("@smart-cloud/ai-kit-core").AiWorkerProps & {
     context?: import("@smart-cloud/ai-kit-core").ContextKind;
     placeholder?: string;
+    greeting?: string;
+    starterQuestions?: string[];
     maxImages?: number;
     maxImageBytes?: number;
     maxTokens?: number;
