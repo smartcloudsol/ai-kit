@@ -634,8 +634,23 @@ final class KnowledgeSyncProjectionBuilder
         if ($title === '') {
             $title = sprintf('Untitled WordPress source %d', (int) $post->ID);
         }
-        $rendered_html = apply_filters('the_content', $post->post_content);
+        $rendered_html = (new EffectiveContentRenderer())->render($post);
         $markdown = (new Converter())->htmlToMarkdown((string) $rendered_html);
+        /**
+         * Filters the canonical markdown used by the durable knowledge-sync
+         * projection. Dynamic server-side providers can contribute content
+         * that is not persisted in post_content.
+         *
+         * @param string   $markdown Generated source markdown.
+         * @param \WP_Post $post      Public source post.
+         * @param array    $policy    Effective sync policy for the post type.
+         */
+        $markdown = (string) apply_filters(
+            'smartcloud_ai_kit_knowledge_sync_markdown',
+            $markdown,
+            $post,
+            $policy
+        );
         if (trim($markdown) === '') {
             $markdown = '# ' . $title;
         }

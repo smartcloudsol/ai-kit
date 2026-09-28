@@ -17,6 +17,7 @@ if (!defined('ABSPATH')) {
 class Parser
 {
     private Converter $converter;
+    private EffectiveContentRenderer $content_renderer;
     private ?\WP_Post $current_post = null;
 
     /**
@@ -28,6 +29,7 @@ class Parser
     public function __construct()
     {
         $this->converter = new Converter();
+        $this->content_renderer = new EffectiveContentRenderer();
     }
 
     /**
@@ -57,6 +59,58 @@ class Parser
             Logger::debug('Detected Classic post', ['post_id' => $post->ID]);
             $result = $this->parseClassicPost($post);
         }
+
+        foreach ($result as $doc_id => &$sections) {
+            if (!is_array($sections)) {
+                continue;
+            }
+            foreach ($sections as &$section) {
+                if (!is_array($section)) {
+                    continue;
+                }
+                /**
+                 * Filters generated markdown while the source post and section
+                 * metadata are still available. This lets dynamic, server-side
+                 * content providers expose the same canonical data to the KB
+                 * without persisting a second authored copy in post_content.
+                 *
+                 * @param string   $markdown Generated section markdown.
+                 * @param \WP_Post $post      Source WordPress post.
+                 * @param array    $section   Generated section metadata.
+                 * @param string   $doc_id    Stable document identifier.
+                 */
+                $section['md'] = (string) apply_filters(
+                    'smartcloud_ai_kit_kb_section_markdown',
+                    (string) ($section['md'] ?? ''),
+                    $post,
+                    $section,
+                    (string) $doc_id
+                );
+                $section['origin_hash'] = $this->calculateOriginHash($section);
+            }
+            unset($section);
+        }
+        unset($sections);
+
+        /**
+         * Filters post dependencies discovered while generating KB sections.
+         * Dynamic providers can declare records whose changes must invalidate
+         * and regenerate this source document.
+         *
+         * @param int[]    $post_ids Referenced WordPress post IDs.
+         * @param \WP_Post $post     Source WordPress post.
+         * @param array    $result   Final generated sections by document ID.
+         */
+        $referenced_post_ids = apply_filters(
+            'smartcloud_ai_kit_kb_referenced_post_ids',
+            $this->referenced_post_ids,
+            $post,
+            $result
+        );
+        $this->referenced_post_ids = array_values(array_unique(array_filter(
+            array_map('absint', is_array($referenced_post_ids) ? $referenced_post_ids : []),
+            static fn(int $post_id): bool => $post_id > 0 && $post_id !== $post->ID
+        )));
 
         $total_sections = array_sum(array_map('count', $result));
         Logger::info('Post parsing completed', [
@@ -409,7 +463,7 @@ class Parser
     {
         $doc_id = "post-{$post->ID}/base";
 
-        $markdown = $this->converter->blocksToMarkdown($blocks);
+        $markdown = $this->converter->htmlToMarkdown($this->content_renderer->render($post));
 
         $category_hierarchy = $this->getPostCategoryHierarchy($post);
 
@@ -894,9 +948,7 @@ class Parser
         // Extract post references from shortcodes
         $this->extractShortcodeReferences($post->post_content);
 
-        // Apply WordPress content filters (using core WP filter)
-        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
-        $content = apply_filters('the_content', $post->post_content);
+        $content = $this->content_renderer->render($post);
 
         $markdown = $this->converter->htmlToMarkdown($content);
 

@@ -1,1 +1,0 @@
-import"./rolldown-runtime.js";import{Kt as e,W as t,lt as n,nt as r}from"./createReactComponent.js";import{t as i}from"./react.js";var a=e();i();var o=r((e,r)=>{let i=n(`TextInput`,null,e);return(0,a.jsx)(t,{component:`input`,ref:r,...i,__staticSelector:`TextInput`})});o.classes=t.classes,o.displayName=`@mantine/core/TextInput`;export{o as t};

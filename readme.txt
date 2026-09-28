@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.5
+Stable tag: 1.5.6
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,13 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.6 =
+* Knowledge Base: Render the effective block-theme content for every supported post type, including server-rendered dynamic blocks stored in templates.
+* Knowledge Base: Exclude shared header, footer, navigation, and template-part chrome from generated source documents.
+* Add guarded PHP extension points for dynamic knowledge-base markdown and its referenced WordPress records.
+* Recalculate generated-section origin hashes after dynamic content providers contribute canonical content.
+* Prevent editor asset loading from failing when an optional build manifest has no dependency list.
 
 = 1.5.5 =
 * Chatbot: Configure a welcome greeting and up to six starter questions; visitors can send a localized question with one click.
@@ -571,6 +578,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.5.6 =
+Regenerate and review enrolled Knowledge Base sources whose public content comes from block-theme templates or dynamic blocks before publishing them again. Generated documents now capture server-rendered source content and exclude shared site chrome; no backend schema migration is required.
 
 = 1.5.5 =
 To show the new greeting and starter questions in each visitor language, add each authored source string and its translations to the shared WP Suite translation catalog. Existing chatbot settings continue to work without changes.

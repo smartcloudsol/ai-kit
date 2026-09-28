@@ -1,2 +1,0 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/yaml.js","assets/editor.api2.js","assets/rolldown-runtime.js","assets/editor.css","assets/toggleHighContrast.js","assets/toggleHighContrast.css"])))=>i.map(i=>d[i]);
-import{t as e}from"./preload-helper.js";import{t}from"./_.contribution.js";t({id:`yaml`,extensions:[`.yaml`,`.yml`],aliases:[`YAML`,`yaml`,`YML`,`yml`],mimetypes:[`application/x-yaml`,`text/x-yaml`],loader:()=>e(()=>import(`./yaml.js`),__vite__mapDeps([0,1,2,3,4,5]))});

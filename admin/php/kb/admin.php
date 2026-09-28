@@ -30,6 +30,9 @@ if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/review-notice.php')) {
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync.php';
 }
+if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/effective-content-renderer.php')) {
+    require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/effective-content-renderer.php';
+}
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync-runtime.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/knowledge-sync-runtime.php';
 }

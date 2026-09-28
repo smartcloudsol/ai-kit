@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.5.5
+ * Version:           1.5.6
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.5.5';
+const VERSION = '1.5.6';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {
@@ -813,7 +813,7 @@ var WpSuite = __aikitGlobal.WpSuite;
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/media.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/media.asset.php');
         }
-        $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
+        $script_asset['dependencies'] = array_merge($script_asset['dependencies'] ?? array(), array('smartcloud-ai-kit-main-script'));
         wp_enqueue_script('smartcloud-ai-kit-media-script', SMARTCLOUD_AI_KIT_URL . 'admin/media.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
     }
 
@@ -826,7 +826,7 @@ var WpSuite = __aikitGlobal.WpSuite;
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'blocks/editor.asset.php')) {
             $blocks_script_asset = require(SMARTCLOUD_AI_KIT_PATH . 'blocks/editor.asset.php');
         }
-        $blocks_script_asset['dependencies'] = array_merge($blocks_script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
+        $blocks_script_asset['dependencies'] = array_merge($blocks_script_asset['dependencies'] ?? array(), array('smartcloud-ai-kit-main-script'));
         wp_enqueue_script('smartcloud-ai-kit-blocks-editor-script', SMARTCLOUD_AI_KIT_URL . 'blocks/editor.js', $blocks_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
         wp_enqueue_style('smartcloud-ai-kit-blocks-editor-style', SMARTCLOUD_AI_KIT_URL . 'blocks/editor.css', array(), SMARTCLOUD_AI_KIT_VERSION);
         add_editor_style(SMARTCLOUD_AI_KIT_URL . 'blocks/editor.css');
@@ -835,27 +835,27 @@ var WpSuite = __aikitGlobal.WpSuite;
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/media.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/media.asset.php');
         }
-        $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
+        $script_asset['dependencies'] = array_merge($script_asset['dependencies'] ?? array(), array('smartcloud-ai-kit-main-script'));
         wp_enqueue_script('smartcloud-ai-kit-media-script', SMARTCLOUD_AI_KIT_URL . 'admin/media.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
         $script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/sidebar.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/sidebar.asset.php');
         }
-        $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
+        $script_asset['dependencies'] = array_merge($script_asset['dependencies'] ?? array(), array('smartcloud-ai-kit-main-script'));
         wp_enqueue_script('smartcloud-ai-kit-sidebar-script', SMARTCLOUD_AI_KIT_URL . 'admin/sidebar.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
 
         $script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/langutils.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/langutils.asset.php');
         }
-        $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
+        $script_asset['dependencies'] = array_merge($script_asset['dependencies'] ?? array(), array('smartcloud-ai-kit-main-script'));
         wp_enqueue_script('smartcloud-ai-kit-langutils-script', SMARTCLOUD_AI_KIT_URL . 'admin/langutils.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
 
         $script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/imgextra.asset.php')) {
             $script_asset = require_once(SMARTCLOUD_AI_KIT_PATH . 'admin/imgextra.asset.php');
         }
-        $script_asset['dependencies'] = array_merge($script_asset['dependencies'], array('smartcloud-ai-kit-main-script'));
+        $script_asset['dependencies'] = array_merge($script_asset['dependencies'] ?? array(), array('smartcloud-ai-kit-main-script'));
         wp_enqueue_script('smartcloud-ai-kit-imgextra-script', SMARTCLOUD_AI_KIT_URL . 'admin/imgextra.js', $script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
     }
 
@@ -1160,6 +1160,9 @@ var WpSuite = __aikitGlobal.WpSuite;
         // KB Content Parser and Converter
         if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/converter.php')) {
             require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/converter.php';
+        }
+        if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/effective-content-renderer.php')) {
+            require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/effective-content-renderer.php';
         }
         if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/parser.php')) {
             require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/parser.php';
