@@ -31,7 +31,8 @@ export type AiKitBackendCapability =
   | "ai.cost-policy.admin"
   | "knowledge.admin"
   | "knowledge.query.frontend"
-  | "knowledge.automation";
+  | "knowledge.automation"
+  | "knowledge.taxonomy-paths";
 
 export interface BackendManifest {
   schemaVersion: 1;

@@ -365,6 +365,10 @@ final class KnowledgeSyncBaselineService
     public static function serializerFingerprint(): string
     {
         $contract = self::SERIALIZER_VERSION . ':' . KnowledgeSyncDocumentMetadata::baseUrlOverride();
+        $contract .= ':' . KnowledgeSyncCategoryPaths::mode();
+        // Hierarchy edits affect every descendant even without assignment changes.
+        $namespaces = (new KnowledgeSyncVocabularyService())->desiredNamespaces();
+        $contract .= ':' . hash('sha256', (string) wp_json_encode($namespaces));
         if (KnowledgeSyncPublicReleaseGate::enabled()) {
             $contract .= ':static-publisher-release-gate-v1';
         }
@@ -569,6 +573,121 @@ final class KnowledgeSyncProjectionException extends \RuntimeException
     }
 }
 
+/** Canonical category hierarchy shared by projection and reconciliation. */
+final class KnowledgeSyncCategoryPaths
+{
+    public static function enabled(): bool
+    {
+        return class_exists(KnowledgeSyncTransport::class)
+            && KnowledgeSyncTransport::create()->supportsTaxonomyPaths();
+    }
+
+    public static function mode(): string
+    {
+        return self::enabled() ? 'taxonomy-paths-v1' : 'legacy-taxonomy';
+    }
+
+    public static function segment(string $label): string
+    {
+        $label = trim($label);
+        if ($label === '' || str_contains($label, '/') || preg_match('//u', $label) !== 1) {
+            throw new KnowledgeSyncProjectionException('category_path_invalid', 'Category names must be non-empty and cannot contain /.');
+        }
+        return $label;
+    }
+
+    /** @return array{classification:array,warnings:array} */
+    public static function classify(int $post_id, array $taxonomies, array $classification): array
+    {
+        $paths = array();
+        $add = static function (array $segments) use (&$paths): void {
+            $prefix = array();
+            foreach ($segments as $segment) {
+                $prefix[] = self::segment((string) $segment);
+                $path = implode('/', $prefix);
+                if (strlen($path) > 256) {
+                    throw new KnowledgeSyncProjectionException('category_path_too_large', 'Category paths cannot exceed 256 UTF-8 bytes.');
+                }
+                $paths[$path] = true;
+                if (count($paths) > 100) {
+                    throw new KnowledgeSyncProjectionException('category_paths_too_many', 'Documents cannot contain more than 100 category path prefixes.');
+                }
+            }
+        };
+        if (in_array('category', $taxonomies, true)) {
+            $terms = wp_get_object_terms($post_id, 'category');
+            if (is_wp_error($terms)) {
+                throw new KnowledgeSyncProjectionException('taxonomy_read_failed', 'Category assignments could not be read.');
+            }
+            foreach ($terms as $term) {
+                $segments = array();
+                $visited = array();
+                while ($term) {
+                    $id = (int) $term->term_id;
+                    if ($id <= 0 || isset($visited[$id])) {
+                        throw new KnowledgeSyncProjectionException('taxonomy_parent_invalid', 'Category hierarchy contains an invalid or cyclic parent.');
+                    }
+                    $visited[$id] = true;
+                    array_unshift($segments, self::segment((string) $term->name));
+                    $parent = (int) ($term->parent ?? 0);
+                    if ($parent === 0) {
+                        break;
+                    }
+                    $term = get_term($parent, 'category');
+                    if (!$term || is_wp_error($term)) {
+                        throw new KnowledgeSyncProjectionException('taxonomy_parent_invalid', 'Category parent could not be resolved.');
+                    }
+                }
+                $add($segments);
+            }
+        }
+        $primary = array();
+        if (!empty($classification['category'])) {
+            $primary[] = self::segment($classification['category']);
+        }
+        if (!empty($classification['subcategory'])) {
+            if ($primary === array()) {
+                $roots = array_values(array_filter(array_map('strval', array_keys($paths)), static fn(string $path): bool => !str_contains($path, '/')));
+                if (count($roots) !== 1) {
+                    throw new KnowledgeSyncProjectionException('category_primary_ambiguous', 'An authored subcategory requires an unambiguous category root.');
+                }
+                $primary[] = $roots[0];
+            }
+            $primary[] = self::segment($classification['subcategory']);
+        }
+        if ($primary !== array()) {
+            $add($primary);
+        }
+        $canonical = array_map('strval', array_keys($paths));
+        sort($canonical, SORT_STRING);
+        $leaves = array_values(array_filter($canonical, static function (string $candidate) use ($canonical): bool {
+            foreach ($canonical as $other) {
+                if (str_starts_with($other, $candidate . '/')) {
+                    return false;
+                }
+            }
+            return true;
+        }));
+        $warnings = array();
+        if ($primary === array() && $leaves !== array()) {
+            $primary = explode('/', $leaves[0]);
+            if (count($leaves) > 1) {
+                $warnings[] = 'category_primary_recommended';
+            }
+        }
+        if ($canonical !== array()) {
+            $classification['categoryPaths'] = $canonical;
+            $classification['category'] = $primary[0];
+            if (isset($primary[1])) {
+                $classification['subcategory'] = $primary[1];
+            } else {
+                unset($classification['subcategory']);
+            }
+        }
+        return array('classification' => $classification, 'warnings' => $warnings);
+    }
+}
+
 final class KnowledgeSyncProjectionBuilder
 {
     /** @return array<string, mixed> */
@@ -676,6 +795,16 @@ final class KnowledgeSyncProjectionBuilder
             'metadata' => $this->metadata((int) $post->ID, $policy['includeTaxonomies']),
         );
 
+        if (KnowledgeSyncCategoryPaths::enabled()) {
+            $categorized = KnowledgeSyncCategoryPaths::classify((int) $post->ID, $policy['includeTaxonomies'], $resolved_metadata['classification']);
+            $resolved_metadata['classification'] = $categorized['classification'];
+            foreach ($categorized['warnings'] as $warning) {
+                (new KnowledgeSyncAuditRepository())->record('projection-classification', 'warning', array(
+                    'postId' => (int) $post->ID,
+                    'errorCode' => $warning,
+                ));
+            }
+        }
         if ($resolved_metadata['classification'] !== array()) {
             $projection['document']['classification'] = $resolved_metadata['classification'];
         }
@@ -804,7 +933,7 @@ final class KnowledgeSyncVocabularyService
                 'The WordPress vocabulary input could not be encoded.'
             );
         }
-        $fingerprint = hash('sha256', $encoded);
+        $fingerprint = hash('sha256', KnowledgeSyncCategoryPaths::mode() . ':' . $encoded);
         $stored = get_option(self::OPTION_NAME, array());
         if (!is_array($stored)) {
             $stored = array();
@@ -847,6 +976,7 @@ final class KnowledgeSyncVocabularyService
     /** @return array<string, array<int, array{slug:string,label:string,parentSlug?:string}>> */
     public function desiredNamespaces(): array
     {
+        $paths_enabled = KnowledgeSyncCategoryPaths::enabled();
         $selected = array();
         foreach ((new KnowledgeSyncPolicyStore())->getAll() as $policy) {
             if (empty($policy['enabled']) || $policy['reviewPolicy'] === 'disabled') {
@@ -885,6 +1015,9 @@ final class KnowledgeSyncVocabularyService
                     $slug = sanitize_key((string) $term->slug);
                     $slug = $slug !== '' ? $slug : 'term-' . (int) $term->term_id;
                     $label = sanitize_text_field((string) $term->name);
+                    if ($taxonomy === 'category' && $paths_enabled) {
+                        KnowledgeSyncCategoryPaths::segment($label);
+                    }
                     $terms_by_id[(int) $term->term_id] = array(
                         'slug' => $slug,
                         'label' => $label !== '' ? $label : $slug,
@@ -894,6 +1027,20 @@ final class KnowledgeSyncVocabularyService
                 $offset += count($terms);
             } while (count($terms) === $page_size);
 
+            if ($taxonomy === 'category' && $paths_enabled) {
+                foreach ($terms_by_id as $term_id => $term) {
+                    $visited = array();
+                    $current = $term_id;
+                    while ($current > 0) {
+                        if (isset($visited[$current]) || !isset($terms_by_id[$current])) {
+                            throw new KnowledgeSyncProjectionException('taxonomy_parent_invalid', 'Category vocabulary contains an invalid or cyclic parent.');
+                        }
+                        $visited[$current] = true;
+                        KnowledgeSyncCategoryPaths::segment($terms_by_id[$current]['label']);
+                        $current = $terms_by_id[$current]['parentId'];
+                    }
+                }
+            }
             $values = array();
             foreach ($terms_by_id as $term_id => $term) {
                 $value = array(
@@ -1482,7 +1629,8 @@ final class KnowledgeSyncRuntime
             } catch (KnowledgeSyncProjectionException $error) {
                 $permanent = in_array($error->error_code, array(
                     'invalid_lease_snapshot', 'site_not_connected', 'policy_scope_changed',
-                    'invalid_public_url', 'taxonomy_read_failed',
+                    'invalid_public_url', 'taxonomy_read_failed', 'taxonomy_parent_invalid',
+                    'category_path_invalid', 'category_path_too_large', 'category_paths_too_many', 'category_primary_ambiguous',
                 ), true);
                 if ($permanent) {
                     $outbox->blockLease((int) $lease->id, $lease_owner, $error->error_code);
@@ -1521,7 +1669,7 @@ final class KnowledgeSyncRuntime
         } catch (\Throwable $error) {
             $error_code = $error instanceof KnowledgeSyncProjectionException
                 ? $error->error_code
-                : 'transport_exception';
+                : ($error instanceof KnowledgeSyncTransportException ? $error->errorCode : 'transport_exception');
             foreach ($projections as $outbox_id => $_projection) {
                 $outbox->retryLease($outbox_id, $lease_owner, $error_code, random_int(0, 30));
             }

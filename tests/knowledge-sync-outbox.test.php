@@ -59,13 +59,19 @@ final class KnowledgeSyncTestWpdb
     public function get_row(string $query): ?object
     {
         unset($query);
-        return null;
+        return $GLOBALS['test_db_row'] ?? null;
     }
 
     public function get_col(string $query): array
     {
         unset($query);
-        return [];
+        return $GLOBALS['test_db_columns'] ?? [];
+    }
+
+    public function get_var(string $query): mixed
+    {
+        unset($query);
+        return $GLOBALS['test_db_value'] ?? null;
     }
 
     public function get_results(string $query): array
@@ -149,6 +155,14 @@ function do_action(string $hook, mixed ...$args): void
 
 function apply_filters(string $hook, mixed $value, mixed ...$args): mixed
 {
+    if (isset($GLOBALS['test_dispatch_error'])) {
+        if ($hook === 'smartcloud_ai_kit_knowledge_sync_transport_available') {
+            return true;
+        }
+        if ($hook === 'smartcloud_ai_kit_knowledge_sync_dispatch_batch') {
+            throw $GLOBALS['test_dispatch_error'];
+        }
+    }
     unset($hook);
     $state = $GLOBALS['release_gate_provider_state'] ?? $value;
     $query = is_array($args[0] ?? null) ? $args[0] : [];
@@ -256,6 +270,16 @@ function get_terms(array $arguments): array
     $offset = (int) ($arguments['offset'] ?? 0);
     $number = (int) ($arguments['number'] ?? count($terms));
     return array_slice($terms, $offset, $number);
+}
+
+function wp_get_object_terms(int $id, string $taxonomy): array {
+    return $GLOBALS['assigned_category_terms'] ?? [];
+}
+function get_term(int $id, string $taxonomy): ?object {
+    foreach ($GLOBALS['taxonomy_terms'][$taxonomy] ?? [] as $term) {
+        if ($term->term_id === $id) return $term;
+    }
+    return null;
 }
 
 function is_wp_error(mixed $value): bool
@@ -616,3 +640,120 @@ expect($gate_state['reason'] === 'selected-consumer-no-longer-configured', 'A re
 unset($GLOBALS['test_db_results']);
 
 echo "Knowledge-sync policy and outbox capture tests passed.\n";
+
+// Full paths come from ancestors, independent of redundant direct assignments.
+$path_class = \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncCategoryPaths::class;
+$taxonomy_terms['category'] = [
+    (object) ['term_id' => 10, 'name' => 'Doctors', 'parent' => 0, 'slug' => 'doctors'],
+    (object) ['term_id' => 11, 'name' => 'Specialists', 'parent' => 10, 'slug' => 'specialists'],
+    (object) ['term_id' => 12, 'name' => 'Digestive', 'parent' => 11, 'slug' => 'digestive'],
+    (object) ['term_id' => 20, 'name' => 'Programs', 'parent' => 0, 'slug' => 'programs'],
+    (object) ['term_id' => 21, 'name' => 'Gut', 'parent' => 20, 'slug' => 'gut'],
+];
+$assigned_category_terms = [$taxonomy_terms['category'][2]];
+$one = $path_class::classify(42, ['category'], ['tags' => []]);
+expect($one['classification'] === ['tags' => [], 'categoryPaths' => ['Doctors', 'Doctors/Specialists', 'Doctors/Specialists/Digestive'], 'category' => 'Doctors', 'subcategory' => 'Specialists'], 'Three-level ancestry must retain every prefix, legacy first two levels and explicit empty tags.');
+$assigned_category_terms = [$taxonomy_terms['category'][2], $taxonomy_terms['category'][0], $taxonomy_terms['category'][4]];
+$many = $path_class::classify(42, ['category'], []);
+expect($many['classification']['categoryPaths'] === ['Doctors', 'Doctors/Specialists', 'Doctors/Specialists/Digestive', 'Programs', 'Programs/Gut'], 'Multiple branches and redundant direct parents must be unique.');
+expect($many['warnings'] === ['category_primary_recommended'], 'Ambiguous primary branch must be diagnosed.');
+$assigned_category_terms = array_reverse($assigned_category_terms);
+expect(hash('sha256', json_encode($many)) === hash('sha256', json_encode($path_class::classify(42, ['category'], []))), 'Assignment ordering must not change canonical classification hash.');
+$authored = $path_class::classify(42, ['category'], ['category' => 'Authored', 'subcategory' => 'Leaf']);
+expect($authored['classification']['category'] === 'Authored' && in_array('Authored/Leaf', $authored['classification']['categoryPaths'], true), 'Authored primary must remain a separate valid branch.');
+$expect_path_error = static function (string $code, callable $operation): void {
+    try { $operation(); } catch (\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncProjectionException $error) {
+        expect($error->error_code === $code, 'Unexpected path failure code: ' . $error->error_code);
+        return;
+    }
+    throw new RuntimeException('Expected category path failure: ' . $code);
+};
+$expect_path_error('category_primary_ambiguous', static fn() => $path_class::classify(42, ['category'], ['subcategory' => 'Authored']));
+$assigned_category_terms = [$taxonomy_terms['category'][2]];
+$inferred = $path_class::classify(42, ['category'], ['subcategory' => 'Authored']);
+expect($inferred['classification']['category'] === 'Doctors', 'Subcategory-only override must infer the sole root.');
+$expect_path_error('category_path_invalid', static fn() => $path_class::classify(42, ['category'], ['category' => 'Invalid/Name']));
+$expect_path_error('category_path_too_large', static fn() => $path_class::classify(42, [], ['category' => str_repeat('á', 129)]));
+$taxonomy_terms['category'][0]->parent = 12;
+$expect_path_error('taxonomy_parent_invalid', static fn() => $path_class::classify(42, ['category'], []));
+$taxonomy_terms['category'][0]->parent = 999;
+$expect_path_error('taxonomy_parent_invalid', static fn() => $path_class::classify(42, ['category'], []));
+$taxonomy_terms['category'][0]->parent = 0;
+
+
+$taxonomy_terms['category'][0]->name = '';
+$expect_path_error('category_path_invalid', static fn() => $path_class::classify(42, ['category'], []));
+$taxonomy_terms['category'][0]->name = 'Doctors';
+$policies->saveForPostType('post', ['enabled' => true, 'reviewPolicy' => 'wordpress-publish-is-approval', 'includeTaxonomies' => ['category']]);
+$before = $baseline_class::serializerFingerprint();
+$taxonomy_terms['category'][0]->name = 'Clinicians';
+expect($baseline_class::serializerFingerprint() !== $before, 'Ancestor rename must invalidate content baselines.');
+echo "Category path classification tests passed.\n";
+$assigned_category_terms = [];
+for ($i = 1; $i <= 101; $i++) {
+    $assigned_category_terms[] = (object) ['term_id' => $i, 'name' => 'Root ' . $i, 'parent' => 0, 'slug' => 'root-' . $i];
+}
+$expect_path_error('category_paths_too_many', static fn() => $path_class::classify(42, ['category'], []));
+
+final class CategoryPathTestTransport {
+    public static bool $enabled = false;
+    public static function create(): self { return new self(); }
+    public function supportsTaxonomyPaths(): bool { return self::$enabled; }
+}
+class_alias(CategoryPathTestTransport::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncTransport');
+final class CategoryPathTestRenderer { public function render(WP_Post $post): string { return 'Body'; } }
+class_alias(CategoryPathTestRenderer::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\EffectiveContentRenderer');
+final class CategoryPathTestConverter { public function htmlToMarkdown(string $html): string { return $html; } }
+class_alias(CategoryPathTestConverter::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\Converter');
+function get_post_modified_time(string $format, bool $gmt, WP_Post $post): string { return '2026-09-29T10:00:00Z'; }
+$options['smartcloud-wpsuite/site-settings'] = ['siteId' => 'site-42'];
+$posts[42] = new WP_Post(42, 'post', 'publish');
+$assigned_category_terms = [$taxonomy_terms['category'][2]];
+$lease = (object) ['leased_operation' => 'upsert', 'leased_source_version' => '1', 'leased_correlation_id' => 'test-paths', 'blog_id' => 1, 'post_type' => 'post', 'post_id' => 42];
+unset($GLOBALS['release_gate_provider_state']);
+$builder = new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncProjectionBuilder();
+$legacy_fingerprint = $baseline_class::serializerFingerprint();
+$legacy = $builder->build($lease);
+expect(!isset($legacy['document']['classification']['categoryPaths']), 'Capability absence must preserve the legacy projection payload.');
+CategoryPathTestTransport::$enabled = true;
+$path_fingerprint = $baseline_class::serializerFingerprint();
+expect($path_fingerprint !== $legacy_fingerprint, 'Capability upgrade must invalidate content baselines.');
+$modern = $builder->build($lease);
+expect($modern['document']['classification']['categoryPaths'] === ['Clinicians', 'Clinicians/Specialists', 'Clinicians/Specialists/Digestive'], 'Capability-aware projection must include complete category prefixes.');
+expect($modern['document']['classification']['category'] === 'Clinicians' && $modern['document']['classification']['subcategory'] === 'Specialists', 'Modern projection must retain compatible scalar fields.');
+CategoryPathTestTransport::$enabled = false;
+expect($baseline_class::serializerFingerprint() === $legacy_fingerprint, 'Capability rollback must restore the legacy fingerprint and trigger reconciliation.');
+echo "Category path projection and reconciliation tests passed.\n";
+CategoryPathTestTransport::$enabled = true;
+$taxonomy_terms['category'][0]->name = 'Invalid/Root';
+$expect_path_error('category_path_invalid', static fn() => (new KnowledgeSyncVocabularyService())->desiredNamespaces());
+$taxonomy_terms['category'][0]->name = 'Clinicians';
+$taxonomy_terms['category'][0]->parent = 12;
+$expect_path_error('taxonomy_parent_invalid', static fn() => (new KnowledgeSyncVocabularyService())->desiredNamespaces());
+$taxonomy_terms['category'][0]->parent = 0;
+
+final class TestKnowledgeSyncTransportException extends \RuntimeException
+{
+    public function __construct(public readonly string $errorCode)
+    {
+        parent::__construct($errorCode);
+    }
+}
+class_alias(TestKnowledgeSyncTransportException::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncTransportException');
+$GLOBALS['test_dispatch_error'] = new TestKnowledgeSyncTransportException('taxonomy_paths_required');
+$GLOBALS['test_db_columns'] = [1];
+$GLOBALS['test_db_value'] = 1;
+$GLOBALS['test_db_results'] = [(object) array_merge((array) $lease, [
+    'id' => 1, 'consumer_id' => 'wordpress-blog-1',
+    'desired_generation' => 1, 'leased_generation' => 1,
+])];
+$GLOBALS['test_db_row'] = (object) ['desired_generation' => 1, 'leased_generation' => 1, 'attempt_count' => 0];
+$dispatch = new \ReflectionMethod($runtime, 'dispatchOutbox');
+$retry_result = $dispatch->invoke($runtime, 10);
+expect(($retry_result['status'] ?? '') === 'transport-retry', 'A taxonomy readiness rejection must remain retryable.');
+expect(($retry_result['errorCode'] ?? '') === 'taxonomy_paths_required', 'Transport retry diagnostics must retain the exact backend rejection code.');
+$retry_args = end($wpdb->preparedArguments);
+expect(in_array('retry_wait', $retry_args, true), 'The failed delivery must enter retry_wait, not a permanent blocked state.');
+expect(in_array('taxonomy_paths_required', $retry_args, true), 'The durable outbox must retain the backend readiness diagnostic.');
+unset($GLOBALS['test_dispatch_error'], $GLOBALS['test_db_columns'], $GLOBALS['test_db_value'], $GLOBALS['test_db_results'], $GLOBALS['test_db_row']);
+echo "Knowledge-sync readiness retry diagnostic tests passed.\n";

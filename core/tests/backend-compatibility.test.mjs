@@ -136,3 +136,18 @@ test("cost policy admin calls require their dedicated capability", async () => {
     false,
   );
 });
+
+test("taxonomy paths require their own advertised capability", async () => {
+  const compatibility = await loadCompatibility();
+  assert.equal(compatibility.supportsBackendCapability({ status: "legacy" }, "knowledge.taxonomy-paths"), false);
+  for (const [capabilities, expected] of [
+    [{ "knowledge.automation": 6 }, false],
+    [{ "knowledge.taxonomy-paths": 0 }, false],
+    [{ "knowledge.taxonomy-paths": "1" }, false],
+    [{ "knowledge.taxonomy-paths": 1.5 }, false],
+    [{ "knowledge.taxonomy-paths": Number.POSITIVE_INFINITY }, false],
+    [{ "knowledge.taxonomy-paths": 1 }, true],
+  ]) {
+    assert.equal(compatibility.supportsBackendCapability({ status: "verified", manifest: { capabilities } }, "knowledge.taxonomy-paths"), expected);
+  }
+});

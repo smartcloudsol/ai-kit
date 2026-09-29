@@ -153,5 +153,5 @@ export function supportsBackendCapability(
     return minimumVersion <= 1 && LEGACY_CAPABILITIES.has(capability);
   }
   const version = compatibility.manifest?.capabilities[capability];
-  return typeof version === "number" && version >= minimumVersion;
+  return typeof version === "number" && Number.isInteger(version) && version >= minimumVersion;
 }

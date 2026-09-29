@@ -4,7 +4,7 @@ export type AiModePreference = "local-only" | "backend-fallback" | "backend-only
 export type BuiltInAiFeature = "prompt" | "summarizer" | "writer" | "rewriter" | "proofreader" | "language-detector" | "translator";
 export type CapabilitySource = "on-device" | "backend" | "none";
 export type BackendTransport = "gatey" | "fetch";
-export type AiKitBackendCapability = `ai.${BuiltInAiFeature}.${ContextKind}` | "ai.chat.stream.frontend" | "ai.conversation-profile.admin" | "ai.cost-policy.admin" | "knowledge.admin" | "knowledge.query.frontend" | "knowledge.automation";
+export type AiKitBackendCapability = `ai.${BuiltInAiFeature}.${ContextKind}` | "ai.chat.stream.frontend" | "ai.conversation-profile.admin" | "ai.cost-policy.admin" | "knowledge.admin" | "knowledge.query.frontend" | "knowledge.automation" | "knowledge.taxonomy-paths";
 export interface BackendManifest {
     schemaVersion: 1;
     product: "smartcloud-ai-kit-backend";

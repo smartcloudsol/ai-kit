@@ -21,6 +21,13 @@ export interface KnowledgeSyncMetadataTermV1 {
   label: string;
 }
 
+export interface KnowledgeSyncClassification {
+  category?: string;
+  subcategory?: string;
+  categoryPaths?: string[];
+  tags?: string[];
+}
+
 export interface KnowledgeSyncDocumentV1 {
   profile: string;
   canonicalUrl: string;
@@ -31,6 +38,7 @@ export interface KnowledgeSyncDocumentV1 {
   contentSha256: string;
   modifiedGmt: string;
   metadata: KnowledgeSyncMetadataTermV1[];
+  classification?: KnowledgeSyncClassification;
 }
 
 export interface KnowledgeSyncDocumentV2 extends KnowledgeSyncDocumentV1 {
@@ -228,6 +236,66 @@ function parseMetadataTerm(
   };
 }
 
+function parseClassification(value: unknown): KnowledgeSyncClassification {
+  const field = "document.classification";
+  const classification = record(value, field);
+  strictKeys(classification, ["category", "subcategory", "categoryPaths", "tags"], field);
+  const encoder = new TextEncoder();
+  const label = (value: unknown, name: string): string => {
+    if (typeof value !== "string" || value.trim() === "" || encoder.encode(value).length > 256) {
+      fail("invalid_classification", `${field}.${name}`, "Classification labels must be non-empty strings of at most 256 UTF-8 bytes.");
+    }
+    return value;
+  };
+  const parsed: KnowledgeSyncClassification = {};
+  if (classification.category !== undefined) parsed.category = label(classification.category, "category");
+  if (classification.subcategory !== undefined) parsed.subcategory = label(classification.subcategory, "subcategory");
+  if (classification.tags !== undefined) {
+    if (!Array.isArray(classification.tags) || classification.tags.length > 100) {
+      fail("invalid_classification", `${field}.tags`, "Classification tags must be an array of at most 100 labels.");
+    }
+    parsed.tags = classification.tags.map((tag, index) => label(tag, `tags[${index}]`));
+  }
+  if (classification.categoryPaths !== undefined) {
+    const paths = classification.categoryPaths;
+    const pathField = `${field}.categoryPaths`;
+    if (!Array.isArray(paths) || paths.length === 0 || paths.length > 100) {
+      fail("invalid_category_paths", pathField, "Category paths must contain between 1 and 100 paths.");
+    }
+    const compare = (left: string, right: string): number => {
+      const a = encoder.encode(left);
+      const b = encoder.encode(right);
+      for (let index = 0; index < Math.min(a.length, b.length); index++) {
+        if (a[index] !== b[index]) return a[index]! - b[index]!;
+      }
+      return a.length - b.length;
+    };
+    const allPaths = new Set(paths);
+    parsed.categoryPaths = paths.map((path, index) => {
+      if (typeof path !== "string" || encoder.encode(path).length > 256 ||
+          path.split("/").some((segment) => segment === "" || segment !== segment.trim()) ||
+          (index > 0 && compare(paths[index - 1], path) >= 0)) {
+        fail("invalid_category_paths", `${pathField}[${index}]`, "Category paths must be valid, unique and sorted by UTF-8 bytes.");
+      }
+      const segments = path.split("/");
+      if (segments.some((_, depth) => !allPaths.has(segments.slice(0, depth + 1).join("/")))) {
+        fail("invalid_category_paths", `${pathField}[${index}]`, "Category paths must contain every ancestor prefix.");
+      }
+      return path;
+    });
+    if (parsed.subcategory !== undefined && parsed.category === undefined) {
+      fail("invalid_classification", field, "A primary subcategory requires a category in path mode.");
+    }
+    if (parsed.category !== undefined) {
+      const primary = parsed.subcategory === undefined ? parsed.category : `${parsed.category}/${parsed.subcategory}`;
+      if (parsed.category.includes("/") || parsed.subcategory?.includes("/") || !allPaths.has(primary)) {
+        fail("invalid_classification", field, "Primary classification must identify a supplied category path.");
+      }
+    }
+  }
+  return parsed;
+}
+
 function parseDocument(value: unknown): KnowledgeSyncDocumentV1 {
   const document = record(value, "document");
   strictKeys(
@@ -242,6 +310,7 @@ function parseDocument(value: unknown): KnowledgeSyncDocumentV1 {
       "contentSha256",
       "modifiedGmt",
       "metadata",
+      "classification",
     ],
     "document",
   );
@@ -269,6 +338,7 @@ function parseDocument(value: unknown): KnowledgeSyncDocumentV1 {
     ),
     modifiedGmt: timestamp(document.modifiedGmt, "document.modifiedGmt"),
     metadata: document.metadata.map(parseMetadataTerm),
+    ...(document.classification !== undefined ? { classification: parseClassification(document.classification) } : {}),
   };
 }
 
@@ -287,6 +357,7 @@ function parseDocumentV2(value: unknown): KnowledgeSyncDocumentV2 {
       "contentSha256",
       "modifiedGmt",
       "metadata",
+      "classification",
     ],
     "document",
   );

@@ -14,6 +14,12 @@ export interface KnowledgeSyncMetadataTermV1 {
     slug: string;
     label: string;
 }
+export interface KnowledgeSyncClassification {
+    category?: string;
+    subcategory?: string;
+    categoryPaths?: string[];
+    tags?: string[];
+}
 export interface KnowledgeSyncDocumentV1 {
     profile: string;
     canonicalUrl: string;
@@ -24,6 +30,7 @@ export interface KnowledgeSyncDocumentV1 {
     contentSha256: string;
     modifiedGmt: string;
     metadata: KnowledgeSyncMetadataTermV1[];
+    classification?: KnowledgeSyncClassification;
 }
 export interface KnowledgeSyncDocumentV2 extends KnowledgeSyncDocumentV1 {
     /** Canonical base-language BCP 47 tag used for single-language retrieval. */

@@ -16,6 +16,14 @@ $requests = array();
 $registered_public_key = '';
 $uuid_sequence = 0;
 
+$transients = [];
+function get_transient(string $key): mixed { return $GLOBALS['transients'][$key] ?? false; }
+function set_transient(string $key, mixed $value, int $ttl): bool {
+    transport_expect($ttl === 60, 'Capability cache must expire after 60 seconds.');
+    $GLOBALS['transients'][$key] = $value;
+    return true;
+}
+
 function transport_expect(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -140,6 +148,7 @@ function wp_remote_request(string $url, array $arguments): array
                 'release' => '1.0.75',
                 'apiSchemaVersion' => 7,
                 'capabilities' => array(
+                    ...($capability_mode === 'paths' ? ['knowledge.taxonomy-paths' => 1] : ($capability_mode === 'invalid-paths' ? ['knowledge.taxonomy-paths' => '1'] : [])),
                     'knowledge.automation' => $capability_mode === 'v4'
                         ? 4
                         : ($capability_mode === 'v5' ? 5 : 6),
@@ -239,6 +248,7 @@ use SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncTransport;
 use SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncTransportException;
 
 $settings = new KnowledgeSyncSettingsStore();
+$transients = [];
 $capability_mode = 'verified';
 transport_expect($settings->get()['keyStorageMode'] === 'disabled', 'Signed transport must default to disabled.');
 $settings->save(array(
@@ -314,6 +324,7 @@ $vocabulary = $transport->dispatchVocabulary(null, array(
 ));
 transport_expect($vocabulary['status'] === 'accepted' && $vocabulary['changed'], 'Signed WordPress vocabulary reconciliation must complete.');
 $before_guard_requests = count($requests);
+$transients = [];
 $capability_mode = 'v4';
 $v4_transport = KnowledgeSyncTransport::create();
 transport_expect(!$v4_transport->isContentDeliveryAvailable(), 'Capability v4 must not silently drop authored document metadata.');
@@ -324,6 +335,7 @@ try {
     $v4_dispatch_rejected = $error->errorCode === 'backend_capability_unavailable';
 }
 transport_expect($v4_dispatch_rejected, 'Direct batch dispatch must also reject capability v4.');
+$transients = [];
 $capability_mode = 'v5';
 transport_expect(!KnowledgeSyncTransport::create()->isContentDeliveryAvailable(), 'Capability v5 must not accept locale-aware content projections.');
 $v5_dispatch_rejected = false;
@@ -333,6 +345,7 @@ try {
     $v5_dispatch_rejected = $error->errorCode === 'backend_capability_unavailable';
 }
 transport_expect($v5_dispatch_rejected, 'Direct batch dispatch must reject capability v5 for locale-aware projections.');
+$transients = [];
 $capability_mode = 'verified';
 transport_expect(KnowledgeSyncTransport::create()->isContentDeliveryAvailable(), 'Capability v6 must enable locale-aware content delivery for enrolled sites.');
 $guard_requests = count($requests) - $before_guard_requests;
@@ -355,6 +368,7 @@ transport_expect($unsafe_directory_rejected, 'File key storage must reject the W
 
 transport_expect(count($requests) - $guard_requests === 7, 'Capability discovery, enrollment, status, rotation, promoted-key status, vocabulary reconciliation, and revocation must each make one request.');
 
+$transients = [];
 $capability_mode = 'legacy';
 unset($options['smartcloud_ai_kit_kb_sync_registration']);
 $legacy_rejected = false;
@@ -366,3 +380,20 @@ try {
 transport_expect($legacy_rejected, 'Knowledge automation must stay disabled until the backend advertises its capability.');
 
 echo "Knowledge-sync signed transport tests passed.\n";
+
+$transients = [];
+$capability_mode = 'paths';
+$before_capability_requests = count($requests);
+transport_expect(KnowledgeSyncTransport::create()->supportsTaxonomyPaths(), 'Verified independent capability must enable paths.');
+transport_expect(KnowledgeSyncTransport::create()->supportsTaxonomyPaths(), 'A second transport must share capability cache.');
+transport_expect(count($requests) === $before_capability_requests + 1, 'Per-document transports must not cause per-document network discovery.');
+$transients = [];
+$capability_mode = 'invalid-paths';
+transport_expect(!KnowledgeSyncTransport::create()->supportsTaxonomyPaths(), 'String capability version must fail closed.');
+$transients = [];
+$capability_mode = 'verified';
+transport_expect(!KnowledgeSyncTransport::create()->supportsTaxonomyPaths(), 'Automation v6 alone must not imply path support.');
+$transients = [];
+$capability_mode = 'legacy';
+transport_expect(!KnowledgeSyncTransport::create()->supportsTaxonomyPaths(), 'Unavailable manifest must preserve legacy projections.');
+echo "Category path capability tests passed.\n";

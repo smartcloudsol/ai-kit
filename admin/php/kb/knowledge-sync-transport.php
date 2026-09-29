@@ -402,9 +402,6 @@ final class KnowledgeSyncTransport
     private const REGISTRATION_OPTION = 'smartcloud_ai_kit_kb_sync_registration';
     private const CAPABILITY_PATH = '/meta/capabilities';
 
-    /** @var array<string, mixed>|null */
-    private ?array $compatibility_cache = null;
-
     public function __construct(
         private readonly KnowledgeSyncSettingsStore $settings,
         private readonly KnowledgeSyncPrivateKeyStoreFactory $key_stores,
@@ -571,7 +568,35 @@ final class KnowledgeSyncTransport
                 $remote_error = $error->getMessage();
             }
         }
+        $resync_required = false;
+        if (class_exists(KnowledgeSyncBaselineService::class) && class_exists(KnowledgeSyncPolicyStore::class)) {
+            try {
+                $fingerprint = KnowledgeSyncBaselineService::serializerFingerprint();
+                $baselines = array();
+                foreach ((new KnowledgeSyncBaselineRepository())->listAll() as $baseline) {
+                    if ((int) ($baseline->blog_id ?? 0) === get_current_blog_id()) {
+                        $baselines[(string) ($baseline->post_type ?? '')] = $baseline;
+                    }
+                }
+                foreach ((new KnowledgeSyncPolicyStore())->getAll() as $post_type => $policy) {
+                    if (empty($policy['enabled']) || $policy['reviewPolicy'] === 'disabled') {
+                        continue;
+                    }
+                    $baseline = $baselines[$post_type] ?? null;
+                    if ($baseline === null || ($baseline->serializer_fingerprint ?? '') !== $fingerprint || ($baseline->status ?? '') !== 'ready') {
+                        $resync_required = true;
+                        break;
+                    }
+                }
+            } catch (KnowledgeSyncProjectionException $error) {
+                $resync_required = true;
+            }
+        }
         return array(
+            'taxonomyPathsSupported' => ($compatibility['status'] ?? '') === 'verified'
+                && is_int($compatibility['capabilities']['knowledge.taxonomy-paths'] ?? null)
+                && $compatibility['capabilities']['knowledge.taxonomy-paths'] >= 1,
+            'metadataResyncRequired' => $resync_required,
             'configured' => $settings['backendBaseUrl'] !== '' && $settings['keyStorageMode'] !== 'disabled',
             'enrolled' => $registration !== null,
             'keyId' => $registration['keyId'] ?? null,
@@ -595,14 +620,14 @@ final class KnowledgeSyncTransport
      */
     public function backendCompatibility(?string $base_url = null): array
     {
-        if ($this->compatibility_cache !== null) {
-            return $this->compatibility_cache;
-        }
-        if ($base_url === null) {
-            $base_url = $this->settings->get()['backendBaseUrl'];
-        }
+        $base_url = rtrim($base_url ?? $this->settings->get()['backendBaseUrl'], '/');
         if ($base_url === '') {
             return array('status' => 'unconfigured');
+        }
+        $cache_key = 'smartcloud_ai_kit_capabilities_' . hash('sha256', $base_url);
+        $cached = get_transient($cache_key);
+        if (is_array($cached)) {
+            return $cached;
         }
 
         $response = wp_remote_request($base_url . self::CAPABILITY_PATH, array(
@@ -612,10 +637,10 @@ final class KnowledgeSyncTransport
             'headers' => array('Accept' => 'application/json'),
         ));
         if (is_wp_error($response)) {
-            return $this->compatibility_cache = array(
+            return $this->cacheCompatibility($cache_key, array(
                 'status' => 'legacy',
                 'reason' => 'Capability manifest is unavailable.',
-            );
+            ));
         }
         $status = wp_remote_retrieve_response_code($response);
         $decoded = json_decode(wp_remote_retrieve_body($response), true);
@@ -627,20 +652,33 @@ final class KnowledgeSyncTransport
             !is_string($decoded['release'] ?? null) ||
             !is_array($decoded['capabilities'] ?? null)
         ) {
-            return $this->compatibility_cache = array(
+            return $this->cacheCompatibility($cache_key, array(
                 'status' => 'legacy',
                 'reason' => 'Backend does not advertise a supported capability manifest.',
-            );
+            ));
         }
 
-        return $this->compatibility_cache = array(
+        return $this->cacheCompatibility($cache_key, array(
             'status' => 'verified',
             'release' => $decoded['release'],
             'apiSchemaVersion' => is_int($decoded['apiSchemaVersion'] ?? null)
                 ? $decoded['apiSchemaVersion']
                 : null,
             'capabilities' => $decoded['capabilities'],
-        );
+        ));
+    }
+
+    private function cacheCompatibility(string $key, array $value): array
+    {
+        set_transient($key, $value, 60);
+        return $value;
+    }
+
+    public function supportsTaxonomyPaths(): bool
+    {
+        $compatibility = $this->backendCompatibility();
+        $version = $compatibility['capabilities']['knowledge.taxonomy-paths'] ?? null;
+        return ($compatibility['status'] ?? '') === 'verified' && is_int($version) && $version >= 1;
     }
 
     /** @return array<string, mixed> */

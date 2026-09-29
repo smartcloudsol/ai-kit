@@ -151,3 +151,49 @@ test("policy parsing is strict and normalizes taxonomy scope", async () => {
   });
   assert.deepEqual(parsed.includeTaxonomies, ["industry", "solution_topic"]);
 });
+
+test("legacy authored classification and cleared tags round-trip in both document versions", async () => {
+  const contract = await loadContract();
+  for (const schemaVersion of [1, 2]) {
+    for (const classification of [{ category: "Independent category", subcategory: "Authored child", tags: [] }, { subcategory: "Legacy standalone child" }]) {
+      const candidate = projection({ schemaVersion, document: { ...projection().document, ...(schemaVersion === 2 ? { locale: "hu" } : {}), classification } });
+      assert.deepEqual(contract.parsePublicContentProjection(candidate).document.classification, classification);
+    }
+  }
+});
+
+test("complete multi-branch paths preserve compatible primary metadata", async () => {
+  const contract = await loadContract();
+  const classification = { category: "Doctors", subcategory: "Specialists", categoryPaths: ["Doctors", "Doctors/Specialists", "Doctors/Specialists/Digestive", "Programs", "Programs/Gut"], tags: ["Adults"] };
+  const candidate = projection({ document: { ...projection().document, classification } });
+  assert.deepEqual(contract.parsePublicContentProjection(candidate).document.classification, classification);
+});
+
+test("path validation rejects malformed, oversized and noncanonical classifications", async () => {
+  const contract = await loadContract();
+  const invalid = [
+    null, [], { unknown: "field" }, { category: "" }, { category: "á".repeat(129) },
+    { tags: "Adults" }, { tags: [""] }, { tags: Array(101).fill("Adults") },
+    { categoryPaths: "Doctors" }, { categoryPaths: [] }, { categoryPaths: [1] },
+    { categoryPaths: ["Doctors", "Doctors"] }, { categoryPaths: ["Programs", "Doctors"] },
+    { categoryPaths: ["Doctors/Specialists"] }, { categoryPaths: ["Doctors", "Doctors/ Specialists"] },
+    { categoryPaths: ["Doctors", "Doctors//Specialists"] }, { categoryPaths: [""] },
+    { categoryPaths: ["á".repeat(129)] },
+    { categoryPaths: Array.from({ length: 101 }, (_, index) => String(index).padStart(3, "0")) },
+    { category: "Other", categoryPaths: ["Doctors"] },
+    { subcategory: "Specialists", categoryPaths: ["Doctors", "Doctors/Specialists"] },
+    { category: "Doctors", subcategory: "Other", categoryPaths: ["Doctors", "Doctors/Specialists"] },
+    { category: "Doctors/Specialists", categoryPaths: ["Doctors", "Doctors/Specialists"] },
+  ];
+  for (const classification of invalid) {
+    assert.throws(() => contract.parsePublicContentProjection(projection({ document: { ...projection().document, classification } })), contract.KnowledgeSyncContractError, JSON.stringify(classification));
+  }
+});
+
+test("path ordering uses UTF-8 bytes rather than JavaScript UTF-16 ordering", async () => {
+  const contract = await loadContract();
+  const paths = ["\uE000", "\u{10000}"];
+  const candidate = (categoryPaths) => projection({ document: { ...projection().document, classification: { categoryPaths } } });
+  assert.deepEqual(contract.parsePublicContentProjection(candidate(paths)).document.classification.categoryPaths, paths);
+  assert.throws(() => contract.parsePublicContentProjection(candidate([...paths].reverse())), (error) => error.code === "invalid_category_paths");
+});
