@@ -369,7 +369,7 @@ final class Provider extends Product_Provider_Base
 
             $attrs = is_array($block['attrs'] ?? null) ? $block['attrs'] : array();
             foreach (array_keys($attrs) as $attr) {
-                if (!in_array($attr, array_keys($this->block_attributes($this->plugin_path, $name)), true) && !in_array($attr, array('anchor', 'className', 'style', 'lock'), true)) {
+                if (!in_array($attr, array_keys($this->block_attributes($this->plugin_path, $name)), true) && !in_array($attr, array('anchor', 'className', 'style', 'lock', 'metadata'), true)) {
                     $errors[] = $this->validation_issue('smartcloud_ai_kit_unknown_attribute', 'Unknown AI-Kit block attribute.', $current_path . '/attrs/' . $attr);
                 }
             }
@@ -401,7 +401,7 @@ final class Provider extends Product_Provider_Base
         }
 
         foreach (array('category', 'subcategory') as $field) {
-            if (!empty($attrs[$field]) && !in_array((string) $attrs[$field], array_column($metadata[$field . 's'], 'id'), true)) {
+            if (!empty($attrs[$field]) && !in_array((string) $attrs[$field], array_column($this->metadata_values_for_field($metadata, $field), 'id'), true)) {
                 return new WP_Error('smartcloud_ai_kit_unknown_metadata', sprintf('Unknown AI-Kit KB %s.', $field));
             }
         }
@@ -413,6 +413,17 @@ final class Provider extends Product_Provider_Base
         }
 
         return true;
+    }
+
+    private function metadata_values_for_field(array $metadata, string $field): array
+    {
+        $key = match ($field) {
+            'category' => 'categories',
+            'subcategory' => 'subcategories',
+            default => '',
+        };
+
+        return $key !== '' && is_array($metadata[$key] ?? null) ? $metadata[$key] : array();
     }
 
     private function knowledge_metadata(): array

@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.5.7
+ * Version:           1.5.8
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.5.7';
+const VERSION = '1.5.8';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {
@@ -683,6 +683,13 @@ final class AiKit
         return is_string($url) && $url !== '' ? $url : null;
     }
 
+    /** @return string[] */
+    private function getWpsuiteThemeCssHrefs(): array
+    {
+        $urls = apply_filters('smartcloud_wpsuite_theme_css_urls', array());
+        return is_array($urls) ? array_values(array_filter($urls, 'is_string')) : array();
+    }
+
     /**
      * Enqueue inline scripts that expose PHP constants to JS.
      */
@@ -750,6 +757,7 @@ final class AiKit
                 SMARTCLOUD_AI_KIT_URL . 'main/index.css'
             ),
             'wpsuiteThemeCssHref' => $this->getWpsuiteThemeCssHref(),
+            'wpsuiteThemeCssHrefs' => $this->getWpsuiteThemeCssHrefs(),
         );
 
         $js = 'const __aikitGlobal = (typeof globalThis !== "undefined") ? globalThis : window;

@@ -1,4 +1,5 @@
 import type { ProcessedCitations } from "@smart-cloud/ai-kit-core";
+import { citationDisplayText } from "../shared/citation-display.ts";
 
 export type CitationLike = {
   url?: string;
@@ -12,10 +13,6 @@ type CitationPayload = ProcessedCitations | CitationLike[] | undefined;
 
 function cleanCitationPreview(value: string | undefined): string | undefined {
   if (!value?.trim()) return undefined;
-  const entities: Record<string, string> = {
-    amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
-    hellip: "…", mdash: "-", ndash: "-",
-  };
   const text = value
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
     .replace(/```[\s\S]*?```/g, " ")
@@ -24,25 +21,13 @@ function cleanCitationPreview(value: string | undefined): string | undefined {
     .replace(/<[^>]+>/g, " ")
     .replace(/\[(?:\/?)(?:smartcloud|ai-kit)[^\]]*\]/gi, " ")
     .replace(/^\s{0,3}(?:#{1,6}|[-*+]|\d+\.|>)\s+/gm, " ")
-    .replace(/(\*\*|__|~~|`)(.*?)\1/g, "$2")
-    .replace(/&(#(?:x[0-9a-f]+|\d+)|[a-z]+);/gi, (match, entity: string) => {
-      if (entity.startsWith("#")) {
-        const codePoint = entity[1]?.toLowerCase() === "x"
-          ? Number.parseInt(entity.slice(2), 16)
-          : Number.parseInt(entity.slice(1), 10);
-        return Number.isInteger(codePoint) && codePoint > 0 && codePoint <= 0x10ffff
-          ? String.fromCodePoint(codePoint)
-          : match;
-      }
-      return entities[entity.toLowerCase()] ?? match;
-    })
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return undefined;
-  const characters = Array.from(text);
+    .replace(/(\*\*|__|~~|`)(.*?)\1/g, "$2");
+  const normalized = citationDisplayText(text)?.replace(/\s+/g, " ").trim() ?? "";
+  if (!normalized) return undefined;
+  const characters = Array.from(normalized);
   return characters.length > 280
     ? `${characters.slice(0, 279).join("").trimEnd()}…`
-    : text;
+    : normalized;
 }
 
 /**

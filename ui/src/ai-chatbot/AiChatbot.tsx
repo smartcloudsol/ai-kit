@@ -50,6 +50,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { useAiRun } from "../useAiRun";
+import { citationDisplayText, citationLinkUrl } from "../shared/citation-display";
 import { AiKitShellInjectedProps, withAiKitShell } from "../withAiKitShell";
 import {
   cleanupDanglingAttachments,
@@ -2321,9 +2322,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                           </summary>
                           <List spacing="xs" size="sm">
                             {msg.citations.map((c, i) => {
-                              const link = c.sourceUrl || c.url;
+                              const link = citationLinkUrl(c.sourceUrl) || citationLinkUrl(c.url);
                               const citeTitle =
-                                c.title ||
+                                citationDisplayText(c.title) ||
                                 link ||
                                 `${I18n.get(labels.referenceLabel)} #${i + 1}`;
                               return (

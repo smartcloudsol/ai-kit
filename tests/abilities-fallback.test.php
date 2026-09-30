@@ -27,11 +27,39 @@ namespace SmartCloud\WPSuite\Hub\Abilities {
         {
             return compact('code', 'message', 'path');
         }
+
+        protected function block_attributes(string $pluginPath, string $blockName): array
+        {
+            return $blockName === 'smartcloud-ai-kit/kb-section'
+                ? array('mode' => array(), 'sectionKey' => array())
+                : array();
+        }
     }
 }
 
 namespace SmartCloud\WPSuite\AiKit\Abilities {
     define('ABSPATH', __DIR__ . '/');
+    define('MINUTE_IN_SECONDS', 60);
+
+    function get_option(string $name, mixed $default = false): mixed
+    {
+        return $default;
+    }
+
+    function wp_cache_get(string $key, string $group = ''): mixed
+    {
+        return false;
+    }
+
+    function wp_cache_set(string $key, mixed $value, string $group = '', int $expiration = 0): bool
+    {
+        return true;
+    }
+
+    function is_wp_error(mixed $value): bool
+    {
+        return $value instanceof \WP_Error;
+    }
 
     require_once dirname(__DIR__) . '/includes/abilities-provider.php';
 
@@ -44,7 +72,7 @@ namespace SmartCloud\WPSuite\AiKit\Abilities {
     }
 
     $reflection = new \ReflectionClass(Provider::class);
-    $provider = $reflection->newInstanceWithoutConstructor();
+    $provider = new Provider();
     $validateNodes = $reflection->getMethod('validate_nodes');
     $fallback = array(
         'blockName' => 'wpsuite/react-fallback',
@@ -80,6 +108,43 @@ namespace SmartCloud\WPSuite\AiKit\Abilities {
     $strictArgs = array(array($nativeTree), '', &$strictErrors, 'smartcloud-ai-kit/feature', false);
     $validateNodes->invokeArgs($provider, $strictArgs);
     expect(($strictErrors[0]['code'] ?? '') === 'smartcloud_ai_kit_unknown_block', 'Native Gutenberg descendants must remain restricted outside KB section containers.');
+
+    $kbRoot = array(
+        'blockName' => 'smartcloud-ai-kit/kb-section',
+        'attrs' => array(
+            'mode' => 'include',
+            'sectionKey' => 'overview',
+            'metadata' => array(
+                'name' => 'examination.overview',
+                'wpsuiteAgentComposer' => array('nodeId' => 'examination.overview'),
+            ),
+        ),
+        'innerBlocks' => array($nativeTree),
+    );
+    $metadataErrors = array();
+    $metadataArgs = array(array($kbRoot), '', &$metadataErrors, null);
+    $validateNodes->invokeArgs($provider, $metadataArgs);
+    expect($metadataErrors === array(), 'AI Kit blocks must accept standard Gutenberg metadata used by governed Composer pattern instances.');
+
+    $kbRoot['attrs']['unexpected'] = true;
+    $unknownAttributeErrors = array();
+    $unknownAttributeArgs = array(array($kbRoot), '', &$unknownAttributeErrors, null);
+    $validateNodes->invokeArgs($provider, $unknownAttributeArgs);
+    expect(($unknownAttributeErrors[0]['code'] ?? '') === 'smartcloud_ai_kit_unknown_attribute', 'AI Kit blocks must continue to reject non-standard unknown attributes.');
+
+    $metadataValuesForField = $reflection->getMethod('metadata_values_for_field');
+    $vocabulary = array(
+        'categories' => array(array('id' => 'Orvosok', 'label' => 'Orvosok')),
+        'subcategories' => array(array('id' => 'Gasztroenterológusok', 'label' => 'Gasztroenterológusok')),
+    );
+    expect(
+        $metadataValuesForField->invoke($provider, $vocabulary, 'category') === $vocabulary['categories'],
+        'Category validation must read the canonical categories vocabulary key.'
+    );
+    expect(
+        $metadataValuesForField->invoke($provider, $vocabulary, 'subcategory') === $vocabulary['subcategories'],
+        'Subcategory validation must read the canonical subcategories vocabulary key.'
+    );
 
     $pluginSource = file_get_contents(dirname(__DIR__) . '/smartcloud-ai-kit.php');
     $loaderSource = file_get_contents(dirname(__DIR__) . '/hub-loader.php');

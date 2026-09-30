@@ -28,7 +28,9 @@ final class KnowledgeSyncTestOverrideRepository
     public function get(int $post_id, string $doc_id, string $section_id): ?object
     {
         $GLOBALS['last_override_identity'] = [$post_id, $doc_id, $section_id];
-        return (object) ['locked' => false, 'override_meta_json' => json_encode(['postUrl' => 'https://authored.example.com/base'])];
+        return (object) ['locked' => false, 'override_meta_json' => json_encode(
+            $GLOBALS['test_override_metadata'] ?? ['postUrl' => 'https://authored.example.com/base']
+        )];
     }
 }
 class_alias(KnowledgeSyncTestOverrideRepository::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KBOverrideRepository');
@@ -721,6 +723,24 @@ expect($path_fingerprint !== $legacy_fingerprint, 'Capability upgrade must inval
 $modern = $builder->build($lease);
 expect($modern['document']['classification']['categoryPaths'] === ['Clinicians', 'Clinicians/Specialists', 'Clinicians/Specialists/Digestive'], 'Capability-aware projection must include complete category prefixes.');
 expect($modern['document']['classification']['category'] === 'Clinicians' && $modern['document']['classification']['subcategory'] === 'Specialists', 'Modern projection must retain compatible scalar fields.');
+$GLOBALS['test_override_metadata'] = [];
+$options['smartcloud_ai_kit_kb_base_url_override'] = 'https://www.example.com/root';
+$released_url = 'https://dev.example.com/blog/previous-public-path/?ref=kb#details';
+$gated_lease = (object) array_replace((array) $lease, [
+    'publisher_gate_required' => 1,
+    'last_public_url' => $released_url,
+]);
+$gated = $builder->build($gated_lease);
+expect($gated['document']['canonicalUrl'] === 'https://www.example.com/root/blog/previous-public-path/?ref=kb#details', 'Gated source links must use the released path with the configured public base URL.');
+$GLOBALS['test_override_metadata'] = ['postUrl' => 'https://authored.example.com/case-study/'];
+$gated_explicit = $builder->build($gated_lease);
+expect($gated_explicit['document']['canonicalUrl'] === 'https://authored.example.com/case-study/', 'An explicit source URL must take precedence over a gated permalink.');
+$GLOBALS['test_override_metadata'] = [];
+unset($options['smartcloud_ai_kit_kb_base_url_override']);
+expect($builder->build($gated_lease)['document']['canonicalUrl'] === $released_url, 'Without a base override, a gated source must retain its released URL.');
+$deleted = $builder->build((object) array_replace((array) $gated_lease, ['leased_operation' => 'delete']));
+expect($deleted['lastPublicUrl'] === $released_url, 'Deletion must retain the original release-gate URL snapshot.');
+unset($GLOBALS['test_override_metadata']);
 CategoryPathTestTransport::$enabled = false;
 expect($baseline_class::serializerFingerprint() === $legacy_fingerprint, 'Capability rollback must restore the legacy fingerprint and trigger reconciliation.');
 echo "Category path projection and reconciliation tests passed.\n";

@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.7
+Stable tag: 1.5.8
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,16 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.8 =
+* Composer compatibility: Accept standard Gutenberg block metadata when validating governed AI Kit blocks, while continuing to reject unknown custom attributes.
+* Composer validation: Read the canonical category and subcategory vocabulary keys when validating governed Knowledge Base sections.
+* Shared styling: Load the site's additional stylesheet URL list after WP Suite Theme CSS inside AI Kit frontend shadow roots.
+* Dependencies: Bundle WP Suite Hub 2.5.17, AI Kit Core 1.5.16, and AI Kit UI 1.5.29.
+* Chatbot and DocSearch: Decode HTML-escaped citation titles, descriptions, and displayed source links; normalize encoded ampersands in safe source URLs without changing unrelated query parameters.
+* Knowledge Base: Apply the configured public Base URL Override to source links even when the Static Publisher release gate supplies the last released path.
+* Knowledge Base: Preserve an explicit per-document source URL ahead of the release-gated permalink.
+* Knowledge Base: Refresh synchronization baselines so existing source metadata can receive the corrected public URL.
 
 = 1.5.7 =
 * Knowledge Base: Synchronize every assigned category branch and its ancestors through canonical category paths, including deeply nested categories.
@@ -584,6 +594,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.5.8 =
+Knowledge Base source metadata is resynchronized after this update. Sources protected by the Static Publisher release gate still wait for an acknowledged public release, and Bedrock ingestion must complete before corrected links appear in search results. No orchestration template update is required for this URL correction.
 
 = 1.5.7 =
 Category-path search requires the corresponding AI Kit backend update. Enable its migration mode, reconcile all WordPress and documentation metadata, and complete Knowledge Base ingestion before enabling ready mode. Capability or hierarchy changes trigger a new WordPress synchronization baseline; this alone does not prove ingestion is complete. Legacy backends retain the existing primary-category behavior.

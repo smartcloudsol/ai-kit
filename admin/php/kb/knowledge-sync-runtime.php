@@ -19,6 +19,20 @@ final class KnowledgeSyncDocumentMetadata
         return rtrim(trim((string) get_option('smartcloud_ai_kit_kb_base_url_override', '')), '/');
     }
 
+    public static function applyBaseUrlOverride(string $url): string
+    {
+        $base = self::baseUrlOverride();
+        if ($base === '') {
+            return $url;
+        }
+        $parts = wp_parse_url($url);
+        return $base . (is_array($parts)
+            ? ($parts['path'] ?? '')
+                . (isset($parts['query']) ? '?' . $parts['query'] : '')
+                . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '')
+            : '');
+    }
+
     /** @param array<string, mixed>|null $overrides
      *  @return array<string, mixed>
      */
@@ -31,17 +45,9 @@ final class KnowledgeSyncDocumentMetadata
         }
         $text = static fn(string $key): string => is_string($overrides[$key] ?? null) ? trim($overrides[$key]) : '';
         $url = $text('postUrl');
+        $has_explicit_post_url = $url !== '';
         if ($url === '') {
-            $url = (string) get_permalink($post);
-            $base = self::baseUrlOverride();
-            if ($base !== '') {
-                $parts = wp_parse_url($url);
-                $url = $base . (is_array($parts)
-                    ? ($parts['path'] ?? '')
-                        . (isset($parts['query']) ? '?' . $parts['query'] : '')
-                        . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '')
-                    : '');
-            }
+            $url = self::applyBaseUrlOverride((string) get_permalink($post));
         }
         $classification = array();
         foreach (array('category', 'subcategory') as $key) {
@@ -58,6 +64,7 @@ final class KnowledgeSyncDocumentMetadata
         return array(
             'locale' => KnowledgeBaseLocalization::localeForPost($post),
             'canonicalUrl' => $url,
+            'hasExplicitPostUrl' => $has_explicit_post_url,
             'title' => $text('title') !== '' ? $text('title') : trim(wp_strip_all_tags(get_the_title($post))),
             'excerpt' => $text('description') !== '' ? $text('description') : trim(wp_strip_all_tags(get_the_excerpt($post))),
             'classification' => $classification,
@@ -360,7 +367,7 @@ final class KnowledgeSyncBaselineRepository
 
 final class KnowledgeSyncBaselineService
 {
-    public const SERIALIZER_VERSION = 'knowledge-sync-document-v3-content-locale';
+    public const SERIALIZER_VERSION = 'knowledge-sync-document-v4-public-url-override';
 
     public static function serializerFingerprint(): string
     {
@@ -745,9 +752,10 @@ final class KnowledgeSyncProjectionBuilder
         if (
             !empty($lease->publisher_gate_required) &&
             is_string($lease->last_public_url ?? null) &&
-            $lease->last_public_url !== ''
+            $lease->last_public_url !== '' &&
+            !$resolved_metadata['hasExplicitPostUrl']
         ) {
-            $resolved_metadata['canonicalUrl'] = $lease->last_public_url;
+            $resolved_metadata['canonicalUrl'] = KnowledgeSyncDocumentMetadata::applyBaseUrlOverride($lease->last_public_url);
         }
         $title = $resolved_metadata['title'];
         if ($title === '') {

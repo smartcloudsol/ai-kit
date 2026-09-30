@@ -1,6 +1,6 @@
 {
   "name": "@smart-cloud/ai-kit-core",
-  "version": "1.5.15",
+  "version": "1.5.16",
   "description": "AI Kit Core Package",
   "author": "Smart Cloud Solutions Inc.",
   "license": "MIT",
@@ -51,8 +51,8 @@
     "rollup": "^4.62.3"
   },
   "dependencies": {
-    "@smart-cloud/gatey-core": "^2.3.7",
-    "@smart-cloud/wpsuite-core": "^2.4.1",
+    "@smart-cloud/gatey-core": "^2.3.8",
+    "@smart-cloud/wpsuite-core": "^2.4.3",
     "aws-amplify": "^6.20.0"
   },
   "peerDependencies": {

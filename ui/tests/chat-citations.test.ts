@@ -65,3 +65,18 @@ test("cleans and bounds a chunk preview when description is absent", () => {
   assert.ok(long?.[0]?.snippet && Array.from(long[0].snippet).length <= 280);
   assert.ok(long?.[0]?.snippet?.endsWith("…"));
 });
+
+test("preserves citation source fields until the React display boundary", () => {
+  assert.deepEqual(normalizeChatCitations({
+    docs: [{
+      docId: "support",
+      title: "Contact Support &amp; Sales",
+      sourceUrl: "https://example.com/contact?team=support&amp;lang=hu",
+      description: "Questions &amp; answers",
+    }],
+  }), [{
+    title: "Contact Support &amp; Sales",
+    sourceUrl: "https://example.com/contact?team=support&amp;lang=hu",
+    snippet: "Questions & answers",
+  }]);
+});

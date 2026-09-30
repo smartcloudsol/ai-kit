@@ -93,8 +93,16 @@ export function withAiKitShell<P extends object>(
     }, [currentLanguage, direction, directionInStore, directionOverride]);
 
     const stylesheets = useMemo(
-      () =>
-        [
+      () => {
+        const constants = (
+          WpSuite as never as {
+            constants?: { aiKit?: { wpsuiteThemeCssHref?: string; wpsuiteThemeCssHrefs?: string[] } };
+          }
+        )?.constants?.aiKit;
+        const shared = Array.isArray(constants?.wpsuiteThemeCssHrefs) && constants.wpsuiteThemeCssHrefs.length > 0
+          ? constants.wpsuiteThemeCssHrefs
+          : [constants?.wpsuiteThemeCssHref];
+        return Array.from(new Set([
           (
             WpSuite as never as {
               constants: { aiKit: { mantineCssHref: string } };
@@ -105,14 +113,11 @@ export function withAiKitShell<P extends object>(
               constants: { aiKit: { aiKitUiCssHref: string } };
             }
           )?.constants?.aiKit?.aiKitUiCssHref,
-          (
-            WpSuite as never as {
-              constants: { aiKit: { wpsuiteThemeCssHref?: string } };
-            }
-          )?.constants?.aiKit?.wpsuiteThemeCssHref,
+          ...shared,
         ].filter(
           (href): href is string => typeof href === "string" && href.length > 0,
-        ),
+        )));
+      },
       [WpSuite],
     );
 

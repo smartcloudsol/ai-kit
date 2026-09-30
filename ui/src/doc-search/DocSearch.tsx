@@ -29,6 +29,7 @@ import {
   type SearchResult,
 } from "@smart-cloud/ai-kit-core";
 import { useAiKitI18n } from "../locale";
+import { citationDisplayText, citationLinkUrl } from "../shared/citation-display";
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -1202,11 +1203,12 @@ const DocSearchBase: FC<Props> = (props) => {
                           </Text>
 
                           {grouped.map(({ doc }) => {
-                            const href = doc.sourceUrl?.trim() || undefined;
+                            const href = citationLinkUrl(doc.sourceUrl);
                             const docNumber = doc.docId
                               ? docNumberMap.get(doc.docId)
                               : undefined;
-                            const titleText = doc.title?.trim() || doc.docId;
+                            const titleText = citationDisplayText(doc.title?.trim()) || doc.docId;
+                            const displayDoc = href ? { ...doc, sourceUrl: href } : doc;
                             const titleNode = (
                               <Text fw={600} style={{ display: "inline" }}>
                                 {docNumber ? `${docNumber}. ` : ""}
@@ -1246,7 +1248,7 @@ const DocSearchBase: FC<Props> = (props) => {
                                           onClick={(e) => {
                                             if (!onClickDoc) return;
                                             e.preventDefault();
-                                            onClickDoc?.(doc);
+                                            onClickDoc?.(displayDoc);
                                           }}
                                           data-doc-search-source-title
                                         >
@@ -1256,20 +1258,26 @@ const DocSearchBase: FC<Props> = (props) => {
                                         titleNode
                                       )}
 
-                                      <Anchor
-                                        href={href}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        style={{ textDecoration: "none" }}
-                                        onClick={(e) => {
-                                          if (!onClickDoc) return;
-                                          e.preventDefault();
-                                          onClickDoc?.(doc);
-                                        }}
-                                        data-doc-search-source-url
-                                      >
-                                        {doc.sourceUrl}
-                                      </Anchor>
+                                      {href ? (
+                                        <Anchor
+                                          href={href}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          style={{ textDecoration: "none" }}
+                                          onClick={(e) => {
+                                            if (!onClickDoc) return;
+                                            e.preventDefault();
+                                            onClickDoc(displayDoc);
+                                          }}
+                                          data-doc-search-source-url
+                                        >
+                                          {href}
+                                        </Anchor>
+                                      ) : doc.sourceUrl ? (
+                                        <Text data-doc-search-source-url>
+                                          {citationDisplayText(doc.sourceUrl)}
+                                        </Text>
+                                      ) : null}
 
                                       {doc.author ? (
                                         <Text
@@ -1277,7 +1285,7 @@ const DocSearchBase: FC<Props> = (props) => {
                                           c="dimmed"
                                           data-doc-search-source-author
                                         >
-                                          {doc.author}
+                                          {citationDisplayText(doc.author)}
                                         </Text>
                                       ) : null}
 
@@ -1288,7 +1296,7 @@ const DocSearchBase: FC<Props> = (props) => {
                                           fs="italic"
                                           data-doc-search-source-description
                                         >
-                                          {doc.description}
+                                          {citationDisplayText(doc.description)}
                                         </Text>
                                       ) : null}
                                     </Stack>
