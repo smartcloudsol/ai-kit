@@ -395,35 +395,32 @@ final class Provider extends Product_Provider_Base
 
     private function validate_metadata_attrs(array $attrs): bool|WP_Error
     {
-        $metadata = $this->knowledge_metadata();
-        if ($metadata['status'] !== 'ready') {
-            return true;
-        }
-
         foreach (array('category', 'subcategory') as $field) {
-            if (!empty($attrs[$field]) && !in_array((string) $attrs[$field], array_column($this->metadata_values_for_field($metadata, $field), 'id'), true)) {
-                return new WP_Error('smartcloud_ai_kit_unknown_metadata', sprintf('Unknown AI-Kit KB %s.', $field));
+            if (array_key_exists($field, $attrs) && $attrs[$field] !== '' && !$this->valid_metadata_label($attrs[$field])) {
+                return new WP_Error('smartcloud_ai_kit_invalid_metadata', sprintf('Invalid AI-Kit KB %s.', $field));
             }
         }
 
-        foreach ((array) ($attrs['tags'] ?? array()) as $tag) {
-            if (!in_array((string) $tag, array_column($metadata['tags'], 'id'), true)) {
-                return new WP_Error('smartcloud_ai_kit_unknown_metadata', __('Unknown AI-Kit KB tag.', 'smartcloud-ai-kit'));
+        if (array_key_exists('tags', $attrs)) {
+            if (!is_array($attrs['tags']) || count($attrs['tags']) > 100) {
+                return new WP_Error('smartcloud_ai_kit_invalid_metadata', __('AI-Kit KB tags must be an array of at most 100 values.', 'smartcloud-ai-kit'));
+            }
+            foreach ($attrs['tags'] as $tag) {
+                if (!$this->valid_metadata_label($tag)) {
+                    return new WP_Error('smartcloud_ai_kit_invalid_metadata', __('Invalid AI-Kit KB tag.', 'smartcloud-ai-kit'));
+                }
             }
         }
 
         return true;
     }
 
-    private function metadata_values_for_field(array $metadata, string $field): array
+    private function valid_metadata_label(mixed $value): bool
     {
-        $key = match ($field) {
-            'category' => 'categories',
-            'subcategory' => 'subcategories',
-            default => '',
-        };
-
-        return $key !== '' && is_array($metadata[$key] ?? null) ? $metadata[$key] : array();
+        // KB section overrides are authored strings, not foreign keys into the
+        // generated metadata table. Its vocabulary is a discovery aid and may
+        // be incomplete (or contain display labels instead of legacy slugs).
+        return is_string($value) && trim($value) !== '' && strlen($value) <= 256;
     }
 
     private function knowledge_metadata(): array

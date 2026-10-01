@@ -900,6 +900,12 @@ class Admin
             'permission_callback' => [$this, 'checkManagePermission'],
         ]);
 
+        register_rest_route($namespace, '/kb/knowledge-sync/full-resync', [
+            'methods' => 'POST',
+            'callback' => [$this, 'restRequestKnowledgeSyncFullResync'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+        ]);
+
         register_rest_route($namespace, '/kb/knowledge-sync/manual-review/approve', [
             'methods' => 'POST',
             'callback' => [$this, 'restApproveKnowledgeSyncManualReview'],
@@ -1068,6 +1074,7 @@ class Admin
             'blockedReasons' => $this->knowledge_sync_outbox->blockedReasonCounts(),
             'publicReleaseGate' => KnowledgeSyncPublicReleaseGate::status($release_gate_post_types),
             'lastRun' => get_option(KnowledgeSyncRuntime::LAST_RUN_OPTION, null),
+            'fullResync' => $this->knowledge_sync_runtime->fullResyncStatus(),
             'vocabulary' => get_option('smartcloud_ai_kit_kb_sync_vocabulary_state', null),
             'nextRunGmt' => ($timestamp = wp_next_scheduled(KnowledgeSyncRuntime::CRON_HOOK))
                 ? gmdate('c', $timestamp)
@@ -1085,12 +1092,36 @@ class Admin
         return new \WP_REST_Response($this->knowledge_sync_runtime->run(true), 200);
     }
 
+    public function restRequestKnowledgeSyncFullResync(): \WP_REST_Response|\WP_Error
+    {
+        try {
+            return new \WP_REST_Response(array(
+                'fullResync' => $this->knowledge_sync_runtime->requestFullResync(),
+            ), 202);
+        } catch (\InvalidArgumentException $error) {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_no_enabled_policy',
+                $error->getMessage(),
+                array('status' => 400)
+            );
+        } catch (\RuntimeException $error) {
+            return new \WP_Error(
+                'smartcloud_ai_kit_knowledge_sync_full_resync_request_busy',
+                $error->getMessage(),
+                array('status' => 409)
+            );
+        }
+    }
+
     public function restApproveKnowledgeSyncManualReview(\WP_REST_Request $request): \WP_REST_Response
     {
         $post_type = sanitize_key((string) ($request->get_param('postType') ?? ''));
         $approved = $this->knowledge_sync_outbox->approveManualReview(
             $post_type !== '' ? $post_type : null
         );
+        if ($approved > 0) {
+            $this->knowledge_sync_runtime->wakeFullResync();
+        }
         (new KnowledgeSyncAuditRepository())->record('manual-review', 'approved', array(
             'postType' => $post_type !== '' ? $post_type : null,
             'approvedCount' => $approved,
@@ -1104,6 +1135,9 @@ class Admin
         $approved = $this->knowledge_sync_outbox->approveMassDeletion(
             $post_type !== '' ? $post_type : null
         );
+        if ($approved > 0) {
+            $this->knowledge_sync_runtime->wakeFullResync();
+        }
         (new KnowledgeSyncAuditRepository())->record('mass-delete-review', 'approved', array(
             'postType' => $post_type !== '' ? $post_type : null,
             'approvedCount' => $approved,

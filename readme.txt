@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.8
+Stable tag: 1.5.9
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,13 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.9 =
+* Knowledge Base: Add a durable full resynchronization action with batch progress and automatic follow-up passes after taxonomy or backend capability changes.
+* Knowledge Base: Show backend ingestion states and allow an administrator to resume a coordinator paused for review once its cause has been resolved.
+* AI spend policy: Show the previous month's reconciled usage and signed corrections from delayed AWS Cost Explorer data.
+* Composer validation: Accept authored Knowledge Base category, subcategory, and tag values independently of generated suggestions, including existing slug-based overrides, while enforcing backend metadata limits.
+* Dependencies: Refresh the bundled admin DOMPurify dependency for the latest security fix.
 
 = 1.5.8 =
 * Composer compatibility: Accept standard Gutenberg block metadata when validating governed AI Kit blocks, while continuing to reject unknown custom attributes.
@@ -594,6 +601,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.5.9 =
+Update the AI Kit backend to orchestration v1.0.109, or deploy the equivalent backend changes, before using the ingestion resume action and cost reconciliation details. A full metadata resynchronization is processed in scheduled batches; wait for both the WordPress scan and backend ingestion to finish before relying on refreshed Knowledge Base results.
 
 = 1.5.8 =
 Knowledge Base source metadata is resynchronized after this update. Sources protected by the Static Publisher release gate still wait for an acknowledged public release, and Bedrock ingestion must complete before corrected links appear in search results. No orchestration template update is required for this URL correction.

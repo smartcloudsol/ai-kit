@@ -2,6 +2,25 @@
 
 declare(strict_types=1);
 
+namespace {
+    class WP_Error
+    {
+        public function __construct(private string $code, private string $message)
+        {
+        }
+
+        public function get_error_code(): string
+        {
+            return $this->code;
+        }
+
+        public function get_error_message(): string
+        {
+            return $this->message;
+        }
+    }
+}
+
 namespace SmartCloud\WPSuite\Hub\Abilities {
     abstract class Product_Provider_Base
     {
@@ -31,7 +50,7 @@ namespace SmartCloud\WPSuite\Hub\Abilities {
         protected function block_attributes(string $pluginPath, string $blockName): array
         {
             return $blockName === 'smartcloud-ai-kit/kb-section'
-                ? array('mode' => array(), 'sectionKey' => array())
+                ? array('mode' => array(), 'sectionKey' => array(), 'category' => array(), 'subcategory' => array(), 'tags' => array())
                 : array();
         }
     }
@@ -43,11 +62,19 @@ namespace SmartCloud\WPSuite\AiKit\Abilities {
 
     function get_option(string $name, mixed $default = false): mixed
     {
-        return $default;
+        return $name === 'smartcloud_ai_kit_db_version' ? '1' : $default;
     }
 
     function wp_cache_get(string $key, string $group = ''): mixed
     {
+        if (str_starts_with($key, 'knowledge_metadata_')) {
+            return array(
+                'status' => 'ready',
+                'categories' => array(array('id' => 'Szakmai cikkek', 'label' => 'Szakmai cikkek')),
+                'subcategories' => array(array('id' => 'Forráscikk', 'label' => 'Forráscikk')),
+                'tags' => array(array('id' => 'GasztroKlinika', 'label' => 'GasztroKlinika')),
+            );
+        }
         return false;
     }
 
@@ -59,6 +86,11 @@ namespace SmartCloud\WPSuite\AiKit\Abilities {
     function is_wp_error(mixed $value): bool
     {
         return $value instanceof \WP_Error;
+    }
+
+    function __(string $message, string $domain = ''): string
+    {
+        return $message;
     }
 
     require_once dirname(__DIR__) . '/includes/abilities-provider.php';
@@ -132,19 +164,27 @@ namespace SmartCloud\WPSuite\AiKit\Abilities {
     $validateNodes->invokeArgs($provider, $unknownAttributeArgs);
     expect(($unknownAttributeErrors[0]['code'] ?? '') === 'smartcloud_ai_kit_unknown_attribute', 'AI Kit blocks must continue to reject non-standard unknown attributes.');
 
-    $metadataValuesForField = $reflection->getMethod('metadata_values_for_field');
-    $vocabulary = array(
-        'categories' => array(array('id' => 'Orvosok', 'label' => 'Orvosok')),
-        'subcategories' => array(array('id' => 'Gasztroenterológusok', 'label' => 'Gasztroenterológusok')),
+    $kbRoot['attrs'] = array(
+        'category' => 'szakmai-cikkek',
+        'subcategory' => 'forrascikk',
+        'tags' => array('gasztroklinika', 'szakmai-cikk'),
     );
-    expect(
-        $metadataValuesForField->invoke($provider, $vocabulary, 'category') === $vocabulary['categories'],
-        'Category validation must read the canonical categories vocabulary key.'
-    );
-    expect(
-        $metadataValuesForField->invoke($provider, $vocabulary, 'subcategory') === $vocabulary['subcategories'],
-        'Subcategory validation must read the canonical subcategories vocabulary key.'
-    );
+    $legacyMetadataErrors = array();
+    $legacyMetadataArgs = array(array($kbRoot), '', &$legacyMetadataErrors, null);
+    $validateNodes->invokeArgs($provider, $legacyMetadataArgs);
+    expect($legacyMetadataErrors === array(), 'Authored KB metadata slugs must validate even when they are absent from generated vocabulary.');
+
+    $kbRoot['attrs']['tags'] = array('');
+    $invalidMetadataErrors = array();
+    $invalidMetadataArgs = array(array($kbRoot), '', &$invalidMetadataErrors, null);
+    $validateNodes->invokeArgs($provider, $invalidMetadataArgs);
+    expect(($invalidMetadataErrors[0]['code'] ?? '') === 'smartcloud_ai_kit_invalid_metadata', 'Empty KB tags must be rejected.');
+
+    $kbRoot['attrs']['tags'] = array_fill(0, 101, 'valid');
+    $tooManyTagsErrors = array();
+    $tooManyTagsArgs = array(array($kbRoot), '', &$tooManyTagsErrors, null);
+    $validateNodes->invokeArgs($provider, $tooManyTagsArgs);
+    expect(($tooManyTagsErrors[0]['code'] ?? '') === 'smartcloud_ai_kit_invalid_metadata', 'KB tag count must respect the backend limit.');
 
     $pluginSource = file_get_contents(dirname(__DIR__) . '/smartcloud-ai-kit.php');
     $loaderSource = file_get_contents(dirname(__DIR__) . '/hub-loader.php');

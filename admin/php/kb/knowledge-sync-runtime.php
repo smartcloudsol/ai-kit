@@ -321,6 +321,25 @@ final class KnowledgeSyncBaselineRepository
         )) === 1;
     }
 
+    /** Reset only this enabled content scope; never remove documents or outbox work. */
+    public function requestRescan(int $id): void
+    {
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Durable full-resync checkpoint reset.
+        $updated = $wpdb->query($wpdb->prepare(
+            "UPDATE %i SET status = 'stale', cursor_post_id = 0,
+             high_water_post_id = 0, started_gmt = NULL, verified_gmt = NULL,
+             last_error_code = 'full_resync_requested', updated_gmt = %s
+             WHERE id = %d",
+            $this->tableName(),
+            current_time('mysql', true),
+            $id
+        ));
+        if ($updated === false) {
+            throw new \RuntimeException('Knowledge-sync baseline could not be reset.');
+        }
+    }
+
     public function advance(int $id, int $cursor_post_id, bool $complete): bool
     {
         global $wpdb;
@@ -920,6 +939,17 @@ final class KnowledgeSyncVocabularyService
         delete_option(self::OPTION_NAME);
     }
 
+    /** Force a new vocabulary delivery while retaining its monotonic source version. */
+    public static function requestResync(): void
+    {
+        $stored = get_option(self::OPTION_NAME, array());
+        if (!is_array($stored)) {
+            $stored = array();
+        }
+        unset($stored['fingerprint']);
+        update_option(self::OPTION_NAME, $stored, false);
+    }
+
     /** @return array{status:string,changed?:bool,errorCode?:string} */
     public function reconcile(): array
     {
@@ -1186,8 +1216,11 @@ final class KnowledgeSyncRunnerLock
 final class KnowledgeSyncRuntime
 {
     public const CRON_HOOK = 'smartcloud_ai_kit_knowledge_sync_tick';
+    public const FULL_RESYNC_CRON_HOOK = 'smartcloud_ai_kit_knowledge_sync_full_resync_tick';
     public const LAST_RUN_OPTION = 'smartcloud_ai_kit_kb_sync_last_run';
+    public const FULL_RESYNC_OPTION = 'smartcloud_ai_kit_kb_sync_full_resync';
     private const CRON_SCHEDULE_PREFIX = 'smartcloud_ai_kit_knowledge_sync_';
+    private const FULL_RESYNC_REQUEST_LOCK = 'smartcloud_ai_kit_kb_sync_full_resync_request_lock';
     private const DRIFT_CHECK_OPTION = 'smartcloud_ai_kit_kb_sync_last_drift_check';
     private const DRIFT_CURSOR_OPTION = 'smartcloud_ai_kit_kb_sync_drift_cursor';
     private const MASS_DELETE_MINIMUM = 10;
@@ -1198,6 +1231,7 @@ final class KnowledgeSyncRuntime
         add_filter('cron_schedules', array($this, 'addCronSchedule'));
         add_action('init', array($this, 'ensureScheduled'));
         add_action(self::CRON_HOOK, array($this, 'run'));
+        add_action(self::FULL_RESYNC_CRON_HOOK, array($this, 'run'));
         add_action('smartcloud_ai_kit_knowledge_sync_policy_changed', array($this, 'onPolicyChanged'), 10, 3);
         add_action('smartcloud_ai_kit_knowledge_sync_settings_changed', array($this, 'ensureScheduled'));
         add_action(KnowledgeSyncPublicReleaseGate::RELEASE_ACTION, array($this, 'onPublicRelease'), 10, 1);
@@ -1281,6 +1315,7 @@ final class KnowledgeSyncRuntime
         }
         if ($accepted && function_exists('wp_schedule_single_event')) {
             wp_schedule_single_event(time() + 1, self::CRON_HOOK);
+            $this->wakeFullResync();
         }
     }
 
@@ -1322,6 +1357,286 @@ final class KnowledgeSyncRuntime
         return self::CRON_SCHEDULE_PREFIX . $minutes . '_minutes';
     }
 
+    /** Queue one durable, bounded rescan without doing network or document work in the request. */
+    public function requestFullResync(): array
+    {
+        $existing = get_option(self::FULL_RESYNC_OPTION, null);
+        if ($this->fullResyncIsActive($existing)) {
+            return $this->fullResyncStatus();
+        }
+
+        $lock_expires = (int) get_option(self::FULL_RESYNC_REQUEST_LOCK, 0);
+        if ($lock_expires > 0 && $lock_expires <= time()) {
+            delete_option(self::FULL_RESYNC_REQUEST_LOCK);
+        }
+        if (!add_option(self::FULL_RESYNC_REQUEST_LOCK, time() + 30, '', false)) {
+            $existing = get_option(self::FULL_RESYNC_OPTION, null);
+            if ($this->fullResyncIsActive($existing)) {
+                return $this->fullResyncStatus();
+            }
+            throw new \RuntimeException('A full resynchronization request is already being prepared.');
+        }
+
+        try {
+            $existing = get_option(self::FULL_RESYNC_OPTION, null);
+            if ($this->fullResyncIsActive($existing)) {
+                return $this->fullResyncStatus();
+            }
+            $scopes = $this->enabledFullResyncScopes();
+            if ($scopes === array()) {
+                throw new \InvalidArgumentException('Enable at least one Knowledge Sync content policy first.');
+            }
+            $now = gmdate('c');
+            $job = array(
+                'id' => wp_generate_uuid4(),
+                'state' => 'queued',
+                'requestedGmt' => $now,
+                'startedGmt' => null,
+                'updatedGmt' => $now,
+                'completedGmt' => null,
+                'reason' => null,
+                'scopes' => $scopes,
+            );
+            update_option(self::FULL_RESYNC_OPTION, $job, false);
+            (new KnowledgeSyncAuditRepository())->record('full-resync', 'requested', array(
+                'jobId' => $job['id'],
+                'scopeCount' => count($scopes),
+            ));
+            $this->scheduleFullResyncFollowup(1);
+            return $this->fullResyncStatus();
+        } finally {
+            delete_option(self::FULL_RESYNC_REQUEST_LOCK);
+        }
+    }
+
+    /** @return array<string, mixed>|null */
+    public function fullResyncStatus(): ?array
+    {
+        $job = get_option(self::FULL_RESYNC_OPTION, null);
+        if (!is_array($job) || !is_array($job['scopes'] ?? null)) {
+            return null;
+        }
+        $original_blog_id = get_current_blog_id();
+        $baselines = array();
+        $outbox = array_fill_keys(array('pending', 'leased', 'retry_wait', 'blocked', 'complete'), 0);
+        try {
+            foreach ($this->fullResyncScopesByBlog($job) as $blog_id => $post_types) {
+                if (is_multisite() && $blog_id !== get_current_blog_id()) {
+                    switch_to_blog($blog_id);
+                }
+                try {
+                    $repository = new KnowledgeSyncBaselineRepository();
+                    foreach ($post_types as $post_type) {
+                        $row = $repository->get('wordpress-blog-' . $blog_id, $blog_id, $post_type);
+                        $baselines[] = array(
+                            'blogId' => $blog_id,
+                            'postType' => $post_type,
+                            'status' => $row ? (string) $row->status : 'required',
+                            'cursorPostId' => $row ? (int) $row->cursor_post_id : 0,
+                            'highWaterPostId' => $row ? (int) $row->high_water_post_id : 0,
+                            'lastErrorCode' => $row && is_string($row->last_error_code) ? $row->last_error_code : null,
+                        );
+                    }
+                    foreach ($this->fullResyncOutboxCounts($blog_id, $post_types) as $state => $count) {
+                        $outbox[$state] += $count;
+                    }
+                } finally {
+                    if (is_multisite() && $blog_id !== $original_blog_id) {
+                        restore_current_blog();
+                    }
+                }
+            }
+        } finally {
+            while (is_multisite() && get_current_blog_id() !== $original_blog_id && ms_is_switched()) {
+                restore_current_blog();
+            }
+        }
+        return array(
+            'id' => (string) ($job['id'] ?? ''),
+            'state' => (string) ($job['state'] ?? 'queued'),
+            'requestedGmt' => (string) ($job['requestedGmt'] ?? ''),
+            'startedGmt' => $job['startedGmt'] ?? null,
+            'updatedGmt' => (string) ($job['updatedGmt'] ?? ''),
+            'completedGmt' => $job['completedGmt'] ?? null,
+            'baselines' => $baselines,
+            'outbox' => $outbox,
+            'reason' => $job['reason'] ?? null,
+        );
+    }
+
+    private function fullResyncIsActive(mixed $job): bool
+    {
+        return is_array($job) && isset($job['id']) &&
+            ($job['state'] ?? '') !== 'complete' &&
+            !(($job['state'] ?? '') === 'attention-required' &&
+                ($job['reason'] ?? '') === 'full_resync_scope_changed');
+    }
+
+    /** @return array<int, array{blogId:int,postType:string}> */
+    private function enabledFullResyncScopes(): array
+    {
+        $original_blog_id = get_current_blog_id();
+        $scopes = array();
+        try {
+            foreach ($this->blogIdsInScope() as $blog_id) {
+                if (is_multisite() && $blog_id !== get_current_blog_id()) {
+                    switch_to_blog($blog_id);
+                }
+                try {
+                    foreach ((new KnowledgeSyncPolicyStore())->getAll() as $post_type => $policy) {
+                        if (!empty($policy['enabled']) && $policy['reviewPolicy'] !== 'disabled') {
+                            $scopes[] = array('blogId' => $blog_id, 'postType' => $post_type);
+                        }
+                    }
+                } finally {
+                    if (is_multisite() && $blog_id !== $original_blog_id) {
+                        restore_current_blog();
+                    }
+                }
+            }
+        } finally {
+            while (is_multisite() && get_current_blog_id() !== $original_blog_id && ms_is_switched()) {
+                restore_current_blog();
+            }
+        }
+        return $scopes;
+    }
+
+    /** @param array<string, mixed> $job
+     *  @return array<int, string[]>
+     */
+    private function fullResyncScopesByBlog(array $job): array
+    {
+        $grouped = array();
+        foreach ((array) ($job['scopes'] ?? array()) as $scope) {
+            if (!is_array($scope)) {
+                continue;
+            }
+            $blog_id = absint($scope['blogId'] ?? 0);
+            $post_type = sanitize_key((string) ($scope['postType'] ?? ''));
+            if ($blog_id > 0 && $post_type !== '') {
+                $grouped[$blog_id][$post_type] = $post_type;
+            }
+        }
+        foreach ($grouped as &$post_types) {
+            $post_types = array_values($post_types);
+        }
+        unset($post_types);
+        return $grouped;
+    }
+
+    /** @param string[] $post_types
+     *  @return array<string, int>
+     */
+    private function fullResyncOutboxCounts(int $blog_id, array $post_types): array
+    {
+        $counts = array_fill_keys(array('pending', 'leased', 'retry_wait', 'blocked', 'complete'), 0);
+        if ($post_types === array()) {
+            return $counts;
+        }
+        global $wpdb;
+        $placeholders = implode(', ', array_fill(0, count($post_types), '%s'));
+        $arguments = array_merge(
+            array($wpdb->prefix . 'smartcloud_ai_kit_kb_sync_outbox', $blog_id),
+            $post_types
+        );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- The IN placeholders are generated from the validated scope length.
+        foreach ((array) $wpdb->get_results($wpdb->prepare(
+            "SELECT state, COUNT(*) AS item_count FROM %i
+             WHERE blog_id = %d AND post_type IN ($placeholders) GROUP BY state",
+            ...$arguments
+        )) as $row) {
+            if (isset($counts[$row->state])) {
+                $counts[$row->state] = (int) $row->item_count;
+            }
+        }
+        return $counts;
+    }
+
+    private function scheduleFullResyncFollowup(int $delay_seconds): void
+    {
+        if (!function_exists('wp_schedule_single_event')) {
+            return;
+        }
+        $scheduled_at = time() + max(1, $delay_seconds);
+        $existing = wp_next_scheduled(self::FULL_RESYNC_CRON_HOOK);
+        if ($existing !== false && $existing <= $scheduled_at) {
+            return;
+        }
+        if ($existing !== false) {
+            wp_clear_scheduled_hook(self::FULL_RESYNC_CRON_HOOK);
+        }
+        wp_schedule_single_event($scheduled_at, self::FULL_RESYNC_CRON_HOOK);
+    }
+
+    public function wakeFullResync(): void
+    {
+        if ($this->fullResyncIsActive(get_option(self::FULL_RESYNC_OPTION, null))) {
+            $this->scheduleFullResyncFollowup(1);
+        }
+    }
+
+    /** Apply a queued request once before any bounded scan pages are processed. */
+    private function activateFullResync(): void
+    {
+        $job = get_option(self::FULL_RESYNC_OPTION, null);
+        if (!is_array($job) || ($job['state'] ?? '') !== 'queued') {
+            return;
+        }
+        $original_blog_id = get_current_blog_id();
+        try {
+            foreach ($this->fullResyncScopesByBlog($job) as $blog_id => $post_types) {
+                if (is_multisite() && $blog_id !== get_current_blog_id()) {
+                    switch_to_blog($blog_id);
+                }
+                try {
+                    if (
+                        defined('SMARTCLOUD_AI_KIT_DB_VERSION') &&
+                        version_compare(
+                            (string) get_option('smartcloud_ai_kit_db_version', '0'),
+                            (string) SMARTCLOUD_AI_KIT_DB_VERSION,
+                            '<'
+                        )
+                    ) {
+                        Schema::createTables();
+                        update_option('smartcloud_ai_kit_db_version', SMARTCLOUD_AI_KIT_DB_VERSION);
+                    }
+                    $policies = new KnowledgeSyncPolicyStore();
+                    $repository = new KnowledgeSyncBaselineRepository();
+                    foreach ($post_types as $post_type) {
+                        $policy = $policies->getForPostType($post_type);
+                        if ($policy === null || empty($policy['enabled']) || $policy['reviewPolicy'] === 'disabled') {
+                            throw new \RuntimeException('A full-resync content policy changed before the scan started.');
+                        }
+                        $baseline = $repository->ensure(
+                            'wordpress-blog-' . $blog_id,
+                            $blog_id,
+                            $post_type,
+                            KnowledgeSyncBaselineService::serializerFingerprint(),
+                            $policies->fingerprint($policy)
+                        );
+                        $repository->requestRescan((int) $baseline->id);
+                    }
+                    KnowledgeSyncVocabularyService::requestResync();
+                } finally {
+                    if (is_multisite() && $blog_id !== $original_blog_id) {
+                        restore_current_blog();
+                    }
+                }
+            }
+        } finally {
+            while (is_multisite() && get_current_blog_id() !== $original_blog_id && ms_is_switched()) {
+                restore_current_blog();
+            }
+        }
+        $job['state'] = 'scanning';
+        $job['startedGmt'] = gmdate('c');
+        $job['updatedGmt'] = $job['startedGmt'];
+        $job['reason'] = null;
+        update_option(self::FULL_RESYNC_OPTION, $job, false);
+        (new KnowledgeSyncAuditRepository())->record('full-resync', 'started', array('jobId' => $job['id']));
+    }
+
     /** @param array<string, mixed> $policy
      *  @param array<string, mixed>|null $previous
      */
@@ -1346,12 +1661,29 @@ final class KnowledgeSyncRuntime
         $lock = new KnowledgeSyncRunnerLock();
         $token = $lock->acquire();
         if ($token === null) {
+            if ($this->fullResyncIsActive(get_option(self::FULL_RESYNC_OPTION, null))) {
+                $this->scheduleFullResyncFollowup(30);
+            }
             return array('status' => 'locked', 'blogs' => array());
         }
 
         $results = array();
         $had_error = false;
         try {
+            try {
+                $this->activateFullResync();
+            } catch (\Throwable $error) {
+                $had_error = true;
+                $results[] = array(
+                    'blogId' => $root_blog_id,
+                    'operation' => 'full-resync',
+                    'status' => 'error',
+                    'errorCode' => 'full_resync_initialization_failed',
+                );
+                (new KnowledgeSyncAuditRepository())->record('full-resync', 'failed', array(
+                    'errorCode' => 'full_resync_initialization_failed',
+                ));
+            }
             foreach ($this->blogIdsInScope() as $blog_id) {
                 $switched = is_multisite() && $blog_id !== get_current_blog_id();
                 if ($switched) {
@@ -1458,7 +1790,188 @@ final class KnowledgeSyncRuntime
             'blogs' => $results,
         );
         update_option(self::LAST_RUN_OPTION, $result, false);
+        try {
+            $this->refreshFullResyncProgress($results);
+        } catch (\Throwable $error) {
+            (new KnowledgeSyncAuditRepository())->record('full-resync', 'failed', array(
+                'errorCode' => 'full_resync_status_failed',
+            ));
+            $this->scheduleFullResyncFollowup(60);
+        }
         return $result;
+    }
+
+    /** @param array<int, array<string, mixed>> $results */
+    private function refreshFullResyncProgress(array $results): void
+    {
+        $job = get_option(self::FULL_RESYNC_OPTION, null);
+        if (!is_array($job) || !$this->fullResyncIsActive($job)) {
+            return;
+        }
+        if (($job['state'] ?? '') === 'queued') {
+            $job['reason'] = 'full_resync_initialization_failed';
+            $job['updatedGmt'] = gmdate('c');
+            update_option(self::FULL_RESYNC_OPTION, $job, false);
+            $this->scheduleFullResyncFollowup(60);
+            return;
+        }
+
+        $waiting_public_release = false;
+        $runner_error = false;
+        foreach ($results as $result) {
+            if (($result['status'] ?? '') === 'waiting-public-release') {
+                $waiting_public_release = true;
+            }
+            if (($result['status'] ?? '') === 'error') {
+                $runner_error = true;
+            }
+        }
+
+        $original_blog_id = get_current_blog_id();
+        $scanning = false;
+        $baseline_error = false;
+        $scope_changed = false;
+        $vocabulary_pending = false;
+        $blocked = 0;
+        $in_flight = 0;
+        $remote_blogs = array();
+        try {
+            foreach ($this->fullResyncScopesByBlog($job) as $blog_id => $post_types) {
+                if (is_multisite() && $blog_id !== get_current_blog_id()) {
+                    switch_to_blog($blog_id);
+                }
+                try {
+                    $policies = new KnowledgeSyncPolicyStore();
+                    $repository = new KnowledgeSyncBaselineRepository();
+                    $fingerprint = KnowledgeSyncBaselineService::serializerFingerprint();
+                    foreach ($post_types as $post_type) {
+                        $policy = $policies->getForPostType($post_type);
+                        if ($policy === null || empty($policy['enabled']) || $policy['reviewPolicy'] === 'disabled') {
+                            $scope_changed = true;
+                            continue;
+                        }
+                        $baseline = $repository->get('wordpress-blog-' . $blog_id, $blog_id, $post_type);
+                        if (($baseline->status ?? '') === 'error') {
+                            $baseline_error = true;
+                        }
+                        if (
+                            !$baseline ||
+                            $baseline->status !== 'ready' ||
+                            $baseline->serializer_fingerprint !== $fingerprint ||
+                            $baseline->policy_fingerprint !== $policies->fingerprint($policy)
+                        ) {
+                            $scanning = true;
+                        }
+                    }
+                    $vocabulary = get_option(KnowledgeSyncVocabularyService::OPTION_NAME, array());
+                    if (!is_array($vocabulary) || empty($vocabulary['fingerprint'])) {
+                        $vocabulary_pending = true;
+                    }
+                    $counts = $this->fullResyncOutboxCounts($blog_id, $post_types);
+                    $blocked += $counts['blocked'];
+                    $in_flight += $counts['pending'] + $counts['leased'] + $counts['retry_wait'];
+                    $remote_blogs[] = $blog_id;
+                } finally {
+                    if (is_multisite() && $blog_id !== $original_blog_id) {
+                        restore_current_blog();
+                    }
+                }
+            }
+        } finally {
+            while (is_multisite() && get_current_blog_id() !== $original_blog_id && ms_is_switched()) {
+                restore_current_blog();
+            }
+        }
+
+        $reason = null;
+        if ($scope_changed) {
+            $state = 'attention-required';
+            $reason = 'full_resync_scope_changed';
+        } elseif ($waiting_public_release) {
+            $state = 'waiting-public-release';
+        } elseif ($baseline_error) {
+            $state = 'attention-required';
+            $reason = 'baseline_scan_failed';
+        } elseif ($runner_error) {
+            $state = 'attention-required';
+            $reason = 'local_sync_pass_failed';
+        } elseif ($scanning) {
+            $state = 'scanning';
+        } elseif ($blocked > 0) {
+            $state = 'waiting-manual-review';
+            $reason = 'blocked_content_requires_review';
+        } elseif ($in_flight > 0 || $vocabulary_pending) {
+            $state = 'waiting-delivery';
+            $reason = $vocabulary_pending ? 'vocabulary_delivery_pending' : null;
+        } else {
+            $state = 'waiting-backend-ingestion';
+            $reason = $this->backendIngestionCompletionReason($remote_blogs);
+            if ($reason === null) {
+                $state = 'complete';
+            } elseif ($reason === 'backend_ingestion_review_required') {
+                $state = 'attention-required';
+            }
+        }
+
+        $was_complete = ($job['state'] ?? '') === 'complete';
+        $job['state'] = $state;
+        $job['reason'] = $reason;
+        $job['updatedGmt'] = gmdate('c');
+        if ($state === 'complete') {
+            $job['completedGmt'] = $job['updatedGmt'];
+        }
+        update_option(self::FULL_RESYNC_OPTION, $job, false);
+        if ($state === 'complete' && !$was_complete) {
+            wp_clear_scheduled_hook(self::FULL_RESYNC_CRON_HOOK);
+            (new KnowledgeSyncAuditRepository())->record('full-resync', 'completed', array('jobId' => $job['id']));
+        } elseif ($state === 'scanning') {
+            $this->scheduleFullResyncFollowup(10);
+        } elseif ($state === 'waiting-delivery') {
+            $this->scheduleFullResyncFollowup(60);
+        } elseif ($state === 'waiting-backend-ingestion') {
+            $this->scheduleFullResyncFollowup(120);
+        }
+    }
+
+    /** Returns null only when the remote coordinator confirms all requested changes were ingested. */
+    private function backendIngestionCompletionReason(array $blog_ids): ?string
+    {
+        $original_blog_id = get_current_blog_id();
+        try {
+            foreach ($blog_ids as $blog_id) {
+                if (is_multisite() && $blog_id !== get_current_blog_id()) {
+                    switch_to_blog($blog_id);
+                }
+                try {
+                    $remote = KnowledgeSyncTransport::create()->verifyStatus();
+                    $ingestion = $remote['ingestion'] ?? null;
+                    if (!is_array($ingestion)) {
+                        return 'backend_ingestion_status_unavailable';
+                    }
+                    if (($ingestion['status'] ?? '') === 'REVIEW_REQUIRED') {
+                        return 'backend_ingestion_review_required';
+                    }
+                    if (
+                        ($ingestion['status'] ?? '') !== 'IDLE' ||
+                        (int) ($ingestion['committedGeneration'] ?? -1) <
+                            (int) ($ingestion['requestedGeneration'] ?? 0)
+                    ) {
+                        return 'backend_ingestion_pending';
+                    }
+                } catch (\Throwable $error) {
+                    return 'backend_ingestion_status_unavailable';
+                } finally {
+                    if (is_multisite() && $blog_id !== $original_blog_id) {
+                        restore_current_blog();
+                    }
+                }
+            }
+        } finally {
+            while (is_multisite() && get_current_blog_id() !== $original_blog_id && ms_is_switched()) {
+                restore_current_blog();
+            }
+        }
+        return null;
     }
 
     /** @return array<string, mixed>|null */

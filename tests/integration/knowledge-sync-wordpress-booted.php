@@ -111,6 +111,9 @@ function knowledge_sync_test_blog(int $blog_id): array
     $policy_option = KnowledgeSyncPolicyStore::OPTION_NAME;
     $original_policies = get_option($policy_option, null);
     $original_cron = wp_next_scheduled(KnowledgeSyncRuntime::CRON_HOOK);
+    $original_full_resync = get_option(KnowledgeSyncRuntime::FULL_RESYNC_OPTION, null);
+    $original_full_resync_cron = wp_next_scheduled(KnowledgeSyncRuntime::FULL_RESYNC_CRON_HOOK);
+    $original_settings = get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncSettingsStore::OPTION_NAME, null);
     $post_id = 0;
     $term_id = 0;
     $http_requests = 0;
@@ -306,6 +309,84 @@ function knowledge_sync_test_blog(int $blog_id): array
         }
         knowledge_sync_expect($http_requests, 0, 'A save hook attempted backend I/O.');
 
+        // The request returns immediately, repeated clicks do not reset an active
+        // scan, and each scheduled pass processes only the configured page size.
+        update_option(
+            \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncSettingsStore::OPTION_NAME,
+            array_merge(is_array($original_settings) ? $original_settings : array(), array(
+                'baselinePageSize' => 10,
+                'publicReleaseGate' => 'disabled',
+            )),
+            false
+        );
+        delete_option(KnowledgeSyncRuntime::FULL_RESYNC_OPTION);
+        for ($index = 0; $index < 23; $index++) {
+            $resync_post_id = wp_insert_post(array(
+                'post_type' => KNOWLEDGE_SYNC_TEST_POST_TYPE,
+                'post_status' => 'publish',
+                'post_title' => 'Temporary full resync batch ' . $index . ' ' . wp_generate_uuid4(),
+                'post_content' => 'Temporary integration-test content.',
+            ), true);
+            if (is_wp_error($resync_post_id)) {
+                throw new RuntimeException($resync_post_id->get_error_message());
+            }
+        }
+        $runtime = new KnowledgeSyncRuntime();
+        $requested = $runtime->requestFullResync();
+        knowledge_sync_expect($requested['state'], 'queued', 'Full resync was not queued.');
+        knowledge_sync_expect(
+            $runtime->requestFullResync()['id'],
+            $requested['id'],
+            'A repeated full-resync request must reuse the active job.'
+        );
+        knowledge_sync_expect(
+            $baselines->get('wordpress-blog-' . get_current_blog_id(), get_current_blog_id(), KNOWLEDGE_SYNC_TEST_POST_TYPE)?->status,
+            'ready',
+            'The HTTP request performed a scan instead of queuing background work.'
+        );
+        $runtime->run();
+        $first_page = $baselines->get(
+            'wordpress-blog-' . get_current_blog_id(),
+            get_current_blog_id(),
+            KNOWLEDGE_SYNC_TEST_POST_TYPE
+        );
+        knowledge_sync_expect($first_page?->status, 'building', 'First full-resync batch completed too early.');
+        if ((int) $first_page->cursor_post_id >= (int) $first_page->high_water_post_id) {
+            throw new RuntimeException('First full-resync batch advanced beyond its high-water mark.');
+        }
+        knowledge_sync_expect(
+            $runtime->requestFullResync()['id'],
+            $requested['id'],
+            'A repeated request during a scan must not create a new job.'
+        );
+        knowledge_sync_expect(
+            $baselines->get('wordpress-blog-' . get_current_blog_id(), get_current_blog_id(), KNOWLEDGE_SYNC_TEST_POST_TYPE)?->cursor_post_id,
+            $first_page->cursor_post_id,
+            'A repeated request reset the active scan cursor.'
+        );
+        $runtime->run();
+        $second_page = $baselines->get(
+            'wordpress-blog-' . get_current_blog_id(),
+            get_current_blog_id(),
+            KNOWLEDGE_SYNC_TEST_POST_TYPE
+        );
+        knowledge_sync_expect($second_page?->status, 'building', 'Second full-resync batch completed too early.');
+        if ((int) $second_page->cursor_post_id <= (int) $first_page->cursor_post_id) {
+            throw new RuntimeException('Second full-resync batch did not advance its cursor.');
+        }
+        $runtime->run();
+        $final_page = $baselines->get(
+            'wordpress-blog-' . get_current_blog_id(),
+            get_current_blog_id(),
+            KNOWLEDGE_SYNC_TEST_POST_TYPE
+        );
+        knowledge_sync_expect($final_page?->status, 'ready', 'Full resync did not finish the third bounded batch.');
+        knowledge_sync_expect(
+            $runtime->requestFullResync()['id'],
+            $requested['id'],
+            'A pending delivery must not restart an already scanned full resync.'
+        );
+
         return array(
             'blogId' => $blog_id,
             'finalGeneration' => (int) $deleted->desired_generation,
@@ -324,6 +405,19 @@ function knowledge_sync_test_blog(int $blog_id): array
             delete_option($policy_option);
         } else {
             update_option($policy_option, $original_policies, false);
+        }
+        if ($original_settings === null) {
+            delete_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncSettingsStore::OPTION_NAME);
+        } else {
+            update_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncSettingsStore::OPTION_NAME, $original_settings, false);
+        }
+        if ($original_full_resync === null) {
+            delete_option(KnowledgeSyncRuntime::FULL_RESYNC_OPTION);
+        } else {
+            update_option(KnowledgeSyncRuntime::FULL_RESYNC_OPTION, $original_full_resync, false);
+        }
+        if ($original_full_resync_cron === false) {
+            wp_clear_scheduled_hook(KnowledgeSyncRuntime::FULL_RESYNC_CRON_HOOK);
         }
         if ($original_cron === false) {
             wp_clear_scheduled_hook(KnowledgeSyncRuntime::CRON_HOOK);
