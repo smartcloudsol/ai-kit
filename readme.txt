@@ -4,7 +4,7 @@ Tags: ai, chrome, seo, language, tools
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.9
+Stable tag: 1.5.10
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -208,6 +208,9 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.5.10 =
+* Knowledge Base: Initialize the optional publisher cursor when the public release gate is disabled, preventing warnings during baseline reconciliation without changing release eligibility or review requirements.
 
 = 1.5.9 =
 * Knowledge Base: Add a durable full resynchronization action with batch progress and automatic follow-up passes after taxonomy or backend capability changes.

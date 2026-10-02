@@ -420,6 +420,7 @@ final class KnowledgeSyncBaselineService
         $consumer_id = 'wordpress-blog-' . $blog_id;
         $publisher_sequence = null;
         $publisher_consumer_id = null;
+        $publisher_cursor = null;
         if (KnowledgeSyncPublicReleaseGate::enabled()) {
             $publisher_cursor = (new KnowledgeSyncReleaseCursorRepository())->verifiedCursor(
                 $blog_id,

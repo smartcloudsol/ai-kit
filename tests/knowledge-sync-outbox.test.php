@@ -38,6 +38,7 @@ class_alias(KnowledgeSyncTestOverrideRepository::class, 'SmartCloud\\WPSuite\\Ai
 final class KnowledgeSyncTestWpdb
 {
     public string $prefix = 'wp_';
+    public string $posts = 'wp_posts';
     /** @var list<array<int, mixed>> */
     public array $preparedArguments = [];
     /** @var list<string> */
@@ -60,6 +61,9 @@ final class KnowledgeSyncTestWpdb
 
     public function get_row(string $query): ?object
     {
+        if (isset($GLOBALS['test_db_row_resolver'])) {
+            return ($GLOBALS['test_db_row_resolver'])($query, end($this->preparedArguments));
+        }
         unset($query);
         return $GLOBALS['test_db_row'] ?? null;
     }
@@ -777,3 +781,82 @@ expect(in_array('retry_wait', $retry_args, true), 'The failed delivery must ente
 expect(in_array('taxonomy_paths_required', $retry_args, true), 'The durable outbox must retain the backend readiness diagnostic.');
 unset($GLOBALS['test_dispatch_error'], $GLOBALS['test_db_columns'], $GLOBALS['test_db_value'], $GLOBALS['test_db_results'], $GLOBALS['test_db_row']);
 echo "Knowledge-sync readiness retry diagnostic tests passed.\n";
+
+// Reconcile real published rows with warnings promoted to failures: the disabled
+// gate must not read an uninitialized optional cursor or change review policy.
+$settings->save(['publicReleaseGate' => 'disabled']);
+$policies->saveForPostType('post', ['enabled' => true, 'reviewPolicy' => 'wordpress-publish-is-approval']);
+$GLOBALS['test_db_columns'] = [42];
+$GLOBALS['test_db_row'] = (object) [
+    'id' => 1, 'status' => 'building', 'cursor_post_id' => 0, 'high_water_post_id' => 42,
+];
+$baseline_service = new $baseline_class(
+    $policies, $outbox, new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncBaselineRepository()
+);
+set_error_handler(static function (int $severity, string $message, string $file, int $line): never {
+    throw new \ErrorException($message, 0, $severity, $file, $line);
+});
+try {
+    $before_arguments = count($wpdb->preparedArguments);
+    $ungated = $baseline_service->reconcilePage('post', 10);
+    expect($ungated['status'] === 'ready' && $ungated['processed'] === 1, 'Ungated reconciliation must scan a published source without warnings.');
+    $enqueue_arguments = array_values(array_filter(
+        array_slice($wpdb->preparedArguments, $before_arguments),
+        static fn(array $args): bool => ($args[5] ?? null) === 'upsert'
+    ));
+    expect(count($enqueue_arguments) === 1, 'Ungated reconciliation must enqueue the published source.');
+    expect($enqueue_arguments[0][6] === 'pending' && $enqueue_arguments[0][10] === 0, 'Ungated sources must remain pending without publisher eligibility requirements.');
+
+    $policies->saveForPostType('post', ['enabled' => true, 'reviewPolicy' => 'manual-kb-review']);
+    $before_arguments = count($wpdb->preparedArguments);
+    $baseline_service->reconcilePage('post', 10);
+    $manual_arguments = array_values(array_filter(
+        array_slice($wpdb->preparedArguments, $before_arguments),
+        static fn(array $args): bool => ($args[5] ?? null) === 'upsert'
+    ));
+    expect($manual_arguments[0][6] === 'blocked' && $manual_arguments[0][9] === 'manual_review_required', 'Disabling the publisher gate must not bypass manual Knowledge Base review.');
+
+    $settings->save(['publicReleaseGate' => 'static-publisher']);
+    $GLOBALS['test_db_row_resolver'] = static function (string $query, array $args): ?object {
+        unset($query);
+        return str_contains((string) ($args[0] ?? ''), 'release_cursors') ? null : $GLOBALS['test_db_row'];
+    };
+    $waiting = $baseline_service->reconcilePage('post', 10);
+    expect($waiting['status'] === 'waiting-public-release' && $waiting['processed'] === 0, 'The enabled gate must still fail closed without a verified publisher cursor.');
+
+    $policies->saveForPostType('post', ['enabled' => true, 'reviewPolicy' => 'wordpress-publish-is-approval']);
+    $GLOBALS['test_db_row_resolver'] = static function (string $query, array $args) use ($release_cursor): ?object {
+        unset($query);
+        return str_contains((string) ($args[0] ?? ''), 'release_cursors') ? $release_cursor : $GLOBALS['test_db_row'];
+    };
+    $GLOBALS['release_gate_provider_state'] = [
+        'contractVersion' => 1, 'provider' => 'smartcloud-static-publisher', 'available' => true,
+        'configuredConsumerIds' => ['content-sync:production'], 'lastPostEventSequence' => 70,
+        'verifiedReleases' => [[
+            'consumerId' => 'content-sync:production', 'rootBlogId' => 1, 'includeSubsites' => false,
+            'scopeFingerprint' => str_repeat('a', 64), 'baselineId' => str_repeat('b', 64),
+            'committedSequence' => 70, 'postTypes' => ['post'],
+        ]],
+    ];
+    $before_arguments = count($wpdb->preparedArguments);
+    $covered = $baseline_service->reconcilePage('post', 10);
+    $covered_arguments = array_values(array_filter(
+        array_slice($wpdb->preparedArguments, $before_arguments),
+        static fn(array $args): bool => ($args[5] ?? null) === 'upsert'
+    ));
+    expect($covered['status'] === 'ready' && count($covered_arguments) === 1, 'The enabled gate must still reconcile a source covered by a verified release.');
+    expect($covered_arguments[0][10] === 1 && $covered_arguments[0][11] === 'content-sync:production' && $covered_arguments[0][12] === '70', 'Gated work must retain the exact verified publisher consumer and sequence.');
+
+    $GLOBALS['release_gate_provider_state']['lastPostEventSequence'] = 71;
+    $before_arguments = count($wpdb->preparedArguments);
+    $baseline_service->reconcilePage('post', 10);
+    $uncovered_arguments = array_filter(
+        array_slice($wpdb->preparedArguments, $before_arguments),
+        static fn(array $args): bool => ($args[5] ?? null) === 'upsert'
+    );
+    expect($uncovered_arguments === [], 'A source newer than the verified release must not be enqueued.');
+} finally {
+    restore_error_handler();
+    unset($GLOBALS['test_db_row_resolver'], $GLOBALS['test_db_columns'], $GLOBALS['test_db_row']);
+}
+echo "Knowledge-sync optional publisher cursor reconciliation tests passed.\n";
