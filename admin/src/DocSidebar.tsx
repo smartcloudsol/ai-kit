@@ -172,11 +172,13 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
       </Text>
 
       <Title order={3} mt="md" id="chatbot-title">
-        <span className="highlightable">Chat title</span>
+        <span className="highlightable">Assistant name</span>
       </Title>
       <Text>
-        The title shown at the top of the chat modal. If empty, the default
-        localized title is used.
+        The assistant name shown at the top of the chat modal. This is also the
+        name mirrored into the conversation profile when a compatible backend
+        is available. A separate conversation name is not edited. If empty,
+        the default localized UI title is used.
       </Text>
 
       <Title order={3} mt="md" id="chatbot-placeholder">

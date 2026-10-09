@@ -860,3 +860,10 @@ try {
     unset($GLOBALS['test_db_row_resolver'], $GLOBALS['test_db_columns'], $GLOBALS['test_db_row']);
 }
 echo "Knowledge-sync optional publisher cursor reconciliation tests passed.\n";
+
+// Missing automation transport must be visible to callers, not a silent successful pass.
+unset($GLOBALS['release_gate_provider_state'], $GLOBALS['test_dispatch_error']);
+$dispatch = new \ReflectionMethod($runtime, 'dispatchOutbox');
+$unavailable = $dispatch->invoke($runtime, 10);
+expect(($unavailable['status'] ?? '') === 'transport-unavailable' && ($unavailable['processed'] ?? -1) === 0, 'Unavailable automation transport must produce an explicit zero-delivery outcome.');
+echo "Knowledge-sync unavailable transport diagnostic test passed.\n";

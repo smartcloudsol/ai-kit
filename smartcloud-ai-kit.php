@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name:       SmartCloud AI-Kit – On-Device AI Tools
+ * Plugin Name:       SmartCloud AI-Kit – Chatbot and Semantic Search
  * Plugin URI:        https://wpsuite.io/ai-kit/
- * Description:       Bring on-device, zero-cost AI directly into WordPress. Create, rewrite, translate, proofread, summarize, and SEO-optimize content using Chrome's built-in AI — no API keys, no cloud, no tokens, no data leaving the browser.
+ * Description:       Help visitors find answers in your content with a chatbot and semantic search. Pro connects to your own AI backend; free tools support on-device editor and media workflows.
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.5.10
+ * Version:           1.6.0
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.5.10';
+const VERSION = '1.6.0';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {

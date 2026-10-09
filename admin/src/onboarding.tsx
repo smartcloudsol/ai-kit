@@ -70,7 +70,7 @@ function ScreenshotGallery(props: {
   items: OnboardingScreenshot[];
   emptyHint: string;
 }) {
-  const { items, emptyHint } = props;
+  const items = props.items.filter((item) => Boolean(item.src));
   const [opened, { open, close }] = useDisclosure(false);
   const [active, setActive] = useState<OnboardingScreenshot | null>(null);
 
@@ -83,13 +83,7 @@ function ScreenshotGallery(props: {
     [open],
   );
 
-  if (!items?.length) {
-    return (
-      <Text size="sm" c="dimmed">
-        {emptyHint}
-      </Text>
-    );
-  }
+  if (!items.length) return null;
 
   return (
     <>

@@ -47,8 +47,10 @@ import { __ } from "@wordpress/i18n";
 import { useCallback, useEffect, useState } from "react";
 import {
   type AiKitAdminPage,
+  guardAiKitAdminPage,
   resolveAiKitAdminPage,
 } from "./admin-page";
+import { useAdminSectionHistory } from "./admin-section-history";
 import DocSidebar from "./DocSidebar";
 import { NoRegistrationRequiredBanner } from "./noregistration";
 import { AiKitOnboarding } from "./onboarding";
@@ -59,22 +61,8 @@ import "jquery";
 
 import classes from "./main.module.css";
 
-import aiKitToolsToolbar from "./assets/onboarding/ai-kit-tools-toolbar.jpg";
-import exampleProofreadModal from "./assets/onboarding/example-proofread-modal.jpg";
-import exampleRewriteModal from "./assets/onboarding/example-rewrite-modal.jpg";
-import exampleTranslateModal from "./assets/onboarding/example-translate-modal.jpg";
-import featuresApi from "./assets/onboarding/features-api.jpg";
-import gutenbergSeoMetadataPanel from "./assets/onboarding/gutenberg-seo-image-metadata-panel.jpg"; //
-import mediaAttachmentEdit from "./assets/onboarding/media-attachment-edit.jpg";
-import mediaGridBulkModal from "./assets/onboarding/media-grid-bulk-modal.jpg";
-import mediaModal from "./assets/onboarding/media-modal.jpg";
-import proFrontendBlocksOptions from "./assets/onboarding/pro-frontend-blocks-options.jpg";
-import proFrontendBlocks from "./assets/onboarding/pro-frontend-blocks.jpg";
-import renderFeature from "./assets/onboarding/render-feature.jpg";
-import shortcodeFrontend from "./assets/onboarding/shortcode-frontend.jpg";
-import shortcode from "./assets/onboarding/shortcode.jpg";
-import sidebarPostMetadata from "./assets/onboarding/sidebar-post-metadata.jpg";
-import sidebarTextGeneration from "./assets/onboarding/sidebar-text-generation.jpg";
+import docSearchCurrent from "./assets/onboarding/docsearch-current.png";
+import summarizerCurrent from "./assets/onboarding/summarizer-current.png";
 
 interface Account {
   accountId: string;
@@ -205,7 +193,7 @@ const SettingsTitle = () => {
           }}
         >
           {__(
-            isMobile ? "AI-Kit" : "AI-Kit — On-Device AI Tools for WordPress",
+            isMobile ? "Answers" : "Answers · AI-Kit",
             TEXT_DOMAIN,
           )}
         </Title>
@@ -265,6 +253,7 @@ const aiKit = getAiKitPlugin();
 
 const Main = (props: MainProps) => {
   const { store, nonce, settings } = props;
+  const embedded = !!document.querySelector('[data-wpsuite-product="answers"]');
 
   const [navigationOptions, setNavigationOptions] =
     useState<NavigationOption[]>();
@@ -292,9 +281,10 @@ const Main = (props: MainProps) => {
   const [formConfig, setFormConfig] = useState<AiKitConfig>();
 
   const [savingSettings, setSavingSettings] = useState<boolean>(false);
-  const [activePage, setActivePage] = useState<AiKitAdminPage>(() =>
+  const [requestedPage, setRequestedPage] = useState<AiKitAdminPage>(() =>
     resolveAiKitAdminPage(window.location.search),
   );
+  const [activePage, setActivePage] = useState<AiKitAdminPage>(requestedPage);
 
   // Add media query for responsive design
   const isMobile = useMediaQuery(
@@ -528,7 +518,7 @@ const Main = (props: MainProps) => {
         },
       ]);
       if (paidSettingsDisabled && resolvedConfig !== undefined) {
-        setActivePage("general");
+        setActivePage(page => guardAiKitAdminPage(page, true, false));
       }
     });
   }, [accountId, decryptedConfig, resolvedConfig, siteId, siteKey]);
@@ -557,6 +547,14 @@ const Main = (props: MainProps) => {
     }
   }, [clearCache, resolvedConfig]);
 
+  const navigatePage = useAdminSectionHistory(activePage, resolveAiKitAdminPage, next => {
+    const accepted = guardAiKitAdminPage(next, resolvedConfig !== undefined,
+      !!resolvedConfig || !!(decryptedConfig && accountId && siteId && siteKey));
+    setRequestedPage(next);
+    setActivePage(accepted);
+    return accepted;
+  });
+
   return (
     <div className={classes["wpc-container"]}>
       <DocSidebar
@@ -565,144 +563,13 @@ const Main = (props: MainProps) => {
         page={activePage}
         scrollToId={scrollToId}
       />
-      <SettingsTitle />
-      <AiKitOnboarding
-        screenshots={{
-          media: [
-            {
-              title: __("Grid: attachment popup", TEXT_DOMAIN),
-              src: mediaModal,
-              alt: __(
-                "Media Library: Grid → attachment popup (SEO box)",
-                TEXT_DOMAIN,
-              ),
-            },
-            {
-              title: __("Grid: bulk select modal", TEXT_DOMAIN),
-              src: mediaGridBulkModal,
-              alt: __(
-                "Media Library: Grid → bulk select (generate / preview)",
-                TEXT_DOMAIN,
-              ),
-            },
-            {
-              title: __("Attachment edit screen (post.php)", TEXT_DOMAIN),
-              src: mediaAttachmentEdit,
-              alt: __(
-                "Attachment edit screen (post.php): SEO metadata box",
-                TEXT_DOMAIN,
-              ),
-            },
-          ],
-          sidebar: [
-            {
-              title: __("Generate post metadata sidebar", TEXT_DOMAIN),
-              src: sidebarPostMetadata,
-              alt: __(
-                "Gutenberg: AI-Kit Sidebar → Generate post metadata",
-                TEXT_DOMAIN,
-              ),
-            },
-            {
-              title: __("Text generation sidebar", TEXT_DOMAIN),
-              src: sidebarTextGeneration,
-              alt: __(
-                "Gutenberg: AI-Kit Sidebar → Text generation",
-                TEXT_DOMAIN,
-              ),
-            },
-          ],
-          toolbar: [
-            {
-              title: __("AI-Kit Tools toolbar dropdown", TEXT_DOMAIN),
-              src: aiKitToolsToolbar,
-              alt: __(
-                "Gutenberg: Select text → AI-Kit Tools toolbar dropdown",
-                TEXT_DOMAIN,
-              ),
-            },
-            {
-              title: __("Example proofread modal", TEXT_DOMAIN),
-              src: exampleProofreadModal,
-              alt: __("Gutenberg: Example proofread modal window", TEXT_DOMAIN),
-            },
-            {
-              title: __("Example translate modal", TEXT_DOMAIN),
-              src: exampleTranslateModal,
-              alt: __("Gutenberg: Example translate modal window", TEXT_DOMAIN),
-            },
-            {
-              title: __("Example rewrite modal", TEXT_DOMAIN),
-              src: exampleRewriteModal,
-              alt: __("Gutenberg: Example rewrite modal window", TEXT_DOMAIN),
-            },
-          ],
-          imagePanel: [
-            {
-              title: __("Image SEO metadata panel", TEXT_DOMAIN),
-              src: gutenbergSeoMetadataPanel,
-              alt: __(
-                "Gutenberg: Image/Cover/Media-Text → SEO metadata generation",
-                TEXT_DOMAIN,
-              ),
-            },
-          ],
-          proBlock: [
-            {
-              title: __("Pro Frontend Blocks", TEXT_DOMAIN),
-              src: proFrontendBlocks,
-              alt: __(
-                "AI-Kit Feature (PRO) block: front-end feature generation",
-                TEXT_DOMAIN,
-              ),
-            },
-            {
-              title: __("Pro Frontend Blocks Options", TEXT_DOMAIN),
-              src: proFrontendBlocksOptions,
-              alt: __(
-                "AI-Kit Feature (PRO) block: options panel for frontend blocks",
-                TEXT_DOMAIN,
-              ),
-            },
-          ],
-          shortcode: [
-            {
-              title: __("Shortcode example", TEXT_DOMAIN),
-              src: shortcode,
-              alt: __(
-                "[smartcloud-ai-kit-feature] shortcode embedded in a page",
-                TEXT_DOMAIN,
-              ),
-            },
-            {
-              title: __("Shortcode Frontend Output", TEXT_DOMAIN),
-              src: shortcodeFrontend,
-              alt: __(
-                "[smartcloud-ai-kit-feature] shortcode frontend output example",
-                TEXT_DOMAIN,
-              ),
-            },
-          ],
-          api: [
-            {
-              title: __("Features API", TEXT_DOMAIN),
-              src: featuresApi,
-              alt: __(
-                "Using WpSuite.plugins.aiKit.features.* in custom code",
-                TEXT_DOMAIN,
-              ),
-            },
-            {
-              title: __("Rendering flow", TEXT_DOMAIN),
-              src: renderFeature,
-              alt: __(
-                "Example: renderFeature() injecting a UI into the front-end",
-                TEXT_DOMAIN,
-              ),
-            },
-          ],
-        }}
-      />
+      {!embedded && <SettingsTitle />}
+      {!embedded && <AiKitOnboarding screenshots={{
+        proBlock: [
+          { title: __("Embedded DocSearch: visitor search and explicit filters", TEXT_DOMAIN), src: docSearchCurrent },
+          { title: __("Summarize this page: a focused visitor action", TEXT_DOMAIN), src: summarizerCurrent },
+        ],
+      }} />}
       <Group
         align="flex-start"
         mt="lg"
@@ -736,7 +603,7 @@ const Main = (props: MainProps) => {
                       }
                       active={activePage === item.value}
                       onClick={() => {
-                        setActivePage(
+                        navigatePage(
                           item.value as AiKitAdminPage,
                         );
                       }}
@@ -768,7 +635,7 @@ const Main = (props: MainProps) => {
                       active={activePage === item.value}
                       onClick={() => {
                         if (!item.disabled) {
-                          setActivePage(
+                          navigatePage(
                             item.value as AiKitAdminPage,
                           );
                         }
@@ -802,7 +669,7 @@ const Main = (props: MainProps) => {
                         }
                         active={activePage === item.value}
                         onClick={() =>
-                          setActivePage(
+                          navigatePage(
                             item.value as AiKitAdminPage,
                           )
                         }
@@ -832,7 +699,7 @@ const Main = (props: MainProps) => {
                       active={activePage === item.value}
                       onClick={() => {
                         if (!item.disabled) {
-                          setActivePage(
+                          navigatePage(
                             item.value as AiKitAdminPage,
                           );
                         }
@@ -846,6 +713,13 @@ const Main = (props: MainProps) => {
           </Card>
         )}
         <Box style={{ flex: 1, width: isMobile ? "100%" : "auto" }} maw={1020}>
+          {requestedPage !== "general" && activePage === "general"
+            && resolvedConfig !== undefined
+            && !(decryptedConfig && accountId && siteId && siteKey) && !resolvedConfig && (
+              <Alert color="yellow" variant="light" title={__("Requested section unavailable", TEXT_DOMAIN)} icon={<IconExclamationCircle />} mb="md">
+                {__("The linked section needs a connected site configuration. General preferences remain available without a site connection.", TEXT_DOMAIN)}
+              </Alert>
+            )}
           {activePage === "general" && (
             <form name="general" onSubmit={handleUpdateSettings}>
               <Title order={2} mb="md">
@@ -1068,6 +942,7 @@ const Main = (props: MainProps) => {
               {(formConfig ?? decryptedConfig) && (
                 <Suspense fallback={<Text>Loading...</Text>}>
                   <ConversationProfileEditor
+                    chatTitle={(formConfig ?? decryptedConfig)?.chatbot?.title}
                     InfoLabel={InfoLabel}
                     openInfo={openInfo}
                   />

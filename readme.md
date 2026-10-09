@@ -1,6 +1,6 @@
 # WP Suite AI-Kit
 
-AI-Kit is a WordPress plugin that adds **private, on-device AI tools** to WordPress (Gutenberg + Media Library) — with an optional **Pro backend** that enables **backend-only** or **backend-fallback** processing when on-device AI is unavailable.
+AI-Kit helps visitors find answers through a **site-wide chatbot** and **embeddable semantic search**, using your indexed WordPress content and a configured **Pro backend**. The chatbot can also retrieve information from approved read-only REST/MCP tools and selected web sources. Free on-device editor and Media Library tools remain available where supported.
 
 This repository contains the source code and frontend modules for the **free / OSS parts** of the AI-Kit WordPress plugin.
 
@@ -29,28 +29,23 @@ https://wpsuite.io/docs/
 
 ## What AI-Kit does
 
-### Free (local-only)
-AI-Kit uses Chrome’s built-in on-device AI capabilities (when available) to power:
+### Visitor answers and search (Pro)
 
-- **22-language frontend localization** that follows the active WordPress or multilingual-provider locale and supports RTL where applicable
-- A **shared WP Suite translation catalog** for overriding matching Gatey, AI-Kit, and Flow strings, setting a site-wide fallback locale, or adding further locales under **SmartCloud → Global Settings → Custom Translations**
-- **Media Library**: generate image SEO metadata (alt/title/caption/description)  
-  - list view, grid view, attachment panel, attachment edit screen  
-  - bulk preview + accept workflows
-- **Gutenberg sidebar**: post metadata + text generation
-- **Inline toolbar tools**: proofread / rewrite / translate
-- **Image block panel**: SEO metadata panel for `core/image`, `core/cover`, `core/media-text`
+- **Site-wide chatbot:** answer questions from indexed content, with configurable role, tone, scope and evidence requirements.
+- **DocSearch:** embed broad semantic knowledge search, an AI summary and source results using the Gutenberg block or `[smartcloud-ai-kit-doc-search]` shortcode. Category/tag narrowing follows explicit visitor choices; the chatbot can use inferred taxonomy filters for targeted answers. This distinction requires the corresponding backend update.
+- **Connected information:** configure approved read-only REST/MCP tools for the chatbot to retrieve shop or service data; allow selected HTTPS pages for web grounding. Connections are explicit, and external data-changing actions are not enabled.
+- **Page summaries:** use the AI-Kit Feature Gutenberg block or `[smartcloud-ai-kit-feature]` shortcode to help visitors understand longer content.
+- **Knowledge Sync:** deliver approved public WordPress content through the configured server-side transport and inspect delivery and ingestion status.
 
-### Pro (optional)
-Pro adds:
+These features require an active Pro subscription on the connected site and the appropriate compatible backend configuration. Backend deployment, protected-API authentication and external integrations are separate setup steps; AWS and external-service usage costs are separate.
 
-- **AI-Kit Feature Gutenberg block** (front-end buttons: summarize/write/rewrite/translate/proofread)
-- **`[ai-kit-feature]` shortcode** (same front-end feature in other editors/builders)
-- **Backend-only / backend-fallback** modes (connect to your own AWS backend)
+### Authoring tools (Free)
 
-> **Important architecture note:**  
-> Backend requests are made **directly from the browser** (front-end widgets or wp-admin/editor UI).  
-> WordPress/PHP does **not** proxy these calls.
+Supported Chrome on-device AI can generate image/post metadata and assist with writing, rewriting, translation and proofreading in Gutenberg and the Media Library. Availability depends on browser/device support. A WP Suite subscription is not needed for these local tools. Pro adds configured backend processing for supported features.
+
+Frontend language controls and the shared translation catalog are configured under **SmartCloud → Platform Settings → Translations**.
+
+Interactive frontend/admin features call their configured API from the browser. Knowledge Sync separately sends approved source content and metadata from WordPress to the backend; the browser-only architecture statement does not apply to synchronization.
 
 ---
 

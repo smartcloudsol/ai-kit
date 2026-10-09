@@ -14,9 +14,15 @@ const AI_KIT_ADMIN_PAGES: ReadonlySet<string> = new Set([
 ]);
 
 export function resolveAiKitAdminPage(search: string): AiKitAdminPage {
-  const requestedPage = new URLSearchParams(search).get("aikit-page");
+  const query = new URLSearchParams(search);
+  const requestedPage = query.get("section") ?? query.get("aikit-page");
 
   return requestedPage && AI_KIT_ADMIN_PAGES.has(requestedPage)
     ? (requestedPage as AiKitAdminPage)
     : "general";
+}
+
+/** Keep a deep link while configuration loads; terminal denial falls back safely. */
+export function guardAiKitAdminPage(page: AiKitAdminPage, ready: boolean, proAvailable: boolean): AiKitAdminPage {
+  return ready && !proAvailable && page !== "general" ? "general" : page;
 }

@@ -1,3 +1,5 @@
+import "./backend-readiness-entry";
+import "./introduction-images";
 import { MantineProvider, createTheme } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
@@ -13,6 +15,7 @@ import { createRoot } from "react-dom/client";
 
 import Main from "./main";
 import Diagnostics from "./diagnostics";
+import Answers, { type AnswersContext } from "./answers/Answers";
 
 export const signUpAttributes = [
   "name",
@@ -32,6 +35,8 @@ const production = process.env?.NODE_ENV === "production";
 if (!production) {
   import("./index.css");
 }
+
+
 
 const theme = createTheme({
   respectReducedMotion: true,
@@ -66,34 +71,81 @@ const aiKit = getAiKitPlugin();
 if (!aiKit) {
   throw new Error("AiKit plugin is not available");
 }
-getStore().then(async (store) => {
-  const view = aiKit?.view ?? "settings";
-  const root = createRoot(document.getElementById("smartcloud-ai-kit-admin")!);
-  if (view === "diagnostics") {
-    root.render(
-      <StrictMode>
-        <QueryClientProvider client={queryClient}>
-          <MantineProvider theme={theme}>
-            <Notifications position="top-right" zIndex={100002} />
-            <ModalsProvider modalProps={{ zIndex: 100001 }}>
-              <Diagnostics />
-            </ModalsProvider>
-          </MantineProvider>
-        </QueryClientProvider>
-      </StrictMode>,
-    );
-  } else {
-    root.render(
-      <StrictMode>
-        <QueryClientProvider client={queryClient}>
-          <MantineProvider theme={theme}>
-            <Notifications position="top-right" zIndex={100002} />
-            <ModalsProvider modalProps={{ zIndex: 100001 }}>
-              <Main {...aiKit} store={store} />
-            </ModalsProvider>
-          </MantineProvider>
-        </QueryClientProvider>
-      </StrictMode>,
-    );
+type SurfaceMount = (
+  element: HTMLElement,
+  context: AnswersContext,
+) => () => void;
+declare global {
+  interface Window {
+    smartcloudWpSuiteSurfaces?: Record<string, SurfaceMount>;
   }
-});
+}
+if ((aiKit as { view?: string }).view === "answers" || document.querySelector('[data-wpsuite-product="answers"]')) {
+  window.smartcloudWpSuiteSurfaces ??= {};
+  window.smartcloudWpSuiteSurfaces.answers = (element, context) => {
+    const root = createRoot(element);
+    let disposed = false;
+    root.render(<p>Loading Answers…</p>);
+    void getStore()
+      .then((store) => {
+        if (disposed) return;
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <MantineProvider theme={theme}>
+              <Answers store={store} context={context} />
+            </MantineProvider>
+          </QueryClientProvider>,
+        );
+      })
+      .catch((error: unknown) => {
+        if (!disposed)
+          root.render(
+            <p role="alert">
+              {error instanceof Error
+                ? error.message
+                : "Answers runtime could not be loaded."}
+            </p>,
+          );
+      });
+    return () => {
+      disposed = true;
+      root.unmount();
+    };
+  };
+  window.dispatchEvent(new Event("smartcloud-wpsuite-surface-ready"));
+}
+if (document.getElementById("smartcloud-ai-kit-admin")) {
+  getStore().then(async (store) => {
+    const view = aiKit?.view ?? "settings";
+    const root = createRoot(
+      document.getElementById("smartcloud-ai-kit-admin")!,
+    );
+    if (view === "diagnostics") {
+      root.render(
+        <StrictMode>
+          <QueryClientProvider client={queryClient}>
+            <MantineProvider theme={theme}>
+              <Notifications position="top-right" zIndex={100002} />
+              <ModalsProvider modalProps={{ zIndex: 100001 }}>
+                <Diagnostics />
+              </ModalsProvider>
+            </MantineProvider>
+          </QueryClientProvider>
+        </StrictMode>,
+      );
+    } else {
+      root.render(
+        <StrictMode>
+          <QueryClientProvider client={queryClient}>
+            <MantineProvider theme={theme}>
+              <Notifications position="top-right" zIndex={100002} />
+              <ModalsProvider modalProps={{ zIndex: 100001 }}>
+                <Main {...aiKit} store={store} />
+              </ModalsProvider>
+            </MantineProvider>
+          </QueryClientProvider>
+        </StrictMode>,
+      );
+    }
+  });
+}

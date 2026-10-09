@@ -1,82 +1,63 @@
-=== SmartCloud AI-Kit – On-Device AI Tools ===
+=== SmartCloud AI-Kit – Chatbot and Semantic Search ===
 Contributors: smartcloud
-Tags: ai, chrome, seo, language, tools
+Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.5.10
+Stable tag: 1.6.0
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
 
-Add private, on-device AI to WordPress with 22-language frontend tools. Free runs locally; Pro connects to your own AWS backend.
+Help visitors find answers in your content with a chatbot and semantic search. Pro connects to your own AI backend.
 
 == Description ==
 
-AI-Kit brings practical AI helpers to WordPress while keeping privacy first.
+Help visitors get answers from your WordPress content, documentation and connected services. AI-Kit combines a site-wide chatbot with an embeddable DocSearch component, supported by a shared knowledge base and a backend you control.
 
-AI-Kit is part of the WP Suite product family by Smart Cloud Solutions, Inc. WP Suite keeps WordPress as the CMS and editing layer, while optional connected features can extend selected workflows into modular AWS-backed services for identity, AI, APIs, workflows, protected routes, and static delivery. The free AI-Kit features described here do not require a WP Suite account, subscription, or AWS backend unless you explicitly configure an external service or upgrade-only backend feature.
+**Answers for your visitors**
+* **Site-wide chatbot (Pro):** Add an assistant that visitors can open from any page. Configure its appearance, role, tone, topics and response guidance.
+* **DocSearch (Pro):** Place semantic search in a page or other Gutenberg block area. Show a concise AI summary above a broad set of relevant knowledge sources. DocSearch applies category and tag filters only when the visitor explicitly selects them; it does not silently narrow the search with model-inferred taxonomy filters.
+* **Knowledge content:** Select public posts, pages and supported public custom post types. Configure approval policies and inspect synchronization and backend ingestion separately.
+* **Connected information (Pro):** Extend chatbot answers with shop or service data through administrator-approved, read-only REST and MCP tools. Enable web grounding for selected, allowed HTTPS sources when current information is needed. These integrations require compatible endpoints and backend configuration; installing the plugin does not connect them automatically.
+* **Response controls (Pro):** Set evidence and citation requirements, topic boundaries and behavior when evidence is missing. Review answers against your actual content and use cases.
+* **Page summaries (Pro):** Give visitors a convenient way to summarize longer content with the AI-Kit Feature block or shortcode.
 
-**Free (local-only) mode**
-AI-Kit uses Chrome’s built-in on-device AI capabilities (when available). In this mode, content is processed locally in the browser.
+**Setup that explains what is ready**
+Open **SmartCloud → Answers** for guided setup, source status and backend-access guidance. The wizard saves its choices when you finish, and can be reopened with existing values. Detailed settings remain available on the same product page.
 
-**Key features**
-* **22-language frontend localization** — Frontend controls include **22 built-in languages**, follow the active WordPress or multilingual-provider locale, and support RTL where applicable.
-* **Shared WP Suite translation catalog** — Override matching strings once for Gatey, AI-Kit, and Flow, set a site-wide fallback locale, or add further locales from **SmartCloud → Global Settings → Custom Translations** without editing plugin files.
-* **Media Library: SEO image metadata generation**
-  * Works in the **Media Library list view** and **grid view**
-  * Supports both the **attachment details panel** and the **attachment edit screen**
-  * Includes **bulk workflows** (preview and accept/save items one-by-one)
-* **Gutenberg: AI-Kit Sidebar**
-  * **Post metadata generation**
-  * **Text generation** (topic + instructions + tone + length + language)
-* **Gutenberg: Inline tools (toolbar group)**
-  * Proofread, rewrite, and translate selected/editable text blocks
-* **Gutenberg: SEO Metadata panel for image-like blocks**
-  * Adds a dedicated panel for core/image, core/cover and core/media-text, to generate SEO metadata for images
-* **PRO: AI-Kit Chatbot**
-  * Add an on-site chatbot widget configurable from WP Admin (appearance, labels, behavior)
-  * Customize chat UI labels (e.g., title and placeholder), language and text direction (LTR/RTL/auto)
-  * Customize the open button (position, label, optional base64 icon)
-  * Use **Preview** to instantly try your current settings without saving
-* **PRO: Knowledge Base automation**
-  * Enroll WordPress with a short-lived pairing code and signed, site-specific transport
-  * Synchronize selected public post types and taxonomies through a durable, resumable outbox
-  * Merge manual policy, fixed external vocabularies, and WordPress-derived vocabulary without one producer erasing another
-  * Inspect the effective metadata configuration, provenance, baseline, queue, and last runner result in WP Admin
-* **PRO: AI-Kit Feature block**
-  * Add front-end buttons to **summarize, write, rewrite, translate, and proofread**
-* **PRO: [smartcloud-ai-kit-feature] shortcode**
-  * Use the same “AI-Kit Feature” functionality in other editors/builders via a shortcode
-* **Developer API**
-  * AI-Kit exposes a small JS surface under `globalThis.WpSuite.plugins.aiKit.features` so developers can integrate AI-Kit features in their own plugins and custom code.
+A connected WP Suite site, a Pro subscription and a configured, compatible AI-Kit backend are required for visitor chat and DocSearch. The backend is typically deployed into your own AWS account. A WP Suite site connection alone does not deploy that backend or grant access to its protected administration APIs.
 
-You can find the plugin’s continuously expanding documentation at:
+**Additional tools for authors**
+Free editor and Media Library tools use supported Chrome on-device AI when available: generate image and post metadata, draft text, and rewrite, translate or proofread selected content. Browser and device support determine which local tools are available. Pro can provide backend processing for supported tools. These authoring tools complement the visitor-facing Answers experience.
 
-[WP Suite – Docs](https://wpsuite.io/docs/)
+**WordPress integration**
+* Gutenberg blocks and shortcodes for visitor search and AI features.
+* Shared translation overrides under **SmartCloud → Platform Settings → Translations** and frontend language/direction controls.
+* JavaScript APIs for developers integrating the supported features into their own interfaces.
+
+AI-Kit is part of WP Suite by Smart Cloud Solutions, Inc. WordPress remains your content and editing system; optional connected services provide the AI backend and integrations.
+
+Documentation: [WP Suite – Docs](https://wpsuite.io/docs/)
 
 This plugin is not affiliated with or endorsed by Google, Amazon Web Services, or the WordPress Foundation. All trademarks are property of their respective owners.
 
 == Free and Premium Usage Notice ==
 
-AI-Kit works in **Free mode** without registration or subscription, using **local-only (on-device) AI** inside supported desktop Chrome browsers.
+**Free:** Use supported on-device editor and Media Library tools without a WP Suite account, subscription or AI backend. You can also choose knowledge-source policies in WordPress; selecting content does not by itself deliver documents to a backend or enable visitor answers.
 
-**Pro features** are optional and become available after connecting your WordPress site to a WP Suite workspace:
-* **AI-Kit Chatbot** (on-site widget + customizable settings + Preview)
-* Front-end **AI-Kit Feature** Gutenberg block
-* Front-end **smartcloud-** shortcode
-* Optional **backend-only / backend-fallback** modes (when on-device AI is unavailable or when you explicitly choose backend processing)
+**Pro:** An active subscription on the connected WP Suite site enables the paid runtime for the chatbot, DocSearch, frontend AI Feature block/shortcodes and backend processing. Visitor answers and search additionally require a compatible, configured backend with accessible, indexed knowledge content. Chatbot REST/MCP tools and web grounding require their own explicit configuration.
 
-When backend is used, requests go to an API endpoint you configure — typically an AWS API deployed into **your own AWS account** using the “wpsuite-ai-kit” SAR template.
+Backend services normally run in your AWS account. AWS usage and any external service charges are separate. Authentication and permissions depend on the configured backend. For protected administration APIs, sign in to the site's configured Cognito pool with the required role, or use the Gatey WordPress login integration. WP Suite workspace sign-in and a WordPress administrator session do not automatically authorize that backend.
 
 == Installation ==
 
-1. Upload the plugin ZIP (or install via the WordPress plugin repository).
-2. Activate the plugin through the “Plugins” screen in WordPress.
-3. Go to **WP Admin → SmartCloud → AI-Kit Settings** and review the defaults.
-4. Open:
-   - **Media → Library** (for image metadata generation), or
-   - the **Gutenberg editor** (for the editor tools and blocks).
+1. Upload the plugin ZIP or install it from the WordPress plugin repository.
+2. Activate it through **Plugins** in WordPress.
+3. Open **SmartCloud → Answers** and follow the setup steps to select your knowledge content.
+4. For visitor answers, connect the site to WP Suite with Pro, deploy/configure a compatible backend, and complete any required backend sign-in. Review the backend-access guidance on the Answers page.
+5. Enable and configure the site-wide chatbot, or add the **AI-Kit Doc Search** block to a page. Synchronize and index approved knowledge content, then test visitor questions and source links.
+6. For free authoring tools, open Gutenberg or **Media → Library** in a supported browser.
 
 == Machine-readable resources ==
 
@@ -85,49 +66,41 @@ When backend is used, requests go to an API endpoint you configure — typically
 
 == Frequently Asked Questions ==
 
-= What browsers are supported? =
-Free (local-only) mode requires a recent **desktop Chrome** with on-device AI enabled (availability depends on Chrome version, OS, and device capabilities).
+= Can visitors use the chatbot or DocSearch for free? =
+Visitor chat and DocSearch need Pro and a compatible backend. Free tools cover supported on-device editor and Media Library workflows. You can prepare knowledge-source choices before connecting a backend.
 
-= Does AI-Kit send my content to third parties? =
-In Free mode, AI-Kit is designed to run locally in the browser. If you enable reCAPTCHA or configure backend usage (Pro), the plugin will perform external network calls — see “External Services” below.
+= What is the difference between the chatbot and DocSearch? =
+The chatbot works towards answering the question, using configured behavior, appropriate knowledge-category filters and approved tools to reduce irrelevant context. DocSearch explores relevant sources broadly and presents them below an AI summary; taxonomy filters apply only when the visitor selects them. Both can use the same indexed site content; external REST/MCP tools and web grounding extend the chatbot's conversations.
 
-= What happens if on-device AI is not available in my browser? =
-In Free mode, AI features that require on-device AI may be unavailable. In Pro, you can enable **backend-only** or **backend fallback** so features keep working even when on-device AI is unavailable.
+= Can it answer questions about my shop or other services? =
+Yes, when you provide suitable content or configure approved read-only REST/MCP integrations on a compatible backend. Shop and service connections are not automatic. External action tools that change data are not enabled by this integration.
 
-= Do I need API keys? =
-No for Free local-only mode. For Pro backend usage, your backend may require authentication depending on how you deployed/configured it (API key / IAM / JWT / Cognito).
+= Does a connected WP Suite site mean my backend is ready? =
+No. The backend must be deployed, configured and reachable, with the required authentication. The backend-access check verifies a protected administration request; it does not verify visitor replies, answer quality or completed knowledge ingestion.
+
+= What browsers support the free tools? =
+On-device tools require supported desktop Chrome AI APIs. Availability depends on the browser, operating system, device and requested feature. Pro backend processing can support configured features when local AI is unavailable. Chatbot and DocSearch use the backend rather than on-device AI.
+
+= Does AI-Kit send my content to external services? =
+On-device processing happens in the browser. Backend features send the inputs needed for the request to your configured API. Knowledge Sync sends approved source content and metadata from WordPress to the configured backend. Approved chatbot tools may send relevant arguments to their configured services. See External Services below.
 
 = Will it work with static exports? =
-Yes. AI-Kit runs in the browser.
-
-* In local-only mode, all processing happens on-device in Chrome.
-* In backend-only / backend-fallback modes (Pro), requests are sent directly from the visitor’s browser (front-end) or the admin/editor UI to your configured API endpoint.
-
-WordPress/PHP does not proxy these calls — your site does not need server-side connectivity to the API, but the user’s browser must be able to reach the endpoint.
-This also means your hosting environment does not need outbound access to the AI API; only the client’s network matters.
+The frontend components run in the browser and can call the configured backend from a static site, subject to its origin and authentication settings. WordPress remains responsible for source management and server-side Knowledge Sync. Maintain the required runtime configuration and entitlement refresh for your exported site.
 
 = How is automatic Knowledge Sync scheduled? =
-AI-Kit registers a WordPress cron event that becomes due every five minutes. Normal WP-Cron traffic can execute it. For predictable operation on low-traffic sites or installations with WP-Cron disabled, run `wp cron event run --due-now` from the system scheduler every five minutes. AI-Kit uses a runner lock, so overlapping invocations do not process the same work concurrently.
+AI-Kit registers a WordPress cron event that becomes due every five minutes. Normal WP-Cron traffic can execute it. For predictable operation on low-traffic sites or installations with WP-Cron disabled, run `wp cron event run --due-now` from the system scheduler every five minutes. AI-Kit uses a runner lock to prevent overlapping work. Delivery and backend indexing are separate stages.
 
-= Does this work outside Gutenberg? =
-Yes — Pro includes the **[smartcloud-ai-kit-feature]** shortcode so you can use AI-Kit Feature in other editors/builders. Developers can also integrate the JavaScript APIs directly.
+= Can I embed search or summaries without the site-wide chatbot? =
+Yes. Use the **AI-Kit Doc Search** or **AI-Kit Feature** Gutenberg block, or the **[smartcloud-ai-kit-doc-search]** and **[smartcloud-ai-kit-feature]** shortcodes. These visitor-facing components require Pro and the appropriate runtime/backend configuration.
 
 == Screenshots ==
 
-1. AI-Kit Settings screen
-2. AI-Kit onboarding panel (quick feature tour)
-3. AI-Kit Diagnostics screen
-4. Media Library (List) – bulk “Preview AI metadata” workflow
-5. Media Library – attachment details panel (generate SEO fields)
-6. Gutenberg – AI-Kit Sidebar: Post metadata generation
-7. Gutenberg – AI-Kit Sidebar: Text generation (topic + tone + length + language)
-8. Gutenberg – toolbar group: Proofread / Rewrite / Translate
-9. Gutenberg – “SEO Metadata” panel in image-like blocks
-10. DEV – Using renderFeature function on front-end
-11. PRO – AI-Kit Feature block preview (summarize/write/rewrite/translate/proofread)
-12. PRO – [smartcloud-ai-kit-feature] shortcode usage in a page builder
-13. PRO – Chatbot Settings (Preview + configuration)
-14. PRO – Chatbot widget (front-end)
+1. Pro: The site-wide chatbot welcomes visitors and invites questions.
+2. Pro: Frontend summarizer options before generating a summary of page content.
+3. Pro: Chatbot appearance settings, including its name, greeting and presentation.
+4. Choose WordPress content types in the Answers guided setup.
+5. Pro: An embedded DocSearch component, ready for a visitor's search query.
+6. Answers setup, knowledge content and backend access guidance in the shared admin.
 
 == External Services ==
 
@@ -139,7 +112,7 @@ This plugin may integrate with the following external services, depending on con
    - **What data is sent & when:**
      The browser may contact Google to retrieve a reCAPTCHA token (client-side).
    - **Configuration in WordPress:**
-     Enter your reCAPTCHA site key in **AI-Kit → Settings** (or the relevant WP Suite settings screen, depending on your setup).
+     Enter your reCAPTCHA site key in **SmartCloud → Platform Settings → reCAPTCHA**.
    - **Links:**
      - About reCAPTCHA: https://www.google.com/recaptcha/about/
      - Google Terms: https://policies.google.com/terms
@@ -147,13 +120,13 @@ This plugin may integrate with the following external services, depending on con
 
 2. **Customer-configured AI backend endpoint (Pro only)**
    - **What it is & what it’s used for:**
-     An API endpoint you configure for **backend-only** or **backend fallback** processing when on-device AI is unavailable or when you choose to run on the backend.
+     An API endpoint you configure for visitor chat, semantic search, knowledge synchronization and backend AI processing.
    - **What data is sent & when:**
-     Text and/or image-related inputs required to fulfill the specific feature request (e.g., rewrite input, summarization text, metadata prompts).
+     Chat messages, search queries, text and/or image-related inputs required for the requested feature. Knowledge Sync sends approved source content, metadata and site-specific synchronization information from WordPress. Conversation settings and approved tool arguments are sent when those features are used.
    - **Where it goes:**
      Requests are sent to the **API URL you provide** — typically an AWS API deployed to **your own AWS account** (e.g., via the “wpsuite-ai-kit” SAR template).
    - **How it’s called:**
-     Standard HTTPS requests (fetch) from the browser.
+     HTTPS requests from the browser for interactive features, and signed server-side HTTPS requests from WordPress for Knowledge Sync. Configured REST/MCP tools and web grounding make backend-to-service requests to administrator-approved destinations; review those services and their privacy terms before enabling them.
 
 3. **WP Suite platform connection (optional; site/workspace linking & shared features)**
    - **When it applies:**
@@ -205,9 +178,23 @@ AI-Kit is shipped to WordPress.org as a pre-built distribution. Build steps and 
 The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in https://github.com/smartcloudsol/smartcloud-wpsuite and is packaged under `smartcloud-wpsuite/`. It owns the site-wide custom translation catalog used by Gatey, AI-Kit, and Flow, alongside shared workspace linking, licence validation, and subscription management.
 
 **Pro-only features (source availability):**
-AI-Kit Pro includes additional functionality (such as the AI-Kit Chatbot, backend-powered processing, and the front-end Feature block/shortcode experience). The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
+AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, backend processing, and the frontend Feature block/shortcode experience. The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.6.0 =
+* Keep backend mode, resolved API URL and access guidance in one compact Status panel.
+* Show current DocSearch and summarizer screenshots in the Getting started guide, with accessible image dialogs.
+* Present chatbot and semantic search as the primary visitor experience, with clear Free, Pro and backend requirements.
+* Remember completed Answers setup even when the chatbot and knowledge synchronization remain disabled.
+* Explain backend access with contextual sign-in and configuration guidance instead of an unexplained authorization error.
+* Improve shared navigation alignment, connection details, inline help and setup field guidance.
+* Explain scheduled knowledge synchronization results and sources waiting for verified site publication.
+* Combine Answers onboarding, status and detailed settings on one product page; show AI Tools as an informational panel.
+* Stage assistant appearance, conversation guidance and knowledge-source selections until the final setup step, with partial-save recovery.
+* Use the saved Chatbot Settings name for conversation identity instead of asking for a second assistant name.
+* Add shared product navigation and separate Platform Settings with reCAPTCHA, Styling and Translations tabs.
+* Preserve existing admin links, permissions and compatibility with older plugin menus.
 
 = 1.5.10 =
 * Knowledge Base: Initialize the optional publisher cursor when the public release gate is disabled, preventing warnings during baseline reconciliation without changing release eligibility or review requirements.
@@ -604,6 +591,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.6.0 =
+Open SmartCloud → Answers for setup, status and Advanced settings and resources. Existing settings and bookmarked admin URLs remain available. Replaying setup preserves settings outside the wizard; the separate Reset settings action explicitly clears local configuration after confirmation. Chatbot and DocSearch still require Pro and a compatible backend; this plugin update does not deploy one. DocSearch’s broad retrieval with visitor-selected taxonomy filters requires the corresponding AI-Kit backend update; updating only the plugin does not change an older backend’s filtering behavior.
 
 = 1.5.9 =
 Update the AI Kit backend to orchestration v1.0.109, or deploy the equivalent backend changes, before using the ingestion resume action and cost reconciliation details. A full metadata resynchronization is processed in scheduled batches; wait for both the WordPress scan and backend ingestion to finish before relying on refreshed Knowledge Base results.

@@ -2084,7 +2084,7 @@ final class KnowledgeSyncRuntime
     {
         $dispatcher = new KnowledgeSyncBatchDispatcher();
         if (!$dispatcher->isAvailable()) {
-            return null;
+            return array('status' => 'transport-unavailable', 'processed' => 0);
         }
 
         $lease_owner = wp_generate_uuid4();

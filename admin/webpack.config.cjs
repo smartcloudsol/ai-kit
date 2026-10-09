@@ -34,6 +34,7 @@ module.exports = function () {
   const config = {
     ...defaultConfig,
     entry: {
+      "backend-readiness": [path.resolve(process.cwd(), "src", "backend-readiness-entry.ts")],
       index: [
         path.resolve(process.cwd(), "src", "index.tsx"),
       ],
