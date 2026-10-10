@@ -1,4 +1,11 @@
 export const plDict: Record<string, string> = {
+  "Product search": "Wyszukiwanie produktów",
+  "Product details": "Szczegóły produktu",
+  "Catalog lookup": "Sprawdzanie katalogu",
+  "External tool": "Narzędzie zewnętrzne",
+  "Web sources": "Źródła internetowe",
+  "Reading pages…": "Odczytywanie stron…",
+  "Pages read": "Odczytane strony",
   "{name} is thinking…": "{name} myśli…",
   "Sending request…": "Wysyłanie żądania…",
   "Waiting for reply…": "Oczekiwanie na odpowiedź…",

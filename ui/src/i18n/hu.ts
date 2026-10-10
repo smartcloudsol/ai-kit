@@ -1,4 +1,11 @@
 export const huDict: Record<string, string> = {
+  "Product search": "Termékek keresése",
+  "Product details": "Termékadatok",
+  "Catalog lookup": "Katalógus lekérdezése",
+  "External tool": "Külső eszköz",
+  "Web sources": "Webes források",
+  "Reading pages…": "Oldalak olvasása…",
+  "Pages read": "Oldalak beolvasva",
   "{name} is thinking…": "{name} gondolkodik…",
   "Sending request…": "Kérés küldése…",
   "Waiting for reply…": "Várakozás a válaszra…",

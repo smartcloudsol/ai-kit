@@ -1,4 +1,11 @@
 export const trDict: Record<string, string> = {
+  "Product search": "Ürün arama",
+  "Product details": "Ürün ayrıntıları",
+  "Catalog lookup": "Katalog sorgulama",
+  "External tool": "Harici araç",
+  "Web sources": "Web kaynakları",
+  "Reading pages…": "Sayfalar okunuyor…",
+  "Pages read": "Okunan sayfalar",
   "{name} is thinking…": "{name} düşünüyor…",
   "Sending request…": "İstek gönderiliyor…",
   "Waiting for reply…": "Yanıt bekleniyor…",

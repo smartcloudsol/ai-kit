@@ -32,7 +32,11 @@ import {
   updateConversationProfile,
   fetchKnowledgeSyncStatus,
   updateKnowledgeSyncPolicy,
+  previewConversationConnection,
+  previewConversationProducts,
 } from "./backend-clients";
+import ProfilePresetSetup from "./ProfilePresetSetup";
+import ConnectionSetup from "./ConnectionSetup";
 import { requestOnboarding, requestSettings } from "./client";
 import {
   appearancePatch,
@@ -210,9 +214,15 @@ export default function Answers({
     !behaviorRequired ||
     (!!draft.role.trim() &&
       !!draft.purpose.trim() &&
-      !!draft.tone.trim() &&
+      !!draft.tone.trim() && draft.audience.length <= 2000 &&
       draft.task.split("\n").filter((line) => line.trim()).length <= 50 &&
       draft.task.split("\n").every((line) => line.trim().length <= 500));
+  const newConnectedSource = draft.connections.some((server) => server.enabled && !snapshot.profile?.document.profile.tools.externalMcpServers?.some((old) => old.id === server.id && old.enabled)) || (draft.webEnabled && !snapshot.profile?.document.profile.tools.webGrounding?.enabled);
+  const connectedPolicyValid = !newConnectedSource || draft.allowConnectedEvidence;
+  const webPrefixes = draft.webPrefixes.split("\n").map((line) => line.trim()).filter(Boolean);
+  const webValid = !draft.webEnabled || (webPrefixes.length > 0 && webPrefixes.length <= 50 && webPrefixes.every((prefix) => {
+    try { const url = new URL(prefix); return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash && !url.port && url.hostname.includes("."); } catch { return false; }
+  }));
   const appearanceValid =
     draft.appearance.title.length <= 120 &&
     (!draft.appearance.brandColor ||
@@ -238,6 +248,7 @@ export default function Answers({
   const finish = async () => {
     if (
       !behaviorValid ||
+      !connectedPolicyValid || !webValid ||
       !appearanceValid ||
       (removed.length > 0 && !confirmRemoval)
     )
@@ -320,7 +331,7 @@ export default function Answers({
         </Alert>
       )}
       {wizard ? (
-        <Card withBorder padding="md">
+        <Card withBorder padding="md"><fieldset disabled={saving} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
           <Stack>
             <Group justify="space-between">
               <Title order={3}>Set up Answers</Title>
@@ -413,7 +424,7 @@ export default function Answers({
                     })
                   }
                   allowDeselect={false}
-                  comboboxProps={{ withinPortal: false }}
+                  comboboxProps={{ withinPortal: true, zIndex: 100002 }}
                 />
                 <ColorInput
                   label="Brand color"
@@ -450,6 +461,7 @@ export default function Answers({
             )}
             {step === 2 && (
               <>
+                <ProfilePresetSetup context={draft.context} audience={draft.audience} purpose={draft.purpose} disabled={saving} onApply={(values) => setDraft({ ...draft, ...values })} />
                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
                   <Textarea
                     autosize minRows={2} maxRows={5}
@@ -473,6 +485,10 @@ export default function Answers({
                     onChange={(event) =>
                       setDraft({ ...draft, purpose: event.currentTarget.value })
                     }
+                  />
+                  <Textarea
+                    label="Audience" description="Who should the assistant help?" value={draft.audience} maxLength={2000} autosize minRows={2} maxRows={5}
+                    onChange={(event) => setDraft({ ...draft, audience: event.currentTarget.value })}
                   />
                   <Textarea
                     autosize minRows={3} maxRows={8}
@@ -505,11 +521,28 @@ export default function Answers({
                     setDraft({ ...draft, context: event.currentTarget.value })
                   }
                 />
+                <ConnectionSetup catalog={snapshot.profile?.setup} existing={draft.connections} disabled={saving} previewConnection={previewConversationConnection}
+                  openHelp={() => context.openHelp("answers-connections")}
+                  restUrl={plugin.restUrl} nonce={plugin.nonce} previewProducts={previewConversationProducts}
+                  openProductPageHelp={() => context.openHelp("answers-product-pages")}
+                  onChange={(server) => setDraft({ ...draft, connections: draft.connections.map((item) => item.id === server.id ? server : item) })}
+                  onRemove={(id) => setDraft({ ...draft, connections: draft.connections.filter((server) => server.id !== id) })}
+                  onAdd={(server) => setDraft({ ...draft, connections: [...draft.connections, server] })} />
+                <Accordion variant="contained"><Accordion.Item value="web"><Accordion.Control>Read information from approved websites (optional)</Accordion.Control><Accordion.Panel><Stack gap="sm">
+                  <Text size="sm">Use this for information published on other websites you trust. It reads approved URLs; it does not search the whole web. Product prices and stock should come from your live catalog.</Text>
+                  <Checkbox label="Allow web sources" checked={draft.webEnabled} onChange={(event) => setDraft({ ...draft, webEnabled: event.currentTarget.checked })} />
+                  {draft.webEnabled && <Textarea label="Approved HTTPS websites or sections" description="One URL per line, for example https://example.com/help/. Only that host and path are permitted." autosize minRows={2} maxRows={6} value={draft.webPrefixes} onChange={(event) => setDraft({ ...draft, webPrefixes: event.currentTarget.value })} />}
+                  {!webValid && <Alert color="red">Add at least one valid HTTPS source URL without credentials, query parameters, fragments or custom ports.</Alert>}
+                  <Button variant="subtle" size="compact-xs" onClick={() => context.openHelp("answers-connections")}>How to choose sources</Button>
+                </Stack></Accordion.Panel></Accordion.Item></Accordion>
+                {newConnectedSource && <Alert color="yellow"><Stack gap="xs">
+                  <Checkbox label="Allow answers grounded in these connected sources" checked={draft.allowConnectedEvidence} onChange={(event) => setDraft({ ...draft, allowConnectedEvidence: event.currentTarget.checked })} />
+                  <Text size="sm">This uses preferred evidence, asks when evidence is missing and requires citations. It switches off inherited Knowledge Base category restrictions for this profile, allowing approved catalog and web sources as well. Model, guardrails and other safety settings are kept. Review this change if your site has stricter evidence requirements.</Text>
+                </Stack></Alert>}
                 {!snapshot.profile?.configured && (
                   <Text size="sm">
                     Knowledge base search will be enabled for this new profile.
-                    Other tools and detailed behavior remain at their backend
-                    defaults.
+                    Reviewed connections are saved with the profile. Other detailed behavior remains at its backend defaults.
                   </Text>
                 )}
               </>
@@ -530,7 +563,7 @@ export default function Answers({
                     setConfirmRemoval(false);
                   }}
                   searchable
-                  comboboxProps={{ withinPortal: false }}
+                  comboboxProps={{ withinPortal: true, zIndex: 100002 }}
                 />
                 <Text size="sm">
                   Only published, publicly viewable content is eligible.
@@ -575,9 +608,11 @@ export default function Answers({
                   </div>
                 </SimpleGrid>
                 {behaviorRequired && (
-                  <Text size="sm">
+                  <Stack gap="xs"><Text size="sm">
                     {draft.role} · {draft.purpose} · {draft.tone}
-                  </Text>
+                  </Text><Text size="sm">Connections: {draft.connections.filter((server) => server.enabled).map((server) => server.id).join(", ") || "None"}. Approved web sources: {draft.webEnabled ? webPrefixes.length : 0}.</Text>
+                  {newConnectedSource && <Text size="sm">Evidence policy: preferred evidence, citations required, ask when missing; inherited KB category restrictions switched off with your approval.</Text>}
+                  </Stack>
                 )}
                 {!snapshot.profile && draft.appearance.enableChatbot && (
                   <Alert color="yellow">
@@ -608,6 +643,7 @@ export default function Answers({
                     tasks allow at most 50 lines of 500 characters each.
                   </Alert>
                 )}
+                {(!connectedPolicyValid || !webValid) && <Alert color="red">Review the connected-source evidence policy and approved website URLs before finishing.</Alert>}
                 {completed.length > 0 && (
                   <Stack gap={2}>
                     <Text fw={600}>Saved changes</Text>
@@ -634,7 +670,7 @@ export default function Answers({
                 <Button
                   disabled={
                     (step === 1 && !appearanceValid) ||
-                    (step === 2 && !behaviorValid)
+                    (step === 2 && (!behaviorValid || !connectedPolicyValid || !webValid))
                   }
                   onClick={nextStep}
                 >
@@ -645,6 +681,7 @@ export default function Answers({
                   loading={saving}
                   disabled={
                     !behaviorValid ||
+                    !connectedPolicyValid || !webValid ||
                     !appearanceValid ||
                     (removed.length > 0 && !confirmRemoval)
                   }
@@ -669,7 +706,7 @@ export default function Answers({
               </Button>
             </Group>
           </Stack>
-        </Card>
+        </fieldset></Card>
       ) : (
         <Card withBorder padding="md">
           <Stack gap="sm">

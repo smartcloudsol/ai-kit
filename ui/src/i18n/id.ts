@@ -1,4 +1,11 @@
 export const idDict: Record<string, string> = {
+  "Product search": "Pencarian produk",
+  "Product details": "Detail produk",
+  "Catalog lookup": "Pencarian katalog",
+  "External tool": "Alat eksternal",
+  "Web sources": "Sumber web",
+  "Reading pages…": "Membaca halaman…",
+  "Pages read": "Halaman dibaca",
   "{name} is thinking…": "{name} sedang berpikir…",
   "Sending request…": "Mengirim permintaan…",
   "Waiting for reply…": "Menunggu jawaban…",

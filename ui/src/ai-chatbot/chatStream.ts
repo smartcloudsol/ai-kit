@@ -5,6 +5,7 @@ import {
   type ProcessedCitations,
   type PromptResult,
 } from "@smart-cloud/ai-kit-core";
+import { safePublicActivityParams } from "./activityPresentation.ts";
 
 export type ChatActivity = {
   activityId: string;
@@ -226,6 +227,7 @@ function parseActivity(value: unknown): ChatActivity | undefined {
     activityId: activity.activityId,
     kind: activity.kind as ChatActivity["kind"],
     labelKey: activity.labelKey,
+    labelParams: safePublicActivityParams(activity.labelParams),
     status: activity.status as ChatActivity["status"],
     safeDomains,
     ...(typeof activity.safeDomain === "string" && /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(activity.safeDomain)
@@ -243,7 +245,7 @@ export function isSummaryActivity(activity: ChatActivity): boolean {
   if (!isToolActivity(activity)) return false;
   return activity.kind !== "other" || activity.status !== "completed" || Boolean(
     activity.query || activity.urls?.length || activity.safeDomains?.length || activity.safeDomain ||
-    activity.resultCount !== undefined,
+    activity.resultCount !== undefined || safePublicActivityParams(activity.labelParams),
   );
 }
 

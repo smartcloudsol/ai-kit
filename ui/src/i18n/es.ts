@@ -1,4 +1,11 @@
 export const esDict: Record<string, string> = {
+  "Product search": "Búsqueda de productos",
+  "Product details": "Detalles del producto",
+  "Catalog lookup": "Consulta del catálogo",
+  "External tool": "Herramienta externa",
+  "Web sources": "Fuentes web",
+  "Reading pages…": "Leyendo páginas…",
+  "Pages read": "Páginas leídas",
   "{name} is thinking…": "{name} está pensando…",
   "Sending request…": "Enviando solicitud…",
   "Waiting for reply…": "Esperando respuesta…",

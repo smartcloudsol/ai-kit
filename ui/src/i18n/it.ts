@@ -1,4 +1,11 @@
 export const itDict: Record<string, string> = {
+  "Product search": "Ricerca prodotti",
+  "Product details": "Dettagli del prodotto",
+  "Catalog lookup": "Consultazione del catalogo",
+  "External tool": "Strumento esterno",
+  "Web sources": "Fonti web",
+  "Reading pages…": "Lettura delle pagine…",
+  "Pages read": "Pagine lette",
   "{name} is thinking…": "{name} sta pensando…",
   "Sending request…": "Invio della richiesta…",
   "Waiting for reply…": "In attesa di risposta…",

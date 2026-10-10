@@ -1,4 +1,11 @@
 export const svDict: Record<string, string> = {
+  "Product search": "Produktsökning",
+  "Product details": "Produktinformation",
+  "Catalog lookup": "Kataloguppslag",
+  "External tool": "Externt verktyg",
+  "Web sources": "Webbkällor",
+  "Reading pages…": "Läser sidor…",
+  "Pages read": "Sidor lästa",
   "{name} is thinking…": "{name} funderar…",
   "Sending request…": "Skickar begäran…",
   "Waiting for reply…": "Väntar på svar…",

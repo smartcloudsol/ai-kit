@@ -51,6 +51,7 @@ import remarkGfm from "remark-gfm";
 
 import { useAiRun } from "../useAiRun";
 import { citationDisplayText, citationLinkUrl } from "../shared/citation-display";
+import { publicToolActivityLabel, publicToolActivityDetails } from "./activityPresentation";
 import { AiKitShellInjectedProps, withAiKitShell } from "../withAiKitShell";
 import {
   cleanupDanglingAttachments,
@@ -259,11 +260,14 @@ const activityLabel = (
   I18n: ReturnType<typeof useAiKitI18n>,
   settled = false,
 ): string => {
+  const publicLabel = publicToolActivityLabel(activity, (key) => I18n.get(key), settled);
+  if (publicLabel) return publicLabel;
   if (activity.status === "failed") return I18n.get("Action failed");
   if (settled && activity.status === "running") return I18n.get("Action interrupted");
   if (activity.status === "completed" && isToolActivity(activity)) {
     const key = activity.kind === "knowledge_search" ? "Knowledge base searched"
-      : activity.kind === "web_search" || activity.kind === "web_read" ? "Web search completed"
+      : activity.kind === "web_read" ? "Pages read"
+      : activity.kind === "web_search" ? "Web search completed"
       : activity.kind === "calculation" ? "Calculation completed"
       : activity.kind === "script" ? "Script completed"
       : activity.kind === "validation" ? "Check completed" : "Action completed";
@@ -277,7 +281,8 @@ const activityLabel = (
       ? I18n.get("Checking sources…")
     : activity.kind === "knowledge_search"
       ? I18n.get("Searching knowledge base…")
-      : activity.kind === "web_search" || activity.kind === "web_read"
+      : activity.kind === "web_read" ? I18n.get("Reading pages…")
+      : activity.kind === "web_search"
         ? I18n.get("Searching…")
         : activity.kind === "calculation"
           ? I18n.get("Calculating…")
@@ -292,6 +297,8 @@ const activityDetails = (
   I18n: ReturnType<typeof useAiKitI18n>,
 ): string | null => {
   const details: string[] = [];
+  const publicDetails = publicToolActivityDetails(activity);
+  if (publicDetails) details.push(publicDetails);
   if (activity.kind === "knowledge_search" && activity.query?.trim()) {
     const query = Array.from(activity.query.trim()).slice(0, 100).join("");
     details.push(I18n.get("Search query: {query}").replace("{query}", query));
@@ -307,8 +314,9 @@ const activityDetails = (
       if (count) details.push(I18n.get(key).replace("{count}", String(count)));
     }
   }
-  if (!details.length && activity.safeDomains?.length) {
-    details.push(activity.safeDomains.slice(0, 2).join(", "));
+  const domains = [...new Set([...(activity.safeDomains ?? []), ...(activity.safeDomain ? [activity.safeDomain] : [])])];
+  if ((!details.length || publicDetails) && domains.length) {
+    details.push(domains.slice(0, 2).join(", "));
   }
   return details.length ? details.slice(0, 2).join(" · ") : null;
 };
@@ -2396,8 +2404,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                     const details = activityDetails(activity, I18n);
                     return (
                       <Stack key={activity.activityId} gap={2} data-status={activity.status}>
-                        <Text size="sm">{activityLabel(activity, I18n)}</Text>
-                        {details && <Text size="xs" className="ai-chat-progress-detail">{details}</Text>}
+                        <Text size="sm" style={{ overflowWrap: "anywhere" }}>{activityLabel(activity, I18n)}</Text>
+                        {details && <Text size="xs" className="ai-chat-progress-detail" style={{ overflowWrap: "anywhere" }}>{details}</Text>}
                       </Stack>
                     );
                   }) : (

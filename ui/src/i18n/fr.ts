@@ -1,4 +1,11 @@
 export const frDict: Record<string, string> = {
+  "Product search": "Recherche de produits",
+  "Product details": "Détails du produit",
+  "Catalog lookup": "Consultation du catalogue",
+  "External tool": "Outil externe",
+  "Web sources": "Sources web",
+  "Reading pages…": "Lecture des pages…",
+  "Pages read": "Pages lues",
   "{name} is thinking…": "{name} réfléchit…",
   "Sending request…": "Envoi de la requête…",
   "Waiting for reply…": "En attente d’une réponse…",

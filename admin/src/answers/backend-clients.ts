@@ -4,13 +4,24 @@ import type {
   KnowledgeSyncPolicy,
   KnowledgeSyncStatus,
 } from "../free-features/answers-types";
+import type { ConnectionPreviewRequest, ConnectionPreview } from "./connection-types";
+import type { ProductPreviewRequest, ProductPreview } from "./connection-types";
 
 interface ProfileClient {
+  previewConversationConnection: (request: ConnectionPreviewRequest) => Promise<ConnectionPreview>;
+  previewConversationProducts: (request: ProductPreviewRequest) => Promise<ProductPreview>;
   getConversationProfile: () => Promise<ConversationProfileResponse | null>;
   updateConversationProfile: (
     profile: ConversationProfile,
     revision: string | null,
   ) => Promise<ConversationProfileResponse>;
+}
+
+export async function previewConversationConnection(request: ConnectionPreviewRequest): Promise<ConnectionPreview> {
+  return (await profileClient()).previewConversationConnection(request);
+}
+export async function previewConversationProducts(request: ProductPreviewRequest): Promise<ProductPreview> {
+  return (await profileClient()).previewConversationProducts(request);
 }
 interface KnowledgeClient {
   fetchKnowledgeSyncStatus: () => Promise<KnowledgeSyncStatus>;

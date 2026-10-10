@@ -1,4 +1,11 @@
 export const thDict: Record<string, string> = {
+  "Product search": "ค้นหาสินค้า",
+  "Product details": "รายละเอียดสินค้า",
+  "Catalog lookup": "ค้นหาในแค็ตตาล็อก",
+  "External tool": "เครื่องมือภายนอก",
+  "Web sources": "แหล่งข้อมูลเว็บ",
+  "Reading pages…": "กำลังอ่านหน้าเว็บ…",
+  "Pages read": "หน้าเว็บที่อ่านแล้ว",
   "{name} is thinking…": "{name} กำลังคิด…",
   "Sending request…": "กำลังส่งคำขอ…",
   "Waiting for reply…": "กำลังรอคำตอบ…",

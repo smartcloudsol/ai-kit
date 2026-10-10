@@ -1,5 +1,6 @@
 import { profileWithChatTitle } from "./assistant-name.ts";
 import type { Appearance, AnswersSettings } from "./client";
+import type { ConnectionServer } from "./connection-types";
 import type {
   ConversationProfile,
   ConversationProfileResponse,
@@ -11,10 +12,15 @@ export interface AnswersDraft {
   appearance: Appearance;
   role: string;
   purpose: string;
+  audience: string;
   task: string;
   tone: string;
   context: string;
   selected: string[];
+  connections: ConnectionServer[];
+  webEnabled: boolean;
+  webPrefixes: string;
+  allowConnectedEvidence: boolean;
 }
 export interface WizardSnapshot {
   settings: AnswersSettings | null;
@@ -26,6 +32,10 @@ export function createDraft(snapshot: WizardSnapshot): AnswersDraft {
     ? snapshot.profile.document.profile
     : null;
   return {
+    connections: structuredClone(profile?.tools.externalMcpServers ?? []),
+    webEnabled: profile?.tools.webGrounding?.enabled ?? false,
+    webPrefixes: profile?.tools.webGrounding?.allowedUrlPrefixes.join("\n") ?? "",
+    allowConnectedEvidence: !!profile?.grounding && profile.grounding.defaultRequirement !== "required" && profile.grounding.missingEvidenceBehavior !== "decline" && !profile.grounding.inheritMetadataCategoryPolicies,
     appearance: {
       enableChatbot: false,
       title: "",
@@ -37,6 +47,7 @@ export function createDraft(snapshot: WizardSnapshot): AnswersDraft {
     },
     role: profile?.identity.role ?? "",
     purpose: profile?.identity.sitePurpose ?? "",
+    audience: profile?.identity.audience ?? "",
     task: profile?.guidance.primaryGoals.join("\n") ?? "",
     tone: profile?.response.tone ?? "Helpful and clear",
     context: profile?.context.markdown ?? "",
@@ -65,12 +76,15 @@ export function profilePatch(
 ): ConversationProfile | null {
   if (!snapshot.profile || !draft.appearance.enableChatbot) return null;
   const current = snapshot.profile.document.profile;
+  const sourcesChanged = JSON.stringify(draft.connections) !== JSON.stringify(current.tools.externalMcpServers ?? []) || draft.webEnabled !== (current.tools.webGrounding?.enabled ?? false) || draft.webPrefixes !== (current.tools.webGrounding?.allowedUrlPrefixes.join("\n") ?? "");
+  const enableConnectedPolicy = sourcesChanged && draft.allowConnectedEvidence && (draft.connections.some((server) => server.enabled) || draft.webEnabled);
   const next: ConversationProfile = {
     ...current,
     identity: {
       ...profileWithChatTitle(current, draft.appearance.title).identity,
       role: draft.role.trim(),
       sitePurpose: draft.purpose.trim(),
+      audience: draft.audience.trim() || undefined,
     },
     guidance: {
       ...current.guidance,
@@ -81,12 +95,15 @@ export function profilePatch(
     },
     response: { ...current.response, tone: draft.tone.trim() },
     context: { ...current.context, markdown: draft.context.trim() },
-    tools: !snapshot.profile.configured
-      ? {
-          ...current.tools,
-          knowledgeBase: { ...current.tools.knowledgeBase, enabled: true },
-        }
-      : current.tools,
+    tools: {
+      ...current.tools,
+      knowledgeBase: { ...current.tools.knowledgeBase,
+        ...(!snapshot.profile.configured ? { enabled: true } : {}),
+        ...(enableConnectedPolicy ? { metadataPolicy: "profile" as const } : {}),
+      },
+      ...(sourcesChanged ? { externalMcpServers: draft.connections, webGrounding: { ...current.tools.webGrounding, enabled: draft.webEnabled, allowedUrlPrefixes: draft.webPrefixes.split("\n").map((line) => line.trim()).filter(Boolean) } } : {}),
+    },
+    ...(enableConnectedPolicy && current.grounding ? { grounding: { ...current.grounding, defaultRequirement: "preferred" as const, missingEvidenceBehavior: "ask" as const, citationRequired: true, inheritMetadataCategoryPolicies: false } } : {}),
   };
   return !snapshot.profile.configured ||
     JSON.stringify(next) !== JSON.stringify(current)

@@ -1,4 +1,11 @@
 export const jaDict: Record<string, string> = {
+  "Product search": "商品検索",
+  "Product details": "商品詳細",
+  "Catalog lookup": "カタログ照会",
+  "External tool": "外部ツール",
+  "Web sources": "ウェブ情報源",
+  "Reading pages…": "ページを読み込み中…",
+  "Pages read": "読み込んだページ",
   "{name} is thinking…": "{name}が考えています…",
   "Sending request…": "リクエストを送信中…",
   "Waiting for reply…": "応答を待っています…",

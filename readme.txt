@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -181,6 +181,18 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, backend processing, and the frontend Feature block/shortcode experience. The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.6.1 =
+* Answers: Start with a reviewed assistant preset for site guidance, services, product discovery or customer support, then tailor it to your business before saving.
+* Answers: Set up supported live catalog connections with guided fields, connection checks and explicit read-only approval instead of assembling MCP JSON.
+* Answers: Pair live catalog products with published WordPress pages through guided search, with language-specific mappings and a choice of original, local-first or local-only links.
+* Answers: Review page suggestions from verified local integrations while preserving product identity, live prices, variants and availability from the catalog.
+* Answers: Discover approved web sources during setup, with explicit review of the required evidence policy and preservation of existing detailed settings.
+* Admin: Keep large JSON fields manageable with bounded, resizable local editors and expanded connection setup help.
+* Admin: Keep setup menus visible, derive connection details from the selected backend, and recognize existing service endpoints to prevent duplicate connections.
+* Chatbot: Show concise tool names, provider or source website, and distinct running, completed, failed and interrupted activity states.
+* Chatbot: Add visitor-language configuration for approved MCP tools and preserve source product names and readable references with a compatible backend.
+* Dependencies: Update AI Kit UI to 1.5.31.
 
 = 1.6.0 =
 * Keep backend mode, resolved API URL and access guidance in one compact Status panel.
@@ -591,6 +603,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.6.1 =
+Update the AI Kit backend to orchestration v1.0.116 with product-page resolution, or deploy the equivalent backend changes, before using local product-page links. Existing v1.0.116 stacks also need that capability update. Guided catalog checks and detailed tool activity require a compatible backend. Existing connections and detailed settings remain available. Review presets, connections and page mappings before saving; new external sources require explicit evidence-policy approval. Review saved pairs after moving or unpublishing pages. The profile is shared by clients using the same backend. This plugin update does not deploy the backend or enable cart or checkout actions.
 
 = 1.6.0 =
 Open SmartCloud → Answers for setup, status and Advanced settings and resources. Existing settings and bookmarked admin URLs remain available. Replaying setup preserves settings outside the wizard; the separate Reset settings action explicitly clears local configuration after confirmation. Chatbot and DocSearch still require Pro and a compatible backend; this plugin update does not deploy one. DocSearch’s broad retrieval with visitor-selected taxonomy filters requires the corresponding AI-Kit backend update; updating only the plugin does not change an older backend’s filtering behavior.

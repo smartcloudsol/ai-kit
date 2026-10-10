@@ -58,6 +58,18 @@ const fixture = (): WizardSnapshot =>
     },
   }) as unknown as WizardSnapshot;
 
+test("product page mappings remain draft-owned through Answers replay and revision-protected profile patch", () => {
+  const snapshot = fixture();
+  const connection = { id: "catalog", enabled: true, endpoint: "https://catalog.myshopify.com/mcp", serverName: "catalog", purpose: "Products", tools: [],
+    productPageLinks: { siteUrl: "https://owner.example.com/", policy: "prefer-local" as const, mappings: [{ productId: "opaque-123", publicUrl: "https://owner.example.com/board/", origin: "explicit" as const }] } };
+  snapshot.profile!.document.profile.tools.externalMcpServers = [connection];
+  const draft = createDraft(snapshot);
+  assert.deepEqual(draft.connections[0].productPageLinks, connection.productPageLinks);
+  draft.connections[0].productPageLinks!.policy = "local-only";
+  assert.equal(connection.productPageLinks.policy, "prefer-local");
+  assert.equal(profilePatch(draft, snapshot)!.tools.externalMcpServers![0].productPageLinks!.policy, "local-only");
+});
+
 test("replay derives conversation name from presentation while preserving the disabled KB tool", () => {
   const snapshot = fixture();
   const draft = createDraft(snapshot);
@@ -247,4 +259,76 @@ test('cleared title clears the compatibility name; backend nonconfirmation is no
     return { ...current, document: { ...current.document, profile } };
   });
   await assert.rejects(synchronizeChatTitle('New name', async () => current, async () => current), /did not confirm/);
+});
+
+function strictSourceFixture(): WizardSnapshot {
+  const snapshot = fixture();
+  const profile = snapshot.profile!.document.profile;
+  profile.tools.webGrounding = { enabled: false, allowedUrlPrefixes: ["https://existing.test/help/"] };
+  profile.tools.externalMcpServers = [{
+    id: "existing-source", enabled: true, purpose: "Keep reviewed catalog", endpoint: "https://existing.test/mcp", serverName: "existing-server",
+    tools: [{ name: "search", description: "Reviewed search", policyClass: "read", readOnlyConfirmed: true, inputSchema: { type: "object", properties: {}, additionalProperties: false } }],
+  }];
+  profile.tools.knowledgeBase.metadataPolicy = "inherit";
+  profile.grounding = { defaultRequirement: "required", missingEvidenceBehavior: "decline", citationRequired: true, inheritMetadataCategoryPolicies: true };
+  Object.assign(profile, { model: { modelId: "owner-model" }, safety: { guardrailIdentifier: "owner-guardrail" }, memory: { preserveEvidenceReferences: true } });
+  return snapshot;
+}
+
+test("wizard rerun preserves reviewed sources, web allowlists and strict grounding without new approval", () => {
+  const snapshot = strictSourceFixture();
+  const before = structuredClone(snapshot);
+  const draft = createDraft(snapshot);
+  assert.equal(draft.allowConnectedEvidence, false);
+  assert.equal(draft.webEnabled, false);
+  assert.equal(draft.webPrefixes, "https://existing.test/help/");
+  assert.deepEqual(draft.connections, snapshot.profile!.document.profile.tools.externalMcpServers);
+  draft.role = "Edited role only";
+  const patched = profilePatch(draft, snapshot)!;
+  assert.deepEqual(patched.tools, before.profile!.document.profile.tools);
+  assert.deepEqual(patched.grounding, before.profile!.document.profile.grounding);
+  assert.deepEqual(snapshot, before);
+});
+
+test("new web or connection source cannot silently weaken strict policy without consent", () => {
+  const snapshot = strictSourceFixture();
+  const draft = createDraft(snapshot);
+  draft.webEnabled = true;
+  draft.webPrefixes = "https://new.test/help/";
+  draft.connections.push({ ...draft.connections[0], id: "second-source" });
+  const patched = profilePatch(draft, snapshot)!;
+  assert.deepEqual(patched.grounding, snapshot.profile!.document.profile.grounding);
+  assert.equal(patched.tools.knowledgeBase.metadataPolicy, "inherit");
+  assert.equal(patched.tools.externalMcpServers!.length, 2);
+  assert.deepEqual(patched.tools.webGrounding, { enabled: true, allowedUrlPrefixes: ["https://new.test/help/"] });
+  assert.equal(snapshot.profile!.document.profile.tools.externalMcpServers!.length, 1);
+});
+
+test("explicit connected-source consent changes only declared evidence fields on a source edit", () => {
+  const snapshot = strictSourceFixture();
+  const draft = createDraft(snapshot);
+  draft.allowConnectedEvidence = true;
+  assert.deepEqual(profilePatch(draft, snapshot)!.grounding, snapshot.profile!.document.profile.grounding);
+  draft.webEnabled = true;
+  draft.webPrefixes = " \nhttps://new.test/help/\n ";
+  const patched = profilePatch(draft, snapshot)!;
+  assert.deepEqual(patched.grounding, { defaultRequirement: "preferred", missingEvidenceBehavior: "ask", citationRequired: true, inheritMetadataCategoryPolicies: false });
+  assert.equal(patched.tools.knowledgeBase.metadataPolicy, "profile");
+  for (const key of ["model", "safety", "memory"] as const) {
+    assert.deepEqual((patched as unknown as Record<string, unknown>)[key], (snapshot.profile!.document.profile as unknown as Record<string, unknown>)[key]);
+  }
+  assert.deepEqual(patched.tools.externalMcpServers, snapshot.profile!.document.profile.tools.externalMcpServers);
+});
+
+test("source removal does not activate relaxed evidence and draft edits do not mutate saved connections", () => {
+  const snapshot = strictSourceFixture();
+  const draft = createDraft(snapshot);
+  draft.connections[0].purpose = "Changed local purpose";
+  assert.equal(snapshot.profile!.document.profile.tools.externalMcpServers![0].purpose, "Keep reviewed catalog");
+  draft.connections = [];
+  draft.webEnabled = false;
+  draft.allowConnectedEvidence = true;
+  const patched = profilePatch(draft, snapshot)!;
+  assert.deepEqual(patched.grounding, snapshot.profile!.document.profile.grounding);
+  assert.equal(patched.tools.knowledgeBase.metadataPolicy, "inherit");
 });

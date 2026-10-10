@@ -397,6 +397,47 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         each chat request.
       </Text>
 
+      <Title order={3} mt="md" id="conversation-profile-presets">
+        <span className="highlightable">Start with a useful assistant profile</span>
+      </Title>
+      <Text>
+        In Answers setup, or when editing the profile, choose a starting point:
+        Site guide, Services and enquiries, Product discovery, or Customer
+        support. These are editable behavior templates, not verified knowledge
+        or a connection to a service.
+      </Text>
+      <List size="sm" spacing="xs" withPadding>
+        <List.Item>
+          Enter your site or business name and describe what visitors should
+          achieve in one or two sentences. Optionally describe your audience
+          and main topics, services, or product categories. Use your own words
+          and replace any placeholders with your actual information.
+        </List.Item>
+        <List.Item>
+          Select Preview assistant profile and review the role, purpose, tasks,
+          tone, audience, and resulting general context. Selecting a preset or
+          previewing it does not change saved settings.
+        </List.Item>
+        <List.Item>
+          Apply reviewed profile copies those behavior fields into your draft.
+          Existing general context outside the setup background section is
+          retained. Model settings, tools, grounding, guardrails, and other
+          detailed policy remain unchanged.
+        </List.Item>
+        <List.Item>
+          Edit the draft if needed, then choose Finish setup in the wizard or
+          Save profile in detailed settings. Applying a preview alone does not
+          save the profile. Repeating setup follows the same review and save
+          steps.
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        A product-discovery starting point does not enable a catalog or cart.
+        Connect live information separately. Prices, stock, service terms, and
+        support policies must come from your configured sources, not the short
+        business description.
+      </Text>
+
       <Title order={3} mt="md" id="conversation-profile-identity-scope">
         <span className="highlightable">Identity and scope</span>
       </Title>
@@ -518,6 +559,158 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         tool forces at least one tool call for each request.
       </Text>
 
+      <Title order={3} mt="md" id="conversation-profile-connections">
+        <span className="highlightable">Connect live information</span>
+      </Title>
+      <Text>
+        Guided connections are optional. Choose a service from the list
+        supplied by your backend, enter its connection details, then check and
+        review the available reads. Your WordPress content remains a separate
+        knowledge source. Opening this section does not install a plugin,
+        create an account, or enable any operation.
+      </Text>
+      <List size="sm" spacing="xs" withPadding>
+        <List.Item>
+          For a supported product catalog, find the store&apos;s own domain in
+          its administration. Shopify uses the shop&apos;s
+          <Code>myshopify.com</Code> domain; copy the domain rather than an admin
+          page, product URL, or JSON export. The preset derives the supported
+          endpoint and reviewed input shapes for you.
+        </List.Item>
+        <List.Item>
+          Country selects the selling market. Fallback catalog language selects
+          the language used without visitor-language binding. Use the
+          visitor&apos;s language sends the resolved reply language when the
+          service supports it; it does not change country or currency. Actual
+          product translations must be published in the service.
+        </List.Item>
+        <List.Item>
+          Connection details includes the public agent profile used for
+          protocol negotiation. Prefer the owned profile URL supplied by the
+          selected compatible backend. It must be publicly reachable by the
+          service and describe capabilities supported by your backend. It is
+          not an account password or API token; do not paste secrets or use a
+          tutorial profile as your permanent production identity.
+        </List.Item>
+        <List.Item>
+          Check connection and available reads initializes the remote service
+          and lists its available tool schemas. It does not call a catalog
+          search or another tool, modify store data, or save a profile. Review
+          the service identity, endpoint, and operations shown in the result.
+        </List.Item>
+        <List.Item>
+          Explicitly approve the listed read-only operations, then Add reviewed
+          connection to draft. Finish setup or Save profile persists that
+          draft. Cart, checkout, and order changes are not enabled by this
+          approval. Changing connection details requires a new check.
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        If guided discovery is unavailable, update the selected backend to a
+        compatible release or use a reviewed custom configuration in detailed
+        Tools settings. Existing connections are retained. Saving a connection
+        does not prove answer quality; test a known item, its details, a missing
+        item, and the intended visitor language against the source service.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-product-pages">
+        <span className="highlightable">Product pages on your website</span>
+      </Title>
+      <Text>
+        Your catalog can supply current prices and availability while visitors
+        read the full product information on your own WordPress website. Choose
+        whether to keep the original store links, prefer your WordPress pages,
+        or use only WordPress pages. Existing profiles keep their original links
+        until you change this setting. Local page resolution needs a compatible backend.
+      </Text>
+      <List size="sm" spacing="xs" withPadding>
+        <List.Item>
+          Search the approved live catalog by a product name and select a result.
+          The product ID is filled from the service; no JSON export or identifier
+          lookup is needed. Check the displayed ID for similarly named products.
+        </List.Item>
+        <List.Item>
+          Search published WordPress pages and select the page dedicated to that
+          product. Only public pages without passwords are offered. A collection
+          page is not automatically a dedicated product page. No page is created
+          or published by the assistant.
+        </List.Item>
+        <List.Item>
+          Review the pair and add it to the draft. An optional language tag limits
+          it to that visitor language; leave it empty for a shared page. Exact
+          language, base language, then shared page determine the match. Finish
+          setup or Save profile saves the pairs with your other settings.
+        </List.Item>
+        <List.Item>
+          Local integrations may suggest pages using verified product IDs. Review
+          them before adding. Explicit pairs take precedence. Recognition depends
+          on the installed integration; unsupported Shopify plugins use the manual
+          picker. Names and URL slugs are never guessed as product identities.
+        </List.Item>
+        <List.Item>
+          Prefer WordPress pages falls back to the original product link when no
+          local pair matches. WordPress pages only omits that external link. Prices,
+          variants and availability remain facts from the live catalog in either mode.
+        </List.Item>
+      </List>
+      <Text mt="xs">
+        Keep up to 50 pairs per connection. After moving or unpublishing a page,
+        review its saved pair; discovery does not automatically rewrite profiles.
+        The profile is shared by clients using this backend, so choose their intended
+        public website. These settings do not enable cart or checkout operations.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-mcp-json">
+        <span className="highlightable">Custom MCP configuration and JSON</span>
+      </Title>
+      <Text>
+        Custom configurations describe operations approved by the site owner.
+        The server ID is your unique local name; the pinned server name comes
+        from the MCP initialize response. The endpoint comes from the
+        service&apos;s official documentation. The purpose and tool descriptions
+        explain the intended allowed use in your own words.
+      </Text>
+      <Text mt="xs">
+        The remote tool name and inputSchema come from the service&apos;s MCP
+        tools/list response. Review them before approval. An approved snapshot
+        combines that remote schema with your approved description, policy
+        class, and explicit read-only confirmation. It is not an arbitrary
+        product export or a JSON document generated from a prompt. The backend
+        validates the saved schema and checks the service identity and schema
+        during use; a remote change can require renewed review.
+      </Text>
+      <Text mt="xs">
+        A reviewed model inputSchema may narrow or reshape the permitted input
+        through a shipped adapter. In that case, remoteInputSchema records the
+        actual remote schema used for compatibility checks. Protocol-adapter
+        and provider-preset configuration are data for code shipped with your
+        backend, not executable scripts. Use only documented adapter fields.
+        Visitor-language binding uses a declared string field in every
+        approved model input schema; a guided connection supplies its pointer.
+      </Text>
+      <Text mt="xs">
+        Reviewed server import stages a disabled, unsaved configuration for
+        inspection. Check the identity, endpoint, operations, descriptions,
+        read-only approval, and adapter details before enabling and saving it.
+        Example configuration files illustrate one captured and reviewed
+        service version; they are not guaranteed to match your service and are
+        not Shopify exports. Keep custom snapshots up to date when the remote
+        service changes.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-product-actions">
+        <span className="highlightable">Catalog answers and future cart actions</span>
+      </Title>
+      <Text>
+        The catalog connection currently supplies read-only evidence for
+        replies and references. It does not install product cards, a carousel,
+        a shopping cart, or checkout actions. A site&apos;s commerce plugin and
+        an MCP or UCP cart do not automatically share a cart or visitor session.
+        Any future cart integration needs a supported driver and an explicit
+        visitor action; the assistant must not claim a cart change succeeded
+        from a text recommendation alone.
+      </Text>
+
       <Title order={3} mt="md" id="conversation-profile-kb-tool">
         <span className="highlightable">Knowledge Base and metadata</span>
       </Title>
@@ -538,6 +731,14 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         permits the full host. A path prefix such as{" "}
         <Code>https://aws.amazon.com/marketplace/</Code> permits only that
         section and its descendants.
+      </Text>
+      <Text mt="xs">
+        This is approved-page retrieval, not unrestricted web search. Add only
+        the public pages or sections you want the assistant to consult. Guided
+        setup stages this access separately from other connections. If the
+        current evidence policy permits only Knowledge Base sources, enabling
+        web grounding also requires explicit approval of the compatible policy
+        change. Existing grounding and safety policy is otherwise retained.
       </Text>
 
       <Title order={3} mt="md" id="conversation-profile-grounding-safety">

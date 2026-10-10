@@ -444,3 +444,67 @@ test("retains safe search details at completion and discards unsafe URL data", a
   assert.deepEqual(finalActivities[0]?.urls, ["https://example.com/docs"]);
   assert.doesNotMatch(JSON.stringify(finalActivities), /secret|password|not-for-the-client/);
 });
+
+test("retains bounded tool metadata through running, completion, reconnect snapshot and replay", async () => {
+  const views: ChatActivity[][] = [];
+  const params = { operation: "catalog_search", toolName: "search_catalog", providerLabel: "Demo Commerce" };
+  const activity = { activityId: "catalog-1", kind: "other", labelKey: "chat.activity.other", status: "running", labelParams: { ...params, purpose: "private-instructions", arguments: { token: "private-token" } } };
+  let connections = 0;
+  await runChatStreamTurn({
+    url: "wss://stream.example.test/chat", text: "products", locale: "en", requestId: "request-tool-metadata", retryDelayMs: 0,
+    signal: new AbortController().signal,
+    ticketProvider: async () => ({ ticket: "ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+    socketFactory: () => {
+      connections += 1;
+      return new FakeSocket((command, socket) => {
+        if (command.type === "turn.start") queueMicrotask(() => {
+          socket.emit("turn.accepted", 0, { sessionId: "session-1" });
+          socket.emit("activity.started", 1, activity);
+          socket.emit("activity.completed", 2, { ...activity, status: "completed" });
+          socket.close();
+        });
+        else if (command.type === "turn.resume") queueMicrotask(() => {
+          assert.equal(command.afterSeq, 2);
+          socket.emit("turn.snapshot", 3, { lastSeq: 3, active: true, result: "", activities: [{ ...activity, status: "completed" }] });
+          // A replayed event must neither duplicate nor overwrite newer state.
+          socket.emit("activity.started", 1, activity);
+          socket.emit("answer.completed", 4, { result: "Products", activities: [{ ...activity, status: "completed" }] });
+        });
+      }) as unknown as WebSocket;
+    },
+    onView: (view) => views.push(structuredClone(view.activities)),
+  });
+  assert.equal(connections, 2);
+  const nonempty = views.filter((activities) => activities.length);
+  assert.ok(nonempty.some((activities) => activities[0].status === "running"));
+  assert.ok(nonempty.some((activities) => activities[0].status === "completed"));
+  for (const activities of nonempty) {
+    assert.equal(activities.length, 1);
+    assert.deepEqual(activities[0].labelParams, params);
+  }
+  assert.equal(nonempty.at(-1)?.[0].status, "completed");
+  assert.doesNotMatch(JSON.stringify(nonempty), /private-instructions|private-token|arguments|purpose/);
+});
+
+test("parser rejects unknown semantic operations and strips invalid names and raw payloads", async () => {
+  let activities: ChatActivity[] = [];
+  const external = { kind: "other", labelKey: "chat.activity.other", status: "completed" };
+  await runChatStreamTurn({
+    url: "wss://stream.example.test/chat", text: "products", locale: "en", requestId: "request-unsafe-tool-metadata",
+    signal: new AbortController().signal,
+    ticketProvider: async () => ({ ticket: "ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+    socketFactory: () => new FakeSocket((command, socket) => {
+      if (command.type === "turn.start") queueMicrotask(() => {
+        socket.emit("turn.accepted", 0, { sessionId: "session-1" });
+        socket.emit("activity.completed", 1, { ...external, activityId: "unknown", labelParams: { operation: "run_anything", toolName: "secret_tool" } });
+        socket.emit("activity.completed", 2, { ...external, activityId: "known", labelParams: { operation: "external_read", toolName: "<b>bad</b>", providerLabel: "x".repeat(65), arguments: "raw-private-args" }, rawResult: "raw-private-result" });
+        socket.emit("answer.completed", 3, { result: "Done" });
+      });
+    }) as unknown as WebSocket,
+    onView: (view) => { activities = view.activities; },
+  });
+  assert.equal(activities[0].labelParams, undefined);
+  assert.deepEqual(activities[1].labelParams, { operation: "external_read" });
+  assert.equal(isSummaryActivity(activities[1]), true);
+  assert.doesNotMatch(JSON.stringify(activities), /secret_tool|raw-private|<b>|run_anything/);
+});

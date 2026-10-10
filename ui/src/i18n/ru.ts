@@ -1,4 +1,11 @@
 export const ruDict: Record<string, string> = {
+  "Product search": "Поиск товаров",
+  "Product details": "Сведения о товаре",
+  "Catalog lookup": "Запрос к каталогу",
+  "External tool": "Внешний инструмент",
+  "Web sources": "Веб-источники",
+  "Reading pages…": "Чтение страниц…",
+  "Pages read": "Страницы прочитаны",
   "{name} is thinking…": "{name} размышляет…",
   "Sending request…": "Отправка запроса…",
   "Waiting for reply…": "Ожидание ответа…",

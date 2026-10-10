@@ -193,6 +193,11 @@ class Admin
     {
         require_once __DIR__ . '/answers-settings.php';
         require_once __DIR__ . '/answers-onboarding.php';
+        require_once __DIR__ . '/answers-product-pages.php';
+        register_rest_route(SMARTCLOUD_AI_KIT_SLUG . '/v1', '/answers-product-pages', array(
+            'methods' => 'GET', 'callback' => array(AnswersProductPages::class, 'read'),
+            'permission_callback' => array(AnswersProductPages::class, 'permission'),
+        ));
         register_rest_route(SMARTCLOUD_AI_KIT_SLUG . '/v1', '/answers-onboarding', array(
             array('methods' => 'GET', 'callback' => array(AnswersOnboarding::class, 'read'), 'permission_callback' => array(AnswersOnboarding::class, 'permission')),
             array('methods' => 'POST', 'callback' => array(AnswersOnboarding::class, 'save'), 'permission_callback' => array(AnswersOnboarding::class, 'permission')),

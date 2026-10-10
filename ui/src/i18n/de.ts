@@ -1,4 +1,11 @@
 export const deDict: Record<string, string> = {
+  "Product search": "Produktsuche",
+  "Product details": "Produktdetails",
+  "Catalog lookup": "Katalogabfrage",
+  "External tool": "Externes Werkzeug",
+  "Web sources": "Webquellen",
+  "Reading pages…": "Seiten werden gelesen…",
+  "Pages read": "Seiten gelesen",
   "{name} is thinking…": "{name} denkt nach…",
   "Sending request…": "Anfrage wird gesendet…",
   "Waiting for reply…": "Warten auf Antwort…",

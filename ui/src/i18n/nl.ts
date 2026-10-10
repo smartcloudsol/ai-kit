@@ -1,4 +1,11 @@
 export const nlDict: Record<string, string> = {
+  "Product search": "Producten zoeken",
+  "Product details": "Productdetails",
+  "Catalog lookup": "Catalogus raadplegen",
+  "External tool": "Extern hulpmiddel",
+  "Web sources": "Webbronnen",
+  "Reading pages…": "Pagina’s lezen…",
+  "Pages read": "Pagina’s gelezen",
   "{name} is thinking…": "{name} denkt na…",
   "Sending request…": "Verzoek verzenden…",
   "Waiting for reply…": "Wachten op antwoord…",

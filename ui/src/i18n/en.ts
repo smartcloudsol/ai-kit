@@ -1,4 +1,11 @@
 export const enDict: Record<string, string> = {
+  "Product search": "Product search",
+  "Product details": "Product details",
+  "Catalog lookup": "Catalog lookup",
+  "External tool": "External tool",
+  "Web sources": "Web sources",
+  "Reading pages…": "Reading pages…",
+  "Pages read": "Pages read",
   "{name} is thinking…": "{name} is thinking…",
   "Sending request…": "Sending request…",
   "Waiting for reply…": "Waiting for reply…",

@@ -1,4 +1,11 @@
 export const heDict: Record<string, string> = {
+  "Product search": "חיפוש מוצרים",
+  "Product details": "פרטי המוצר",
+  "Catalog lookup": "שאילתה בקטלוג",
+  "External tool": "כלי חיצוני",
+  "Web sources": "מקורות ברשת",
+  "Reading pages…": "קריאת דפים…",
+  "Pages read": "דפים שנקראו",
   "{name} is thinking…": "{name} חושב…",
   "Sending request…": "שליחת בקשה…",
   "Waiting for reply…": "ממתינים לתשובה…",

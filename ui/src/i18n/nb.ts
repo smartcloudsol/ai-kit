@@ -1,4 +1,11 @@
 export const nbDict: Record<string, string> = {
+  "Product search": "Produktsøk",
+  "Product details": "Produktdetaljer",
+  "Catalog lookup": "Katalogoppslag",
+  "External tool": "Eksternt verktøy",
+  "Web sources": "Nettkilder",
+  "Reading pages…": "Leser sider…",
+  "Pages read": "Sider lest",
   "{name} is thinking…": "{name} tenker…",
   "Sending request…": "Sender forespørsel…",
   "Waiting for reply…": "Venter på svar…",

@@ -1,4 +1,11 @@
 export const ptDict: Record<string, string> = {
+  "Product search": "Pesquisa de produtos",
+  "Product details": "Detalhes do produto",
+  "Catalog lookup": "Consulta ao catálogo",
+  "External tool": "Ferramenta externa",
+  "Web sources": "Fontes da web",
+  "Reading pages…": "Lendo páginas…",
+  "Pages read": "Páginas lidas",
   "{name} is thinking…": "{name} está pensando…",
   "Sending request…": "Enviando solicitação…",
   "Waiting for reply…": "Aguardando resposta…",

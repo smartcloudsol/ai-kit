@@ -1,4 +1,11 @@
 export const uaDict: Record<string, string> = {
+  "Product search": "Пошук товарів",
+  "Product details": "Відомості про товар",
+  "Catalog lookup": "Запит до каталогу",
+  "External tool": "Зовнішній інструмент",
+  "Web sources": "Вебджерела",
+  "Reading pages…": "Читання сторінок…",
+  "Pages read": "Прочитані сторінки",
   "{name} is thinking…": "{name} думає…",
   "Sending request…": "Надсилання запиту…",
   "Waiting for reply…": "Очікування відповіді…",

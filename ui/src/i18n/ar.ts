@@ -1,4 +1,11 @@
 export const arDict: Record<string, string> = {
+  "Product search": "البحث عن المنتجات",
+  "Product details": "تفاصيل المنتج",
+  "Catalog lookup": "استعلام الكتالوج",
+  "External tool": "أداة خارجية",
+  "Web sources": "مصادر الويب",
+  "Reading pages…": "قراءة الصفحات…",
+  "Pages read": "تمت قراءة الصفحات",
   "{name} is thinking…": "{name} يفكر…",
   "Sending request…": "جارٍ إرسال الطلب…",
   "Waiting for reply…": "بانتظار الرد…",

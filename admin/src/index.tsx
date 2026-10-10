@@ -1,6 +1,7 @@
 import "./backend-readiness-entry";
 import "./introduction-images";
-import { MantineProvider, createTheme } from "@mantine/core";
+import { MantineProvider } from "@mantine/core";
+import { adminTheme } from "./theme";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import {
@@ -38,9 +39,7 @@ if (!production) {
 
 
 
-const theme = createTheme({
-  respectReducedMotion: true,
-});
+const theme = adminTheme;
 
 declare global {
   const wp: {

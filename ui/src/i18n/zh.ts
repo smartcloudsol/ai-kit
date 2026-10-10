@@ -1,4 +1,11 @@
 export const zhDict: Record<string, string> = {
+  "Product search": "商品搜索",
+  "Product details": "商品详情",
+  "Catalog lookup": "目录查询",
+  "External tool": "外部工具",
+  "Web sources": "网页来源",
+  "Reading pages…": "正在读取页面…",
+  "Pages read": "已读取页面",
   "{name} is thinking…": "{name}正在思考…",
   "Sending request…": "正在发送请求…",
   "Waiting for reply…": "正在等待回复…",

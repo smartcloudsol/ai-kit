@@ -1,4 +1,11 @@
 export const koDict: Record<string, string> = {
+  "Product search": "제품 검색",
+  "Product details": "제품 상세 정보",
+  "Catalog lookup": "카탈로그 조회",
+  "External tool": "외부 도구",
+  "Web sources": "웹 출처",
+  "Reading pages…": "페이지 읽는 중…",
+  "Pages read": "읽은 페이지",
   "{name} is thinking…": "{name} 생각 중…",
   "Sending request…": "요청 전송 중…",
   "Waiting for reply…": "응답 대기 중…",

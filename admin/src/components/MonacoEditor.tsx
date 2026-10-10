@@ -17,6 +17,10 @@ export interface MonacoEditorProps {
   theme?: "vs-dark" | "vs-light";
   minimap?: boolean;
   wordWrap?: "on" | "off" | "wordWrapColumn" | "bounded";
+  fillContainer?: boolean;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
 }
 
 export default function MonacoEditor({
@@ -28,6 +32,10 @@ export default function MonacoEditor({
   theme = "vs-light",
   minimap = true,
   wordWrap = "on",
+  fillContainer = false,
+  ariaLabel,
+  ariaDescribedBy,
+  ariaInvalid,
 }: MonacoEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
@@ -35,6 +43,24 @@ export default function MonacoEditor({
   const [EditorComponent, setEditorComponent] = useState<
     (typeof import("@monaco-editor/react"))["default"] | null
   >(null);
+
+  const applyAccessibility = (editor: Parameters<OnMount>[0]) => {
+    if (!ariaLabel && ariaDescribedBy === undefined && ariaInvalid === undefined) return;
+    const input = editor.getDomNode()?.querySelector('[role="textbox"]');
+    if (!input) return;
+    if (ariaDescribedBy) input.setAttribute("aria-describedby", ariaDescribedBy);
+    else input.removeAttribute("aria-describedby");
+    input.setAttribute("aria-invalid", String(ariaInvalid ?? false));
+  };
+
+  useEffect(() => {
+    if (!ariaLabel && ariaDescribedBy === undefined && ariaInvalid === undefined) return;
+    const input = editorRef.current?.getDomNode()?.querySelector('[role="textbox"]');
+    if (!input) return;
+    if (ariaDescribedBy) input.setAttribute("aria-describedby", ariaDescribedBy);
+    else input.removeAttribute("aria-describedby");
+    input.setAttribute("aria-invalid", String(ariaInvalid ?? false));
+  }, [ariaLabel, ariaDescribedBy, ariaInvalid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +119,9 @@ export default function MonacoEditor({
       renderWhitespace: "selection",
       scrollBeyondLastLine: false,
       automaticLayout: true,
+      ...(ariaLabel ? { ariaLabel } : {}),
     });
+    applyAccessibility(editor);
   };
 
   const handleEditorChange = (newValue: string | undefined) => {
@@ -117,6 +145,7 @@ export default function MonacoEditor({
         border: "1px solid var(--mantine-color-gray-3)",
         borderRadius: "var(--mantine-radius-sm)",
         overflow: "hidden",
+        ...(fillContainer ? { height: "100%", minHeight: 0, minWidth: 0 } : {}),
       }}
     >
       {EditorComponent ? (
@@ -141,6 +170,7 @@ export default function MonacoEditor({
             insertSpaces: true,
             formatOnPaste: true,
             formatOnType: true,
+            ...(ariaLabel ? { ariaLabel } : {}),
           }}
         />
       ) : loadError ? (

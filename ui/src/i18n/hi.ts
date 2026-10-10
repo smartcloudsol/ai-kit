@@ -1,4 +1,11 @@
 export const hiDict: Record<string, string> = {
+  "Product search": "उत्पाद खोज",
+  "Product details": "उत्पाद का विवरण",
+  "Catalog lookup": "कैटलॉग की जानकारी",
+  "External tool": "बाहरी टूल",
+  "Web sources": "वेब स्रोत",
+  "Reading pages…": "पृष्ठ पढ़े जा रहे हैं…",
+  "Pages read": "पढ़े गए पृष्ठ",
   "{name} is thinking…": "{name} सोच रहा है…",
   "Sending request…": "अनुरोध भेजा जा रहा है…",
   "Waiting for reply…": "उत्तर की प्रतीक्षा है…",
