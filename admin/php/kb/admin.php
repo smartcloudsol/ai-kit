@@ -1052,6 +1052,7 @@ class Admin
                 'value' => $post_type->name,
                 'label' => $post_type->labels->singular_name ?: $post_type->label,
                 'taxonomies' => $taxonomies,
+                'structuredFields' => KnowledgeSyncStructuredContent::candidates($post_type->name),
             );
         }
         usort($post_types, static fn(array $left, array $right): int => strcmp($left['label'], $right['label']));

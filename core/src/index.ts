@@ -46,6 +46,8 @@ export * from "./icons";
 export * from "./types";
 export * from "./ai-disclosures";
 export * from "./knowledge-sync";
+export * from "./structured-content";
+export * from "./answer-presentation";
 export * from "./backend-compatibility";
 export * from "./chat-stream-types";
 

@@ -1,5 +1,7 @@
+import type { StructuredContentPolicy, StructuredContentProjection } from "./structured-content";
 export declare const KNOWLEDGE_SYNC_CONTRACT_VERSION: 1;
 export declare const KNOWLEDGE_SYNC_LOCALE_CONTRACT_VERSION: 2;
+export declare const KNOWLEDGE_SYNC_STRUCTURED_CONTRACT_VERSION: 3;
 export type KnowledgeSyncOperation = "upsert" | "delete";
 export type KnowledgeSyncReviewPolicy = "wordpress-publish-is-approval" | "manual-kb-review" | "disabled";
 export interface KnowledgeSyncSourceIdentityV1 {
@@ -36,6 +38,19 @@ export interface KnowledgeSyncDocumentV2 extends KnowledgeSyncDocumentV1 {
     /** Canonical base-language BCP 47 tag used for single-language retrieval. */
     locale: string;
 }
+export interface KnowledgeSyncDocumentV3 extends KnowledgeSyncDocumentV2 {
+    structuredContent: StructuredContentProjection;
+}
+export type PublicContentProjectionV3 = Omit<KnowledgeSyncProjectionBaseV2, "schemaVersion"> & {
+    schemaVersion: 3;
+} & ({
+    operation: "upsert";
+    document: KnowledgeSyncDocumentV3;
+} | {
+    operation: "delete";
+    document: null;
+    lastPublicUrl?: string;
+});
 interface KnowledgeSyncProjectionBaseV1 {
     schemaVersion: typeof KNOWLEDGE_SYNC_CONTRACT_VERSION;
     source: KnowledgeSyncSourceIdentityV1;
@@ -66,7 +81,7 @@ export type PublicContentProjectionV2 = KnowledgeSyncProjectionBaseV2 & ({
     document: null;
     lastPublicUrl?: string;
 });
-export type PublicContentProjection = PublicContentProjectionV1 | PublicContentProjectionV2;
+export type PublicContentProjection = PublicContentProjectionV1 | PublicContentProjectionV2 | PublicContentProjectionV3;
 export interface KnowledgeSyncPolicyV1 {
     schemaVersion: typeof KNOWLEDGE_SYNC_CONTRACT_VERSION;
     postType: string;
@@ -79,6 +94,7 @@ export interface KnowledgeSyncPolicyV1 {
     metadataRefresh: "reconcile";
     includeTaxonomies: string[];
     documentProfile: string;
+    structuredContent?: StructuredContentPolicy;
 }
 export interface KnowledgeSyncBoundary {
     producer: KnowledgeSyncSourceIdentityV1["producer"];
@@ -92,7 +108,8 @@ export declare class KnowledgeSyncContractError extends Error {
 }
 export declare function parsePublicContentProjectionV1(value: unknown, boundary?: KnowledgeSyncBoundary): PublicContentProjectionV1;
 export declare function parsePublicContentProjectionV2(value: unknown, boundary?: KnowledgeSyncBoundary): PublicContentProjectionV2;
-/** Parse either supported producer contract during the rolling upgrade. */
+export declare function parsePublicContentProjectionV3(value: unknown, boundary?: KnowledgeSyncBoundary): PublicContentProjectionV3;
+/** Parse supported producer contracts during the rolling upgrade. */
 export declare function parsePublicContentProjection(value: unknown, boundary?: KnowledgeSyncBoundary): PublicContentProjection;
 export declare function parseKnowledgeSyncPolicyV1(value: unknown): KnowledgeSyncPolicyV1;
 export declare function compareKnowledgeSourceVersions(candidate: string, accepted: string): SourceVersionOrder;

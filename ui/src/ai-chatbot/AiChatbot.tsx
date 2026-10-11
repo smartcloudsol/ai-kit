@@ -35,6 +35,7 @@ import {
   type AiKitStatusEvent,
   type HistoryStorageMode,
   type ProcessedCitations,
+  type AnswerPresentation,
 } from "@smart-cloud/ai-kit-core";
 import { useSelect } from "@wordpress/data";
 import { useAiKitI18n } from "../locale";
@@ -74,6 +75,8 @@ import {
   isToolActivity,
 } from "./chatStream";
 import { resolveChatWelcome } from "./welcome";
+import { AnswerPresentationView } from "./AnswerPresentation";
+import { normalizeAnswerPresentation, withSafeAnswerPresentation } from "./answer-presentation-state";
 
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -133,6 +136,7 @@ export const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels> = {
 
 type ChatResponse = {
   result: string;
+  presentation?: AnswerPresentation;
   sessionId?: string;
   citations?: ProcessedCitations | CitationLike[];
   activities?: ChatActivity[];
@@ -164,6 +168,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  presentation?: AnswerPresentation;
   citations?: CitationLike[];
   createdAt: number;
   feedback?: "accepted" | "rejected";
@@ -848,6 +853,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         id: partial.checkpoint?.assistantMessageId ?? createMessageId("assistant-partial"),
         role: "assistant",
         content: partial.text,
+        presentation: normalizeAnswerPresentation(partial.presentation),
         citations: normalizeChatCitations(partial.citations),
         activities: partial.activities,
         completion: "partial",
@@ -1045,6 +1051,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       const hydrated: ChatMessage[] = [];
 
       for (const msg of stored) {
+        const safeMessage = withSafeAnswerPresentation(msg);
         let attachments: ChatMessageAttachment[] | undefined;
         if (msg.attachments && msg.attachments.length > 0) {
           attachments = [];
@@ -1074,7 +1081,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         }
 
         hydrated.push({
-          ...msg,
+          ...safeMessage,
           attachments,
         });
       }
@@ -1372,6 +1379,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             });
             return {
               result: streamed.result,
+              presentation: streamed.presentation,
               sessionId: streamed.sessionId,
               citations: streamed.citations,
               metadata: {
@@ -1436,6 +1444,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         id: res.metadata?.messageId || createMessageId("assistant"),
         role: "assistant",
         content: resultText,
+        presentation: normalizeAnswerPresentation(res.presentation),
         citations: normalizeChatCitations(res.citations),
         activities: res.activities,
         createdAt: Date.now(),
@@ -1586,6 +1595,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             id: result.messageId ?? createMessageId("assistant"),
             role: "assistant",
             content: result.result,
+            presentation: normalizeAnswerPresentation(result.presentation),
             citations: normalizeChatCitations(result.citations),
             activities: latestView?.activities,
             createdAt: Date.now(),
@@ -1939,8 +1949,10 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           parsed.activeStream?.checkpoint?.turnId &&
           parsed.activeStream.checkpoint.conversationId
         ) {
-          setActiveStream(parsed.activeStream);
-          setStreamToResume(parsed.activeStream);
+          const safeStream = { ...parsed.activeStream,
+            ...(parsed.activeStream.view ? { view: withSafeAnswerPresentation(parsed.activeStream.view) } : {}) };
+          setActiveStream(safeStream);
+          setStreamToResume(safeStream);
         }
       } catch (error) {
         console.warn("[AiChatbot] Failed to load history", error);
@@ -1983,7 +1995,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
     const persistableMessages: PersistedChatMessage[] = messages.map(
       ({ attachments, ...rest }) => ({
-        ...rest,
+        ...withSafeAnswerPresentation(rest),
         attachments: attachments?.map(
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           ({ objectUrl, blob, ...persisted }) => persisted,
@@ -1996,7 +2008,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       lastUserSentAt: last,
       session: sessionRef.current,
       messages: persistableMessages,
-      activeStream,
+      activeStream: activeStream ? { ...activeStream,
+        ...(activeStream.view ? { view: withSafeAnswerPresentation(activeStream.view) } : {}) } : undefined,
     };
 
     try {
@@ -2160,7 +2173,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                         alignItems: isUser ? "flex-end" : "flex-start",
                       }}
                     >
-                      <Stack className="ai-chat-bubble">
+                      <Stack className="ai-chat-bubble" style={msg.role === "assistant" && msg.presentation
+                        ? { width: "100%", maxWidth: "100%", minWidth: 0 } : undefined}>
                         <Text className="ai-chat-header">
                           <Text
                             fw="bolder"
@@ -2186,6 +2200,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {msg.content}
                             </ReactMarkdown>
+                            <AnswerPresentationView presentation={msg.presentation} />
                           </>
                         ) : (
                           <Text size="sm" miw="100px">

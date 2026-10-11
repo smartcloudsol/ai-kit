@@ -4,7 +4,7 @@ export interface ConversationProfile {
   identity: { assistantName?: string; role: string; sitePurpose: string; audience?: string };
   context: { markdown: string };
   guidance: { primaryGoals: string[] };
-  response: { tone: string };
+  response: { tone: string; presentation?: import("@smart-cloud/ai-kit-core").AnswerPresentationPolicy };
   tools: {
     knowledgeBase: { enabled: boolean; metadataPolicy?: "inherit" | "profile" };
     externalMcpServers?: ConnectionServer[];
@@ -34,6 +34,10 @@ export interface KnowledgeSyncPolicy {
   metadataRefresh: "reconcile";
   includeTaxonomies: string[];
   documentProfile: string;
+  structuredContent?: {
+    enabled: boolean;
+    fields: Array<{ sourceMetaKey: string; targetKey: string; type: "string" | "url" | "number" | "boolean" | "string-list"; description: string }>;
+  };
 }
 
 export interface KnowledgeSyncStatus {
@@ -42,5 +46,6 @@ export interface KnowledgeSyncStatus {
     value: string;
     label: string;
     taxonomies: Array<{ value: string; label: string }>;
+    structuredFields?: Array<{ sourceMetaKey: string; type: "string" | "url" | "number" | "boolean" | "string-list"; description: string }>;
   }>;
 }

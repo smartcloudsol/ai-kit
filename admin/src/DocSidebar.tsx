@@ -559,6 +559,34 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         tool forces at least one tool call for each request.
       </Text>
 
+      <Title order={3} mt="md" id="conversation-profile-presentation">
+        <span className="highlightable">Display templates</span>
+      </Title>
+      <Text>
+        Select an approved read source and a compact list, cards or carousel
+        layout. Map its own output fields with JSON Pointers; empty selects the
+        root. Templates do not authorize new tools, run code or accept raw HTML.
+        Identity and title are required. Optional descriptions, images, typed
+        attributes and navigation links appear only when the verified source
+        supplies them. Images and links also need approved public HTTPS origin
+        or path prefixes. Never use a model-generated URL, price or time slot.
+      </Text>
+      <Text>
+        Write headings and button labels in the intended content language.
+        Changing the assistant language does not translate authored template
+        copy. Add, remove or move attributes and links to control visibility and
+        order. Each template carries a revision and shows at most six items.
+        Missing images or prices do not prevent a valid title from appearing.
+      </Text>
+      <Text>
+        Preview executes a bounded authenticated read of the approved source,
+        not a model call. Enter its declared lookup arguments, never pasted
+        output. Observed fields describe only that fresh sample and are not an
+        output schema. Any profile, connection, mapping or argument change
+        invalidates the preview. A navigation link opens a page; it does not
+        place an order or book an appointment. Save the profile after review.
+      </Text>
+
       <Title order={3} mt="md" id="conversation-profile-connections">
         <span className="highlightable">Connect live information</span>
       </Title>

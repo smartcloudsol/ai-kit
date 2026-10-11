@@ -19,6 +19,8 @@ export type ChatStreamActivity = {
 export type ChatStreamClientCommand = {
     version: typeof CHAT_STREAM_PROTOCOL_VERSION;
     type: "turn.start";
+    /** Opt in to sequenced presentation events; old clients omit this. */
+    presentationVersion?: 1;
     requestId: string;
     conversationId?: string;
     locale?: string;
@@ -34,6 +36,8 @@ export type ChatStreamClientCommand = {
 } | {
     version: typeof CHAT_STREAM_PROTOCOL_VERSION;
     type: "turn.resume";
+    /** Declare support independently on reconnect, including another client. */
+    presentationVersion?: 1;
     requestId: string;
     conversationId: string;
     turnId: string;
@@ -67,9 +71,13 @@ export type ChatStreamServerEvent = ChatStreamEnvelope<"turn.accepted", {
         sourceUrl?: string;
         snippet?: string;
     };
+}> | ChatStreamEnvelope<"presentation.upsert", {
+    messageId: string;
+    presentation: NonNullable<PromptResult["presentation"]>;
 }> | ChatStreamEnvelope<"answer.completed", {
     messageId: string;
     result: string;
+    presentation?: PromptResult["presentation"];
     citations?: ProcessedCitations;
     activities?: ChatStreamActivity[];
     completion: "complete" | "partial" | "truncated";
@@ -87,6 +95,7 @@ export type ChatStreamServerEvent = ChatStreamEnvelope<"turn.accepted", {
     lastSeq: number;
     active: boolean;
     result?: string;
+    presentation?: PromptResult["presentation"];
     citations?: ProcessedCitations;
     activities: ChatStreamActivity[];
 }>;

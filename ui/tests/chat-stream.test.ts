@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { AnswerPresentation } from "@smart-cloud/ai-kit-core";
 
 import { runChatStreamTurn, summarizeChatActivities, isToolActivity, isSummaryActivity, type ChatActivity } from "../src/ai-chatbot/chatStream.ts";
 
@@ -17,6 +18,11 @@ const envelope = (
   timestamp: "2026-09-25T00:00:00.000Z",
   payload,
 });
+
+const presentation: AnswerPresentation = { schemaVersion: 1, groups: [{ templateId: "generic", templateRevision: 1, layout: "cards", entities: [{
+  ref: "card-1", entityId: "verified-1", title: "Verified item", attributes: [], links: [],
+  provenance: { kind: "external_mcp", sourceId: "approved-server", evidenceId: "evidence-1", checkedAt: "2026-10-11T12:00:00.000Z" },
+}] }] };
 
 class FakeSocket {
   readyState = 0;
@@ -49,6 +55,110 @@ class FakeSocket {
   }
 }
 
+test("validated presentation survives completion and completed snapshot replay", async () => {
+  for (const terminal of ["answer.completed", "turn.snapshot"]) {
+    const result = await runChatStreamTurn({
+      url: "wss://stream.example.test/chat", text: "hello", locale: "en", requestId: "request-cards",
+      signal: new AbortController().signal,
+      ticketProvider: async () => ({ ticket: "safe-ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+      socketFactory: () => new FakeSocket((_command, socket) => queueMicrotask(() => {
+        socket.emit("turn.accepted", 0, { sessionId: "session-1", assistantMessageId: "assistant-1", status: "running" });
+        socket.emit(terminal, 1, { result: "Text fallback", presentation, completion: "complete", lastSeq: 1, active: false });
+      })) as unknown as WebSocket,
+      onView: () => {},
+    });
+    assert.equal(result.result, "Text fallback");
+    assert.deepEqual(result.presentation, presentation);
+  }
+});
+
+test("malformed presentation is ignored without losing streamed text", async () => {
+  const result = await runChatStreamTurn({
+    url: "wss://stream.example.test/chat", text: "hello", locale: "en", requestId: "request-invalid-cards",
+    signal: new AbortController().signal,
+    ticketProvider: async () => ({ ticket: "safe-ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+    socketFactory: () => new FakeSocket((_command, socket) => queueMicrotask(() => {
+      socket.emit("turn.accepted", 0, { sessionId: "session-1", assistantMessageId: "assistant-1", status: "running" });
+      socket.emit("answer.delta", 1, { text: "Retained text" });
+      socket.emit("answer.completed", 2, { presentation: { ...presentation, schemaVersion: 2 }, completion: "complete" });
+    })) as unknown as WebSocket,
+    onView: () => {},
+  });
+  assert.equal(result.result, "Retained text");
+  assert.equal(result.presentation, undefined);
+});
+
+test("snapshot reset discards cards from persisted partial stream state", async () => {
+  const result = await runChatStreamTurn({
+    url: "wss://stream.example.test/chat", text: "hello", locale: "en", requestId: "request-card-reset",
+    resume: { requestId: "request-card-reset", conversationId: "session-1", turnId: "turn-1", lastSeq: 0 },
+    initialView: { text: "Old partial text", presentation, activities: [], citations: [] },
+    signal: new AbortController().signal,
+    ticketProvider: async () => ({ ticket: "safe-ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+    socketFactory: () => new FakeSocket((_command, socket) => queueMicrotask(() => {
+      socket.emit("turn.snapshot", 1, { reset: true, lastSeq: 1, active: true });
+      socket.emit("answer.delta", 2, { text: "New answer" });
+      socket.emit("turn.snapshot", 3, { lastSeq: 3, active: false });
+    })) as unknown as WebSocket,
+    onView: () => {},
+  });
+  assert.equal(result.result, "New answer");
+  assert.equal(result.presentation, undefined);
+});
+
+test("large terminal omission retains validated presentation upsert and explicit invalid value clears it", async () => {
+  for (const clear of [false, true]) {
+    const text = "Large answer ".repeat(2200);
+    const result = await runChatStreamTurn({
+      url: "wss://stream.example.test/chat", text: "hello", locale: "en", requestId: "request-large-cards",
+      signal: new AbortController().signal,
+      ticketProvider: async () => ({ ticket: "safe-ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+      socketFactory: () => new FakeSocket((_command, socket) => queueMicrotask(() => {
+        socket.emit("turn.accepted", 0, { sessionId: "session-1", assistantMessageId: "assistant-1", status: "running" });
+        socket.emit("answer.delta", 1, { text });
+        socket.emit("presentation.upsert", 2, { messageId: "assistant-1", presentation });
+        socket.emit("answer.completed", 3, { completion: "complete", ...(clear ? { presentation: null } : {}) });
+      })) as unknown as WebSocket, onView: () => {},
+    });
+    assert.equal(result.result, text);
+    assert.deepEqual(result.presentation, clear ? undefined : presentation);
+  }
+});
+
+test("large snapshot reset replay restores presentation without duplicating cards", async () => {
+  const result = await runChatStreamTurn({
+    url: "wss://stream.example.test/chat", text: "hello", locale: "en", requestId: "request-replay-cards",
+    resume: { requestId: "request-replay-cards", conversationId: "session-1", turnId: "turn-1", lastSeq: 0, assistantMessageId: "assistant-1" },
+    initialView: { text: "Old answer", presentation, activities: [], citations: [] },
+    signal: new AbortController().signal,
+    ticketProvider: async () => ({ ticket: "safe-ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+    socketFactory: () => new FakeSocket((_command, socket) => queueMicrotask(() => {
+      socket.emit("turn.snapshot", 1, { reset: true, lastSeq: 1, active: true });
+      socket.emit("answer.delta", 2, { text: "Replayed answer" });
+      socket.emit("presentation.upsert", 3, { messageId: "assistant-1", presentation });
+      socket.emit("presentation.upsert", 3, { messageId: "assistant-1", presentation });
+      socket.emit("answer.completed", 4, { completion: "complete" });
+    })) as unknown as WebSocket, onView: () => {},
+  });
+  assert.equal(result.result, "Replayed answer");
+  assert.deepEqual(result.presentation, presentation);
+});
+
+test("presentation upsert for a different message is not rendered", async () => {
+  const result = await runChatStreamTurn({
+    url: "wss://stream.example.test/chat", text: "hello", locale: "en", requestId: "request-wrong-cards",
+    signal: new AbortController().signal,
+    ticketProvider: async () => ({ ticket: "safe-ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+    socketFactory: () => new FakeSocket((_command, socket) => queueMicrotask(() => {
+      socket.emit("turn.accepted", 0, { sessionId: "session-1", assistantMessageId: "assistant-1", status: "running" });
+      socket.emit("presentation.upsert", 1, { messageId: "other-message", presentation });
+      socket.emit("answer.completed", 2, { result: "Text only", completion: "complete" });
+    })) as unknown as WebSocket, onView: () => {},
+  });
+  assert.equal(result.presentation, undefined);
+  assert.equal(result.result, "Text only");
+});
+
 test("reconnects with a fresh ticket and resumes the same turn without duplicate text", async () => {
   const commands: string[] = [];
   const urls: string[] = [];
@@ -73,6 +183,7 @@ test("reconnects with a fresh ticket and resumes the same turn without duplicate
       return new FakeSocket((command, socket) => {
         commands.push(String(command.type));
         if (command.type === "turn.start") {
+          assert.equal(command.presentationVersion, 1);
           queueMicrotask(() => {
             socket.emit("turn.accepted", 0, {
               sessionId: "session-1",
@@ -90,6 +201,7 @@ test("reconnects with a fresh ticket and resumes the same turn without duplicate
             socket.close();
           });
         } else if (command.type === "turn.resume") {
+          assert.equal(command.presentationVersion, 1);
           assert.equal(command.turnId, "turn-1");
           assert.equal(command.afterSeq, 1);
           queueMicrotask(() => {

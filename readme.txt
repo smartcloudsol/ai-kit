@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -126,7 +126,7 @@ This plugin may integrate with the following external services, depending on con
    - **Where it goes:**
      Requests are sent to the **API URL you provide** — typically an AWS API deployed to **your own AWS account** (e.g., via the “wpsuite-ai-kit” SAR template).
    - **How it’s called:**
-     HTTPS requests from the browser for interactive features, and signed server-side HTTPS requests from WordPress for Knowledge Sync. Configured REST/MCP tools and web grounding make backend-to-service requests to administrator-approved destinations; review those services and their privacy terms before enabling them.
+     HTTPS requests from the browser for interactive features, and signed server-side HTTPS requests from WordPress for Knowledge Sync. Configured REST/MCP tools and web grounding make backend-to-service requests to administrator-approved destinations; review those services and their privacy terms before enabling them. Enabled display templates may load approved source image URLs directly in the visitor's browser, disclosing the visitor's IP address to that image host; images use no-referrer requests. Opening a navigation link visits its configured destination and does not execute a purchase or booking.
 
 3. **WP Suite platform connection (optional; site/workspace linking & shared features)**
    - **When it applies:**
@@ -181,6 +181,15 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, backend processing, and the frontend Feature block/shortcode experience. The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.6.2 =
+* Knowledge sources: Explicitly select registered, public custom fields and map them to neutral typed fields for structured synchronization.
+* Answers: Enable profile-scoped own-content record and schema tools on a compatible backend, bound to the current Knowledge Base result and source version.
+* Admin: Check backend compatibility before enabling structured synchronization and preserve existing settings when that capability is unavailable.
+* Answers: Display verified own-content, MCP/UCP and REST results using configurable lists, cards or carousels while preserving the text answer.
+* Admin: Configure source-bound display templates and field mappings, and preview actual approved read results without granting additional tool permissions.
+* Chatbot: Preserve bounded display snapshots, source references and check times across streaming, reconnects and saved history.
+* Dependencies: Update AI Kit Core to 1.5.18 and AI Kit UI to 1.5.32.
 
 = 1.6.1 =
 * Answers: Start with a reviewed assistant preset for site guidance, services, product discovery or customer support, then tailor it to your business before saving.
@@ -603,6 +612,10 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.6.2 =
+Structured content synchronization requires orchestration v1.0.117 or an equivalent backend providing knowledge.structured-content capability version 1. It is disabled by default. Review selected public fields, mappings, profile permissions and enrolled workspace/site identifiers before enabling it; a source workspace ID is not an AWS account ID. Complete source synchronization and Knowledge Base ingestion before testing record tools. Remote field removal or disabling is confirmed only after backend acknowledgment. Existing non-structured synchronization remains supported. This plugin update does not deploy the backend or enable provider-specific booking integrations.
+Display templates also require a compatible backend reporting answerPresentation support. Review source bindings, field mappings, image/link URL prefixes and authored labels before enabling them. Preview performs an actual approved read. History retains earlier source snapshots, not current prices or availability. Navigation links do not execute purchases or bookings. Configured guardrails assess display output separately; blocked, masked or unavailable assessments omit cards while preserving the text answer.
 
 = 1.6.1 =
 Update the AI Kit backend to orchestration v1.0.116 with product-page resolution, or deploy the equivalent backend changes, before using local product-page links. Existing v1.0.116 stacks also need that capability update. Guided catalog checks and detailed tool activity require a compatible backend. Existing connections and detailed settings remain available. Review presets, connections and page mappings before saving; new external sources require explicit evidence-policy approval. Review saved pairs after moving or unpublishing pages. The profile is shared by clients using the same backend. This plugin update does not deploy the backend or enable cart or checkout actions.

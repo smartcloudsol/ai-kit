@@ -149,6 +149,7 @@ function wp_remote_request(string $url, array $arguments): array
                 'apiSchemaVersion' => 7,
                 'capabilities' => array(
                     ...($capability_mode === 'paths' ? ['knowledge.taxonomy-paths' => 1] : ($capability_mode === 'invalid-paths' ? ['knowledge.taxonomy-paths' => '1'] : [])),
+                    ...($capability_mode === 'structured' ? ['knowledge.structured-content' => 1] : ($capability_mode === 'invalid-structured' ? ['knowledge.structured-content' => '1'] : [])),
                     'knowledge.automation' => $capability_mode === 'v4'
                         ? 4
                         : ($capability_mode === 'v5' ? 5 : 6),
@@ -397,3 +398,29 @@ $transients = [];
 $capability_mode = 'legacy';
 transport_expect(!KnowledgeSyncTransport::create()->supportsTaxonomyPaths(), 'Unavailable manifest must preserve legacy projections.');
 echo "Category path capability tests passed.\n";
+
+$transients = [];
+$capability_mode = 'structured';
+$before_capability_requests = count($requests);
+transport_expect($transport->supportsStructuredContent(), 'Verified structured-content v1 must enable own-field support.');
+transport_expect(KnowledgeSyncTransport::create()->supportsStructuredContent(), 'Structured-content capability must reuse shared discovery cache.');
+transport_expect(count($requests) === $before_capability_requests + 1, 'Structured field support uses one cached manifest lookup.');
+foreach (['invalid-structured', 'verified', 'legacy'] as $mode) {
+    $transients = [];
+    $capability_mode = $mode;
+    transport_expect(!$transport->supportsStructuredContent(), 'Unknown, missing or nonnumeric structured capability must fail closed.');
+}
+// The capability check precedes enrollment/key access: a legacy backend must
+// receive neither enabled data nor a misleading downgraded revocation.
+$transients = [];
+$capability_mode = 'verified';
+foreach ([true, false] as $enabled) {
+    $blocked = false;
+    try {
+        $transport->dispatchBatch(null, [42 => ['schemaVersion' => 3, 'document' => ['structuredContent' => ['schemaVersion' => 1, 'enabled' => $enabled, 'fields' => (object) [], 'fieldSchema' => (object) []]]]]);
+    } catch (KnowledgeSyncTransportException $error) {
+        $blocked = $error->errorCode === 'backend_capability_unavailable';
+    }
+    transport_expect($blocked, 'Unsupported backend cannot receive schema3 enabled or disabled projections.');
+}
+echo "Structured-content backend capability and delivery guards passed.\n";

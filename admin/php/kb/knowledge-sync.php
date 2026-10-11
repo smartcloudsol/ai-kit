@@ -9,6 +9,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/structured-content.php';
+
 /**
  * Match WordPress core's viewability rules, including the built-in `page`
  * type whose publicly_queryable flag is false even though public pages have
@@ -54,6 +56,20 @@ final class KnowledgeSyncPolicyStore
         $previous = isset($policies[$post_type]) && is_array($policies[$post_type])
             ? $this->normalizePolicy($post_type, $policies[$post_type])
             : null;
+        $structured = $normalized['structuredContent'] ?? null;
+        $field_removal = KnowledgeSyncStructuredContent::isFieldRemoval($previous['structuredContent'] ?? null, $structured);
+        $changed_enabled_mapping = is_array($structured) && $structured['enabled'] && (
+            (($previous['structuredContent'] ?? null) !== $structured && !$field_removal) ||
+            empty($previous['enabled']) || ($previous['reviewPolicy'] ?? 'disabled') === 'disabled'
+        );
+        if ($changed_enabled_mapping) {
+            $normalized['structuredContent'] = KnowledgeSyncStructuredContent::normalizePolicy($post_type, $structured, true);
+            if (!class_exists(KnowledgeSyncTransport::class) || !KnowledgeSyncTransport::create()->supportsStructuredContent()) {
+                throw new \InvalidArgumentException(
+                    'Update and configure the AI Kit backend with knowledge.structured-content v1 before enabling or changing structured-content fields.'
+                );
+            }
+        }
         $policies[$post_type] = $normalized;
         update_option(self::OPTION_NAME, $policies, false);
         do_action('smartcloud_ai_kit_knowledge_sync_policy_changed', $post_type, $normalized, $previous);
@@ -106,7 +122,7 @@ final class KnowledgeSyncPolicyStore
         $allowed_fields = array(
             'schemaVersion', 'postType', 'enabled', 'autoEnableSource',
             'reviewPolicy', 'onPublish', 'onPublishedUpdate', 'onUnpublish',
-            'metadataRefresh', 'includeTaxonomies', 'documentProfile',
+            'metadataRefresh', 'includeTaxonomies', 'documentProfile', 'structuredContent',
         );
         foreach (array_keys($policy) as $field) {
             if (!is_string($field) || !in_array($field, $allowed_fields, true)) {
@@ -153,7 +169,7 @@ final class KnowledgeSyncPolicyStore
 
         $profile = sanitize_key((string) ($policy['documentProfile'] ?? 'default'));
 
-        return array(
+        $normalized = array(
             'schemaVersion' => self::SCHEMA_VERSION,
             'postType' => $post_type,
             'enabled' => !empty($policy['enabled']),
@@ -166,6 +182,10 @@ final class KnowledgeSyncPolicyStore
             'includeTaxonomies' => $taxonomies,
             'documentProfile' => $profile !== '' ? $profile : 'default',
         );
+        if (array_key_exists('structuredContent', $policy)) {
+            $normalized['structuredContent'] = KnowledgeSyncStructuredContent::normalizePolicy($post_type, $policy['structuredContent']);
+        }
+        return $normalized;
     }
 }
 
@@ -1274,6 +1294,59 @@ final class KnowledgeSyncCapture
         add_action('wp_after_insert_post', array($this, 'onAfterInsertPost'), 20, 4);
         add_action('before_delete_post', array($this, 'onBeforeDeletePost'), 20, 2);
         add_action('set_object_terms', array($this, 'onSetObjectTerms'), 20, 6);
+        foreach (array('added_post_meta', 'updated_post_meta', 'deleted_post_meta') as $hook) {
+            add_action($hook, array($this, 'onStructuredMetadataChanged'), 20, 4);
+        }
+    }
+
+    /** Own-field edits use the normal publisher-gated capture path, never the KB override bypass. */
+    public function onStructuredMetadataChanged(mixed $meta_id, int $post_id, string $meta_key, mixed $meta_value): void
+    {
+        unset($meta_id, $meta_value);
+        if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) { return; }
+        $post = get_post($post_id);
+        if (!$post instanceof \WP_Post || $post->post_status !== 'publish') { return; }
+        $policy = $this->eligiblePolicy($post->post_type);
+        if ($policy === null || empty($policy['structuredContent']['enabled'])) { return; }
+        foreach ($policy['structuredContent']['fields'] as $field) {
+            if ($field['sourceMetaKey'] === $meta_key) {
+                if (!KnowledgeSyncPublicReleaseGate::enabled()) {
+                    $this->onAfterInsertPost($post_id, $post, true, $post);
+                    return;
+                }
+                $blog_id = get_current_blog_id();
+                $before = KnowledgeSyncPublicReleaseGate::desiredPosition($blog_id, $post->post_type, $post_id);
+                $after = null;
+                try {
+                    // Reuse Publisher's public resource contract. It journals
+                    // this exact post and schedules its public URL for render.
+                    do_action('smartcloud_static_publisher_resource_changed_v1', array(
+                        'contractVersion' => 1,
+                        'blogId' => $blog_id,
+                        'postId' => $post_id,
+                        'renderUrls' => array($this->publicPermalink($post)),
+                        'deleteUrls' => array(),
+                    ));
+                    $after = KnowledgeSyncPublicReleaseGate::desiredPosition($blog_id, $post->post_type, $post_id);
+                } catch (\Throwable) {
+                    // Metadata itself has already been saved. Capture the
+                    // failure durably without leaking values or undoing it.
+                }
+                $advanced = $before !== null && $after !== null &&
+                    $before['consumerId'] === $after['consumerId'] && $after['sequence'] > $before['sequence'];
+                $manual_review = $policy['reviewPolicy'] === 'manual-kb-review';
+                $this->outbox->enqueue(
+                    $blog_id, $post->post_type, $post_id, 'upsert', $this->correlationId(),
+                    !$advanced || $manual_review ? 'blocked' : 'pending',
+                    $this->publicPermalink($post),
+                    !$advanced ? 'structured_content_publication_event_missing' : ($manual_review ? 'manual_review_required' : null),
+                    true,
+                    $advanced ? $after['consumerId'] : null,
+                    $advanced ? $after['sequence'] : null
+                );
+                return;
+            }
+        }
     }
 
     public function onAfterInsertPost(int $post_id, \WP_Post $post, bool $update, ?\WP_Post $post_before): void

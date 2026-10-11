@@ -823,6 +823,13 @@ final class KnowledgeSyncProjectionBuilder
             'metadata' => $this->metadata((int) $post->ID, $policy['includeTaxonomies']),
         );
 
+        if (array_key_exists('structuredContent', $policy)) {
+            $projection['schemaVersion'] = 3;
+            $projection['document']['structuredContent'] = KnowledgeSyncStructuredContent::project(
+                (int) $post->ID, $post->post_type, $policy['structuredContent']
+            );
+        }
+
         if (KnowledgeSyncCategoryPaths::enabled()) {
             $categorized = KnowledgeSyncCategoryPaths::classify((int) $post->ID, $policy['includeTaxonomies'], $resolved_metadata['classification']);
             $resolved_metadata['classification'] = $categorized['classification'];
@@ -2153,6 +2160,7 @@ final class KnowledgeSyncRuntime
                     'invalid_lease_snapshot', 'site_not_connected', 'policy_scope_changed',
                     'invalid_public_url', 'taxonomy_read_failed', 'taxonomy_parent_invalid',
                     'category_path_invalid', 'category_path_too_large', 'category_paths_too_many', 'category_primary_ambiguous',
+                    'structured_content_policy_invalid', 'structured_content_value_invalid', 'structured_content_too_large',
                 ), true);
                 if ($permanent) {
                     $outbox->blockLease((int) $lease->id, $lease_owner, $error->error_code);

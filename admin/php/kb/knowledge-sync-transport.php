@@ -465,6 +465,13 @@ final class KnowledgeSyncTransport
         unset($previous);
         $settings = $this->configuredSettings();
         $this->requireCapability('knowledge.automation', $settings['backendBaseUrl'], 6);
+        foreach ($projections as $projection) {
+            if (($projection['schemaVersion'] ?? null) === 3) {
+                // Includes revocation. Never silently downgrade a v3 payload:
+                // that would pretend removal succeeded on an unknown backend.
+                $this->requireCapability('knowledge.structured-content', $settings['backendBaseUrl']);
+            }
+        }
         $registration = $this->requiredRegistration();
         $items = array();
         foreach ($projections as $outbox_id => $projection) {
@@ -596,6 +603,9 @@ final class KnowledgeSyncTransport
             'taxonomyPathsSupported' => ($compatibility['status'] ?? '') === 'verified'
                 && is_int($compatibility['capabilities']['knowledge.taxonomy-paths'] ?? null)
                 && $compatibility['capabilities']['knowledge.taxonomy-paths'] >= 1,
+            'structuredContentSupported' => ($compatibility['status'] ?? '') === 'verified'
+                && is_int($compatibility['capabilities']['knowledge.structured-content'] ?? null)
+                && $compatibility['capabilities']['knowledge.structured-content'] >= 1,
             'metadataResyncRequired' => $resync_required,
             'configured' => $settings['backendBaseUrl'] !== '' && $settings['keyStorageMode'] !== 'disabled',
             'enrolled' => $registration !== null,
@@ -678,6 +688,13 @@ final class KnowledgeSyncTransport
     {
         $compatibility = $this->backendCompatibility();
         $version = $compatibility['capabilities']['knowledge.taxonomy-paths'] ?? null;
+        return ($compatibility['status'] ?? '') === 'verified' && is_int($version) && $version >= 1;
+    }
+
+    public function supportsStructuredContent(): bool
+    {
+        $compatibility = $this->backendCompatibility();
+        $version = $compatibility['capabilities']['knowledge.structured-content'] ?? null;
         return ($compatibility['status'] ?? '') === 'verified' && is_int($version) && $version >= 1;
     }
 
@@ -949,7 +966,7 @@ final class KnowledgeSyncTransport
     {
         $compatibility = $this->backendCompatibility($base_url);
         $version = $compatibility['capabilities'][$capability] ?? null;
-        if (!is_int($version) || $version < $minimum_version) {
+        if (($compatibility['status'] ?? '') !== 'verified' || !is_int($version) || $version < $minimum_version) {
             throw new KnowledgeSyncTransportException(
                 'backend_capability_unavailable',
                 'The configured AI Kit backend does not support ' . $capability . '.'

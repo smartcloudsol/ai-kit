@@ -5,7 +5,10 @@ import ts from "typescript";
 
 async function loadContract() {
   const sourceUrl = new URL("../src/knowledge-sync.ts", import.meta.url);
-  const source = await fs.readFile(sourceUrl, "utf8");
+  let source = await fs.readFile(sourceUrl, "utf8");
+  const structuredSource = await fs.readFile(new URL("../src/structured-content.ts", import.meta.url), "utf8");
+  const structuredCode = ts.transpileModule(structuredSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+  source = source.replaceAll('"./structured-content"', JSON.stringify(`data:text/javascript;base64,${Buffer.from(structuredCode).toString("base64")}`));
   const compiled = ts.transpileModule(source, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
@@ -16,6 +19,44 @@ async function loadContract() {
     `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
   );
 }
+
+test("v3 transports typed own fields without changing v1/v2 contracts", async () => {
+  const contract = await loadContract();
+  const own = { schemaVersion: 1, enabled: true, fields: { detail_link: "https://example.org/choose/?ref=42", available: false, amount: 0, labels: ["a"] }, fieldSchema: {
+    detail_link: { type: "url", description: "Public detail link" }, available: { type: "boolean", description: "Availability" }, amount: { type: "number", description: "Amount" }, labels: { type: "string-list", description: "Labels" },
+  } };
+  const candidate = projection({ schemaVersion: 3, document: { ...projection().document, locale: "en", structuredContent: own } });
+  assert.deepEqual(contract.parsePublicContentProjection(candidate).document.structuredContent, own);
+  assert.throws(() => contract.parsePublicContentProjection({ ...candidate, schemaVersion: 2 }));
+  assert.equal(contract.parsePublicContentProjection({ ...candidate, operation: "delete", document: null }).schemaVersion, 3);
+});
+
+test("v3 rejects reserved names, coercion, credential URLs and unknown projection keys", async () => {
+  const contract = await loadContract();
+  const base = projection({ schemaVersion: 3, document: { ...projection().document, locale: "en", structuredContent: { schemaVersion: 1, enabled: true, fields: { detail: "https://example.org" }, fieldSchema: { detail: { type: "url", description: "Detail" } } } } });
+  for (const own of [
+    { ...base.document.structuredContent, fields: { site_id: "other" }, fieldSchema: { site_id: { type: "string", description: "Forbidden" } } },
+    { ...base.document.structuredContent, fields: { detail: "https://user:password@example.org" } },
+    { ...base.document.structuredContent, fields: { detail: "12" }, fieldSchema: { detail: { type: "number", description: "Value" } } },
+    { ...base.document.structuredContent, enabled: false },
+    { ...base.document.structuredContent, extra: true },
+  ]) assert.throws(() => contract.parsePublicContentProjection({ ...base, document: { ...base.document, structuredContent: own } }));
+});
+
+test("structured policies require explicit opt-in and retain disabled mappings", async () => {
+  const source = await fs.readFile(new URL("../src/structured-content.ts", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const contract = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
+  const field = { sourceMetaKey: "registered_detail", targetKey: "detail", type: "string", description: "Detail" };
+  assert.deepEqual(contract.parseStructuredContentPolicy({ enabled: false, fields: [field] }), { enabled: false, fields: [field] });
+  for (const policy of [{ fields: [] }, { enabled: true, fields: [field, field] }, { enabled: true, fields: [{ ...field, targetKey: "source_id" }] }]) assert.throws(() => contract.parseStructuredContentPolicy(policy));
+  assert.throws(() => contract.parseStructuredContentProjection({ schemaVersion: 1, enabled: true, fields: { detail: "a".repeat(4097) }, fieldSchema: { detail: { type: "string", description: "Detail" } } }));
+  const missingValue = { schemaVersion: 1, enabled: true, fields: {}, fieldSchema: { detail: { type: "string", description: "Declared even when absent" } } };
+  assert.deepEqual(contract.parseStructuredContentProjection(missingValue), missingValue);
+  assert.throws(() => contract.parseStructuredContentProjection({ ...missingValue, enabled: false }));
+  assert.throws(() => contract.parseStructuredContentProjection({ ...missingValue, fields: { unknown: "Value" } }));
+  assert.throws(() => contract.parseStructuredContentProjection({ schemaVersion: 1, enabled: true, fields: { amount: Number.MAX_SAFE_INTEGER + 1 }, fieldSchema: { amount: { type: "number", description: "Bounded numeric value" } } }));
+});
 
 function projection(overrides = {}) {
   return {

@@ -1,4 +1,4 @@
-import { type ProcessedCitations, type PromptResult } from "@smart-cloud/ai-kit-core";
+import { type ProcessedCitations, type PromptResult, type AnswerPresentation } from "@smart-cloud/ai-kit-core";
 export type ChatActivity = {
     activityId: string;
     kind: "knowledge_search" | "web_search" | "web_read" | "calculation" | "script" | "validation" | "thinking" | "generating_response" | "checking_sources" | "other";
@@ -23,6 +23,7 @@ export type ChatStreamCheckpoint = {
 };
 export type ChatStreamView = {
     text: string;
+    presentation?: AnswerPresentation;
     activities: ChatActivity[];
     citations: StreamCitation[];
     checkpoint?: ChatStreamCheckpoint;
@@ -37,6 +38,7 @@ export type StreamCitation = {
 };
 export type ChatStreamResult = {
     result: string;
+    presentation?: AnswerPresentation;
     sessionId: string;
     messageId?: string;
     citations?: ProcessedCitations | StreamCitation[];

@@ -4,8 +4,10 @@ import {
   resolveBackend,
   type ProcessedCitations,
   type PromptResult,
+  type AnswerPresentation,
 } from "@smart-cloud/ai-kit-core";
 import { safePublicActivityParams } from "./activityPresentation.ts";
+import { normalizeAnswerPresentation } from "./answer-presentation-state.ts";
 
 export type ChatActivity = {
   activityId: string;
@@ -43,6 +45,7 @@ export type ChatStreamCheckpoint = {
 
 export type ChatStreamView = {
   text: string;
+  presentation?: AnswerPresentation;
   activities: ChatActivity[];
   citations: StreamCitation[];
   checkpoint?: ChatStreamCheckpoint;
@@ -59,6 +62,7 @@ export type StreamCitation = {
 
 export type ChatStreamResult = {
   result: string;
+  presentation?: AnswerPresentation;
   sessionId: string;
   messageId?: string;
   citations?: ProcessedCitations | StreamCitation[];
@@ -74,6 +78,7 @@ type ChatStreamEvent = {
     | "activity.completed"
     | "activity.failed"
     | "answer.delta"
+    | "presentation.upsert"
     | "citation.upsert"
     | "answer.completed"
     | "turn.failed"
@@ -150,6 +155,7 @@ function parseEvent(value: unknown): ChatStreamEvent | undefined {
       "activity.completed",
       "activity.failed",
       "answer.delta",
+      "presentation.upsert",
       "citation.upsert",
       "answer.completed",
       "turn.failed",
@@ -402,6 +408,7 @@ export async function runChatStreamTurn(
   let checkpoint = options.resume;
   let sessionId = options.resume?.conversationId ?? options.sessionId;
   let text = options.initialView?.text ?? "";
+  let presentation = normalizeAnswerPresentation(options.initialView?.presentation);
   let activities: ChatActivity[] = options.initialView?.activities ?? [];
   const citations = new Map<string, StreamCitation>(
     options.initialView?.citations.map((citation) => [citation.citationId, citation]) ?? [],
@@ -410,6 +417,7 @@ export async function runChatStreamTurn(
   const emit = () =>
     options.onView({
       text,
+      presentation,
       activities: [...activities],
       citations: [...citations.values()],
       checkpoint,
@@ -452,6 +460,7 @@ export async function runChatStreamTurn(
           socket.send(JSON.stringify({
             version: 1,
             type: "turn.resume",
+            presentationVersion: 1,
             requestId: options.requestId,
             conversationId: checkpoint.conversationId,
             turnId: checkpoint.turnId,
@@ -537,6 +546,11 @@ export async function runChatStreamTurn(
             }
           } else if (event.type === "answer.delta") {
             if (typeof payload.text === "string") text += payload.text;
+          } else if (event.type === "presentation.upsert") {
+            if (typeof payload.messageId === "string" &&
+                payload.messageId === (checkpoint.assistantMessageId ?? checkpoint.turnId)) {
+              presentation = normalizeAnswerPresentation(payload.presentation);
+            }
           } else if (event.type === "citation.upsert") {
             const citation = parseCitation(payload.citation);
             if (citation) citations.set(citation.citationId, citation);
@@ -552,11 +566,13 @@ export async function runChatStreamTurn(
               // A large completed result is replayed as synthetic deltas after
               // this snapshot. Discard the locally persisted partial answer.
               text = "";
+              presentation = undefined;
               citations.clear();
             }
             if (typeof payload.result === "string" && payload.result) {
               text = payload.result;
             }
+            if (Object.hasOwn(payload, "presentation")) presentation = normalizeAnswerPresentation(payload.presentation);
             if (Array.isArray(payload.activities)) activities = parseActivities(payload.activities);
             if (asRecord(payload.citations)) {
               // The authoritative structured citations arrive with completion.
@@ -585,6 +601,7 @@ export async function runChatStreamTurn(
               }
               finish({
                 result: text,
+                presentation,
                 sessionId: sessionId!,
                 messageId: checkpoint.assistantMessageId,
                 citations: payload.citations as ProcessedCitations | undefined,
@@ -598,6 +615,7 @@ export async function runChatStreamTurn(
                 ? payload.result
                 : text;
             text = result;
+            if (Object.hasOwn(payload, "presentation")) presentation = normalizeAnswerPresentation(payload.presentation);
             if (Array.isArray(payload.activities)) activities = parseActivities(payload.activities);
             const completion = ["complete", "partial", "truncated"].includes(
               String(payload.completion),
@@ -607,6 +625,7 @@ export async function runChatStreamTurn(
             emit();
             finish({
               result,
+              presentation,
               sessionId: sessionId!,
               messageId:
                 typeof payload.messageId === "string"
@@ -647,6 +666,7 @@ export async function runChatStreamTurn(
               ? {
                   version: 1,
                   type: "turn.resume",
+                  presentationVersion: 1,
                   requestId: options.requestId,
                   conversationId: checkpoint.conversationId,
                   turnId: checkpoint.turnId,
@@ -655,6 +675,7 @@ export async function runChatStreamTurn(
               : {
                   version: 1,
                   type: "turn.start",
+                  presentationVersion: 1,
                   requestId: options.requestId,
                   conversationId: sessionId,
                   locale: options.locale,
@@ -704,6 +725,7 @@ export async function runChatStreamTurn(
             JSON.stringify({
               version: 1,
               type: "turn.resume",
+              presentationVersion: 1,
               requestId: options.requestId,
               conversationId: checkpoint.conversationId,
               turnId: checkpoint.turnId,

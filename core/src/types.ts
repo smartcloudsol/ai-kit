@@ -575,6 +575,8 @@ export interface PromptArgs {
 
 export interface PromptResult {
   result: string;
+  /** Backend-materialized, source-grounded display snapshot; never model HTML. */
+  presentation?: import("./answer-presentation").AnswerPresentation;
   sessionId?: string;
   /** Structured Knowledge Base citations returned by grounded chat requests. */
   citations?: ProcessedCitations;

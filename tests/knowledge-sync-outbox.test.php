@@ -156,6 +156,9 @@ function add_action(string $hook, callable $callback, int $priority = 10, int $a
 
 function do_action(string $hook, mixed ...$args): void
 {
+    if (isset($GLOBALS['test_action_handler'])) {
+        ($GLOBALS['test_action_handler'])($hook, $args);
+    }
     unset($hook, $args);
 }
 
@@ -705,6 +708,11 @@ final class CategoryPathTestTransport {
     public static bool $enabled = false;
     public static function create(): self { return new self(); }
     public function supportsTaxonomyPaths(): bool { return self::$enabled; }
+    public function supportsStructuredContent(): bool
+    {
+        $capability = $GLOBALS['structured_test_capability'] ?? [];
+        return ($capability['status'] ?? '') === 'verified' && is_int($capability['version'] ?? null) && $capability['version'] >= 1;
+    }
 }
 class_alias(CategoryPathTestTransport::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncTransport');
 final class CategoryPathTestRenderer { public function render(WP_Post $post): string { return 'Body'; } }

@@ -1,5 +1,9 @@
+import { parseStructuredContentPolicy, parseStructuredContentProjection } from "./structured-content";
+import type { StructuredContentPolicy, StructuredContentProjection } from "./structured-content";
+
 export const KNOWLEDGE_SYNC_CONTRACT_VERSION = 1 as const;
 export const KNOWLEDGE_SYNC_LOCALE_CONTRACT_VERSION = 2 as const;
+export const KNOWLEDGE_SYNC_STRUCTURED_CONTRACT_VERSION = 3 as const;
 
 export type KnowledgeSyncOperation = "upsert" | "delete";
 export type KnowledgeSyncReviewPolicy =
@@ -46,6 +50,13 @@ export interface KnowledgeSyncDocumentV2 extends KnowledgeSyncDocumentV1 {
   locale: string;
 }
 
+export interface KnowledgeSyncDocumentV3 extends KnowledgeSyncDocumentV2 {
+  structuredContent: StructuredContentProjection;
+}
+
+export type PublicContentProjectionV3 = Omit<KnowledgeSyncProjectionBaseV2, "schemaVersion"> & { schemaVersion: 3 } &
+  ({ operation: "upsert"; document: KnowledgeSyncDocumentV3 } | { operation: "delete"; document: null; lastPublicUrl?: string });
+
 interface KnowledgeSyncProjectionBaseV1 {
   schemaVersion: typeof KNOWLEDGE_SYNC_CONTRACT_VERSION;
   source: KnowledgeSyncSourceIdentityV1;
@@ -90,7 +101,8 @@ export type PublicContentProjectionV2 = KnowledgeSyncProjectionBaseV2 &
 
 export type PublicContentProjection =
   | PublicContentProjectionV1
-  | PublicContentProjectionV2;
+  | PublicContentProjectionV2
+  | PublicContentProjectionV3;
 
 export interface KnowledgeSyncPolicyV1 {
   schemaVersion: typeof KNOWLEDGE_SYNC_CONTRACT_VERSION;
@@ -104,6 +116,7 @@ export interface KnowledgeSyncPolicyV1 {
   metadataRefresh: "reconcile";
   includeTaxonomies: string[];
   documentProfile: string;
+  structuredContent?: StructuredContentPolicy;
 }
 
 export interface KnowledgeSyncBoundary {
@@ -513,7 +526,21 @@ export function parsePublicContentProjectionV2(
   return fail("invalid_operation", "projection.operation", "Unsupported desired operation.");
 }
 
-/** Parse either supported producer contract during the rolling upgrade. */
+export function parsePublicContentProjectionV3(value: unknown, boundary?: KnowledgeSyncBoundary): PublicContentProjectionV3 {
+  const projection = record(value, "projection");
+  if (projection.schemaVersion !== 3) fail("unsupported_schema", "projection.schemaVersion", "Unsupported contract version.");
+  const document = projection.operation === "upsert" ? record(projection.document, "document") : null;
+  const legacyDocument = document ? { ...document } : null;
+  if (legacyDocument) delete legacyDocument.structuredContent;
+  const legacy = parsePublicContentProjectionV2({ ...projection, schemaVersion: 2, document: legacyDocument }, boundary);
+  if (BigInt(legacy.sourceVersion) <= 0n || [legacy.source.blogId, legacy.source.postId].some((id) => BigInt(id) <= 0n || BigInt(id) > BigInt(Number.MAX_SAFE_INTEGER))) {
+    fail("invalid_source_identity", "projection.source", "Structured projections require positive source versions and safe positive numeric WordPress identifiers.");
+  }
+  if (legacy.operation === "delete") return { ...legacy, schemaVersion: 3 };
+  return { ...legacy, schemaVersion: 3, document: { ...legacy.document, structuredContent: parseStructuredContentProjection(document!.structuredContent) } };
+}
+
+/** Parse supported producer contracts during the rolling upgrade. */
 export function parsePublicContentProjection(
   value: unknown,
   boundary?: KnowledgeSyncBoundary,
@@ -525,6 +552,7 @@ export function parsePublicContentProjection(
   if (schemaVersion === KNOWLEDGE_SYNC_LOCALE_CONTRACT_VERSION) {
     return parsePublicContentProjectionV2(value, boundary);
   }
+  if (schemaVersion === KNOWLEDGE_SYNC_STRUCTURED_CONTRACT_VERSION) return parsePublicContentProjectionV3(value, boundary);
   return fail("unsupported_schema", "projection.schemaVersion", "Unsupported contract version.");
 }
 
@@ -544,6 +572,7 @@ export function parseKnowledgeSyncPolicyV1(value: unknown): KnowledgeSyncPolicyV
       "metadataRefresh",
       "includeTaxonomies",
       "documentProfile",
+      "structuredContent",
     ],
     "policy",
   );
@@ -609,6 +638,7 @@ export function parseKnowledgeSyncPolicyV1(value: unknown): KnowledgeSyncPolicyV
       "policy.documentProfile",
       /^[a-z0-9][a-z0-9._-]*$/,
     ),
+    ...(policy.structuredContent !== undefined ? { structuredContent: parseStructuredContentPolicy(policy.structuredContent) } : {}),
   };
 }
 

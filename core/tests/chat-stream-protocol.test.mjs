@@ -61,6 +61,35 @@ test("accepts a valid terminal answer envelope", async () => {
   assert.deepEqual(protocol.parseChatStreamServerEvent(candidate), candidate);
 });
 
+test("presentation negotiation is an optional literal version on both start and resume, not cancellation", async () => {
+  const { source } = await loadProtocol();
+  const parsed = ts.createSourceFile("chat-stream-types.ts", source, ts.ScriptTarget.Latest, true);
+  const command = parsed.statements.find((statement) => ts.isTypeAliasDeclaration(statement) && statement.name.text === "ChatStreamClientCommand");
+  assert.ok(command && ts.isUnionTypeNode(command.type));
+  for (const branch of command.type.types) {
+    assert.ok(ts.isTypeLiteralNode(branch));
+    const discriminator = branch.members.find((member) => member.name?.getText(parsed) === "type");
+    const flag = branch.members.find((member) => member.name?.getText(parsed) === "presentationVersion");
+    const kind = discriminator.type.literal.text;
+    if (kind === "turn.start" || kind === "turn.resume") {
+      assert.ok(flag?.questionToken, `${kind} retains legacy requests without negotiation`);
+      assert.ok(ts.isLiteralTypeNode(flag.type) && ts.isNumericLiteral(flag.type.literal));
+      assert.equal(flag.type.literal.text, "1", `${kind} advertises only the supported presentation version`);
+    } else {
+      assert.equal(flag, undefined, "cancellation does not negotiate rendering capabilities");
+    }
+  }
+});
+
+test("accepts an additive presentation upsert frame without changing the stream protocol version", async () => {
+  const { protocol } = await loadProtocol();
+  const candidate = envelope({ type: "presentation.upsert", payload: {
+    messageId: "assistant-message-42", presentation: { schemaVersion: 1, groups: [] },
+  } });
+  assert.equal(protocol.CHAT_STREAM_PROTOCOL_VERSION, 1);
+  assert.deepEqual(protocol.parseChatStreamServerEvent(candidate), candidate);
+});
+
 test("rejects unsupported protocol versions and event types", async () => {
   const { protocol } = await loadProtocol();
 
