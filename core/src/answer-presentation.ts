@@ -1,6 +1,18 @@
 /** Transport-free display contracts. Mapping never grants source access. */
-export type AnswerLayout = "compact-list" | "cards" | "carousel";
-export type AnswerAttributeType = "string" | "number" | "boolean" | "string-list";
+export type AnswerLayout = "compact-list" | "cards" | "carousel" | "comparison";
+export type AnswerPreset = "product-cards" | "comparison" | "recommendations" | "status-cards";
+export type AnswerAttributeType = "string" | "number" | "boolean" | "string-list" | "money" | "status";
+export type AnswerStatusSemantics = "orderability" | "inventory" | "booking" | "state";
+export type AnswerStatusCode = "orderable" | "in-stock" | "backorder" | "available" | "unavailable" | "unknown" | "pending" | "complete" | "warning" | "error" | "info";
+export interface AnswerMoney { amount: string; currency: string; unit: "major" | "minor"; scale?: number }
+export interface AnswerStatus { code: AnswerStatusCode; label: string; semantics: AnswerStatusSemantics }
+export type AnswerAttributeValue = string | number | boolean | string[] | AnswerMoney | AnswerStatus;
+export interface AnswerAttributeMapping {
+  id: string; label: string; pointer: string; type: AnswerAttributeType;
+  role?: "price" | "availability" | "status" | "detail";
+  money?: { currencyPointer: string; unit: "major" | "minor"; scale?: number; scalePointer?: string };
+  status?: { semantics: AnswerStatusSemantics; values: { value: string | number | boolean; code: AnswerStatusCode; label: string }[]; unknownLabel?: string };
+}
 export type AnswerSource =
   | { kind: "structured_content"; postTypes: string[] }
   | { kind: "external_rest"; toolId: string }
@@ -9,17 +21,18 @@ export interface AnswerTemplate {
   id: string;
   revision: number;
   layout: AnswerLayout;
+  preset?: AnswerPreset;
   heading?: string;
   source: AnswerSource;
   itemsPointer: string;
   bindings: { id: string; title: string; description?: string };
   image?: { pointer: string; altPointer?: string; allowedUrlPrefixes: string[] };
-  attributes: { id: string; label: string; pointer: string; type: AnswerAttributeType }[];
-  links: { id: string; label: string; pointer: string; allowedUrlPrefixes: string[] }[];
+  attributes: AnswerAttributeMapping[];
+  links: { id: string; label: string; pointer: string; allowedUrlPrefixes: string[]; appearance?: "primary" | "secondary" }[];
   maxItems: number;
 }
 export interface AnswerPresentationPolicy {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   enabled: boolean;
   templates: AnswerTemplate[];
 }
@@ -29,13 +42,14 @@ export interface AnswerEntity {
   title: string;
   description?: string;
   image?: { url: string; alt: string };
-  attributes: { id: string; label: string; type: AnswerAttributeType; value: string | number | boolean | string[] }[];
-  links: { id: string; label: string; url: string }[];
+  attributes: { id: string; label: string; type: AnswerAttributeType; value: AnswerAttributeValue; role?: AnswerAttributeMapping["role"] }[];
+  links: { id: string; label: string; url: string; appearance?: "primary" | "secondary" }[];
   provenance: { kind: AnswerSource["kind"]; sourceId: string; evidenceId: string; checkedAt: string };
 }
 export interface AnswerPresentation {
-  schemaVersion: 1;
-  groups: { templateId: string; templateRevision: number; layout: AnswerLayout; heading?: string; entities: AnswerEntity[] }[];
+  schemaVersion: 1 | 2;
+  locale?: string;
+  groups: { templateId: string; templateRevision: number; layout: AnswerLayout; preset?: AnswerPreset; heading?: string; entities: AnswerEntity[] }[];
 }
 export const ANSWER_PRESENTATION_MAX_BYTES = 12000;
 export const ANSWER_PRESENTATION_MAX_GROUPS = 2;
@@ -65,11 +79,73 @@ function uniqueIds(v: { id: string }[]): void {
 function integer(v: unknown, max: number): asserts v is number {
   if (!Number.isSafeInteger(v) || (v as number) < 1 || (v as number) > max) throw new Error("Invalid answer presentation limit");
 }
-function layout(v: unknown): asserts v is AnswerLayout {
-  if (!["compact-list", "cards", "carousel"].includes(v as string)) throw new Error("Invalid answer layout");
+function layout(v: unknown, version: number): asserts v is AnswerLayout {
+  if (!(version === 2 ? ["compact-list", "cards", "carousel", "comparison"] : ["compact-list", "cards", "carousel"]).includes(v as string)) throw new Error("Invalid answer layout");
 }
-function attributeType(v: unknown): asserts v is AnswerAttributeType {
-  if (!["string", "number", "boolean", "string-list"].includes(v as string)) throw new Error("Invalid answer attribute type");
+function attributeType(v: unknown, version: number): asserts v is AnswerAttributeType {
+  if (!(version === 2 ? ["string", "number", "boolean", "string-list", "money", "status"] : ["string", "number", "boolean", "string-list"]).includes(v as string)) throw new Error("Invalid answer attribute type");
+}
+function preset(v: unknown): void {
+  if (v !== undefined && !["product-cards", "comparison", "recommendations", "status-cards"].includes(v as string)) throw new Error("Invalid answer preset");
+}
+function role(v: unknown): void {
+  if (v !== undefined && !["price", "availability", "status", "detail"].includes(v as string)) throw new Error("Invalid answer attribute role");
+}
+function appearance(v: unknown): void {
+  if (v !== undefined && !["primary", "secondary"].includes(v as string)) throw new Error("Invalid answer link appearance");
+}
+function statusCode(code: unknown, semantics: unknown): void {
+  const allowed: Record<AnswerStatusSemantics, string[]> = {
+    orderability: ["orderable", "backorder", "unavailable", "unknown"],
+    inventory: ["in-stock", "backorder", "unavailable", "unknown"],
+    booking: ["available", "unavailable", "pending", "unknown"],
+    state: ["pending", "complete", "warning", "error", "info", "unknown"],
+  };
+  if (typeof semantics !== "string" || !Object.hasOwn(allowed, semantics) || !allowed[semantics as AnswerStatusSemantics].includes(code as string)) throw new Error("Invalid answer status semantics");
+}
+function validMoney(v: unknown): v is AnswerMoney {
+  try {
+    exact(v, ["amount", "currency", "unit", "scale"]);
+    if (typeof v.amount !== "string" || !/^-?(?:0|[1-9]\d{0,19})(?:\.\d{1,6})?$/.test(v.amount) ||
+      typeof v.currency !== "string" || !/^[A-Z]{3}$/.test(v.currency) || !["major", "minor"].includes(v.unit as string)) return false;
+    const currencies = (Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("currency");
+    if (currencies && !currencies.includes(v.currency)) return false;
+    if (v.unit === "minor") return /^-?\d+$/.test(v.amount) && Number.isSafeInteger(v.scale) && (v.scale as number) >= 0 && (v.scale as number) <= 6;
+    return v.scale === undefined;
+  } catch { return false; }
+}
+function validStatus(v: unknown): v is AnswerStatus {
+  try { exact(v, ["code", "label", "semantics"]); statusCode(v.code, v.semantics); text(v.label, 80); return true; } catch { return false; }
+}
+
+/** Preserve exact source units; only formatting is localized, never currency conversion. */
+export function formatAnswerMoney(value: AnswerMoney, locale?: string): string | undefined {
+  if (!validMoney(value)) return undefined;
+  try {
+    const negative = value.amount.startsWith("-");
+    let digits = value.amount.replace(/^-/, "");
+    if (value.unit === "minor") {
+      const scale = value.scale!;
+      digits = digits.padStart(scale + 1, "0");
+      if (scale) digits = `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
+    }
+    const [whole, fraction = ""] = digits.split(".");
+    const base = new Intl.NumberFormat(locale, { style: "currency", currency: value.currency });
+    const precision = Math.max(base.resolvedOptions().minimumFractionDigits ?? 0, fraction.length);
+    const formatter = new Intl.NumberFormat(locale, { style: "currency", currency: value.currency, minimumFractionDigits: precision, maximumFractionDigits: precision });
+    const integer = BigInt(whole!);
+    const parts = formatter.formatToParts(negative ? (integer ? -integer : -0) : integer);
+    const digitFormatter = new Intl.NumberFormat(locale, { useGrouping: false, numberingSystem: formatter.resolvedOptions().numberingSystem });
+    const localizedFraction = [...fraction.padEnd(precision, "0")].map(d => digitFormatter.format(Number(d))).join("");
+    return parts.map(part => part.type === "fraction" ? localizedFraction : part.value).join("");
+  } catch { return undefined; }
+}
+
+/** Enumerate every input pointer, including secondary typed-value bindings. */
+export function answerTemplatePointers(template: AnswerTemplate): string[] {
+  return [template.bindings.id, template.bindings.title, template.bindings.description, template.image?.pointer, template.image?.altPointer,
+    ...template.attributes.flatMap(a => [a.pointer, a.money?.currencyPointer, a.money?.scalePointer]), ...template.links.map(l => l.pointer)]
+    .filter((p): p is string => p !== undefined);
 }
 function pointer(v: unknown): asserts v is string {
   if (typeof v !== "string" || v.length > 256 || (v !== "" && !v.startsWith("/")) || /~(?![01])/.test(v) || v.split("/").slice(1).some((k) => forbidden.has(k.replace(/~1/g, "/").replace(/~0/g, "~")))) throw new Error("Invalid display field pointer");
@@ -115,11 +191,12 @@ export function isAnswerUrlAllowed(value: unknown, allowed: string[]): value is 
 }
 export function parseAnswerPresentationPolicy(value: unknown): AnswerPresentationPolicy {
   exact(value, ["schemaVersion", "enabled", "templates"]);
-  if (value.schemaVersion !== 1 || typeof value.enabled !== "boolean") throw new Error("Unsupported display policy");
+  if (![1, 2].includes(value.schemaVersion as number) || typeof value.enabled !== "boolean") throw new Error("Unsupported display policy");
+  const version = value.schemaVersion as number;
   list(value.templates, 12);
   for (const t of value.templates) {
-    exact(t, ["id", "revision", "layout", "heading", "source", "itemsPointer", "bindings", "image", "attributes", "links", "maxItems"]);
-    identifier(t.id); integer(t.revision, 1000000); layout(t.layout); text(t.heading, 160, true); pointer(t.itemsPointer); integer(t.maxItems, 6);
+    exact(t, ["id", "revision", "layout", "heading", "source", "itemsPointer", "bindings", "image", "attributes", "links", "maxItems", ...(version === 2 ? ["preset"] : [])]);
+    identifier(t.id); integer(t.revision, 1000000); layout(t.layout, version); preset(t.preset); text(t.heading, 160, true); pointer(t.itemsPointer); integer(t.maxItems, 6);
     if (!record(t.source)) throw new Error("Missing display source");
     if (t.source.kind === "structured_content") {
       exact(t.source, ["kind", "postTypes"]); list(t.source.postTypes, 32);
@@ -138,12 +215,30 @@ export function parseAnswerPresentationPolicy(value: unknown): AnswerPresentatio
     }
     list(t.attributes, 8);
     for (const a of t.attributes) {
-      exact(a, ["id", "label", "pointer", "type"]); identifier(a.id); text(a.label, 80); pointer(a.pointer); attributeType(a.type);
+      exact(a, ["id", "label", "pointer", "type", ...(version === 2 ? ["role", "money", "status"] : [])]); identifier(a.id); text(a.label, 80); pointer(a.pointer); attributeType(a.type, version); role(a.role);
+      if (a.type === "money") {
+        exact(a.money, ["currencyPointer", "unit", "scale", "scalePointer"]); pointer(a.money.currencyPointer);
+        if (!["major", "minor"].includes(a.money.unit as string) || a.status !== undefined) throw new Error("Invalid money mapping");
+        if (a.money.unit === "minor") {
+          if ((a.money.scale === undefined) === (a.money.scalePointer === undefined)) throw new Error("Declare exactly one source unit scale");
+          if (a.money.scale !== undefined && (!Number.isSafeInteger(a.money.scale) || (a.money.scale as number) < 0 || (a.money.scale as number) > 6)) throw new Error("Invalid money scale");
+          if (a.money.scalePointer !== undefined) pointer(a.money.scalePointer);
+        } else if (a.money.scale !== undefined || a.money.scalePointer !== undefined) throw new Error("Major units do not have a minor unit scale");
+      } else if (a.type === "status") {
+        exact(a.status, ["semantics", "values", "unknownLabel"]); list(a.status.values, 16); text(a.status.unknownLabel, 80, true);
+        if (a.money !== undefined || !a.status.values.length) throw new Error("Invalid status mapping");
+        const values = new Set<string>();
+        for (const row of a.status.values) {
+          exact(row, ["value", "code", "label"]); statusCode(row.code, a.status.semantics); text(row.label, 80);
+          if (!(typeof row.value === "string" && row.value.length <= 120) && typeof row.value !== "boolean" && !(typeof row.value === "number" && Number.isFinite(row.value))) throw new Error("Invalid status source value");
+          const key = JSON.stringify(row.value); if (values.has(key)) throw new Error("Duplicate status source value"); values.add(key);
+        }
+      } else if (a.money !== undefined || a.status !== undefined) throw new Error("Unexpected typed value mapping");
     }
     uniqueIds(t.attributes as AnswerTemplate["attributes"]);
     list(t.links, 3);
     for (const l of t.links) {
-      exact(l, ["id", "label", "pointer", "allowedUrlPrefixes"]); identifier(l.id); text(l.label, 80); pointer(l.pointer); prefixes(l.allowedUrlPrefixes);
+      exact(l, ["id", "label", "pointer", "allowedUrlPrefixes", ...(version === 2 ? ["appearance"] : [])]); identifier(l.id); text(l.label, 80); pointer(l.pointer); prefixes(l.allowedUrlPrefixes); appearance(l.appearance);
     }
     uniqueIds(t.links as AnswerTemplate["links"]);
   }
@@ -151,7 +246,9 @@ export function parseAnswerPresentationPolicy(value: unknown): AnswerPresentatio
   if (new TextEncoder().encode(JSON.stringify(value)).length > 24000) throw new Error("Display policy exceeds limit");
   return JSON.parse(JSON.stringify(value)) as AnswerPresentationPolicy;
 }
-function validAttribute(value: unknown, type: AnswerAttributeType): value is string | number | boolean | string[] {
+function validAttribute(value: unknown, type: AnswerAttributeType): value is AnswerAttributeValue {
+  if (type === "money") return validMoney(value);
+  if (type === "status") return validStatus(value);
   if (type === "string") return typeof value === "string" && !!value.trim() && value.length <= 240;
   if (type === "number") return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= Number.MAX_SAFE_INTEGER;
   if (type === "boolean") return typeof value === "boolean";
@@ -166,12 +263,22 @@ export function materializeAnswerEntity(template: AnswerTemplate, item: unknown,
   const imageUrl = template.image && readAnswerPointer(item, template.image.pointer);
   const alt = template.image?.altPointer === undefined ? undefined : readAnswerPointer(item, template.image.altPointer);
   const attributes = template.attributes.flatMap((a) => {
-    const value = readAnswerPointer(item, a.pointer);
-    return validAttribute(value, a.type) ? [{ id: a.id, label: a.label, type: a.type, value }] : [];
+    const sourceValue = readAnswerPointer(item, a.pointer);
+    let value: unknown = sourceValue;
+    if (a.type === "money" && a.money) {
+      if ((typeof sourceValue !== "string" && typeof sourceValue !== "number") || (typeof sourceValue === "number" && (!Number.isFinite(sourceValue) || Math.abs(sourceValue) > Number.MAX_SAFE_INTEGER))) return [];
+      const scale = a.money.scalePointer === undefined ? a.money.scale : readAnswerPointer(item, a.money.scalePointer);
+      value = { amount: String(sourceValue), currency: readAnswerPointer(item, a.money.currencyPointer), unit: a.money.unit, ...(a.money.unit === "minor" ? { scale } : {}) };
+    } else if (a.type === "status" && a.status) {
+      const mapped = a.status.values.find(row => Object.is(row.value, sourceValue));
+      value = mapped ? { code: mapped.code, label: mapped.label, semantics: a.status.semantics }
+        : a.status.unknownLabel ? { code: "unknown", label: a.status.unknownLabel, semantics: a.status.semantics } : undefined;
+    }
+    return validAttribute(value, a.type) ? [{ id: a.id, label: a.label, type: a.type, value, ...(a.role ? { role: a.role } : {}) }] : [];
   });
   const links = template.links.flatMap((l) => {
     const url = readAnswerPointer(item, l.pointer);
-    return isAnswerUrlAllowed(url, l.allowedUrlPrefixes) ? [{ id: l.id, label: l.label, url }] : [];
+    return isAnswerUrlAllowed(url, l.allowedUrlPrefixes) ? [{ id: l.id, label: l.label, url, ...(l.appearance ? { appearance: l.appearance } : {}) }] : [];
   });
   return {
     ref, entityId: String(id), title,
@@ -184,13 +291,15 @@ export function materializeAnswerEntity(template: AnswerTemplate, item: unknown,
 export function parseAnswerPresentation(value: unknown): AnswerPresentation | undefined {
   try {
     if (new TextEncoder().encode(JSON.stringify(value)).length > ANSWER_PRESENTATION_MAX_BYTES) return undefined;
-    exact(value, ["schemaVersion", "groups"]);
-    if (value.schemaVersion !== 1) return undefined;
+    exact(value, ["schemaVersion", "groups", ...(record(value) && value.schemaVersion === 2 ? ["locale"] : [])]);
+    if (![1, 2].includes(value.schemaVersion as number)) return undefined;
+    const version = value.schemaVersion as number;
+    if (value.locale !== undefined) { text(value.locale, 35); new Intl.NumberFormat(value.locale as string); }
     list(value.groups, ANSWER_PRESENTATION_MAX_GROUPS);
     const refs = new Set<string>();
     for (const g of value.groups) {
-      exact(g, ["templateId", "templateRevision", "layout", "heading", "entities"]);
-      identifier(g.templateId); integer(g.templateRevision, 1000000); layout(g.layout); text(g.heading, 160, true); list(g.entities, 6);
+      exact(g, ["templateId", "templateRevision", "layout", "heading", "entities", ...(version === 2 ? ["preset"] : [])]);
+      identifier(g.templateId); integer(g.templateRevision, 1000000); layout(g.layout, version); preset(g.preset); text(g.heading, 160, true); list(g.entities, 6);
       for (const e of g.entities) {
         exact(e, ["ref", "entityId", "title", "description", "image", "attributes", "links", "provenance"]);
         identifier(e.ref); text(e.entityId, 256); text(e.title, 240); text(e.description, 800, true);
@@ -203,13 +312,13 @@ export function parseAnswerPresentation(value: unknown): AnswerPresentation | un
         }
         list(e.attributes, 8);
         for (const a of e.attributes) {
-          exact(a, ["id", "label", "type", "value"]); identifier(a.id); text(a.label, 80); attributeType(a.type);
+          exact(a, ["id", "label", "type", "value", ...(version === 2 ? ["role"] : [])]); identifier(a.id); text(a.label, 80); attributeType(a.type, version); role(a.role);
           if (!validAttribute(a.value, a.type)) return undefined;
         }
         uniqueIds(e.attributes as AnswerEntity["attributes"]);
         list(e.links, 3);
         for (const l of e.links) {
-          exact(l, ["id", "label", "url"]); identifier(l.id); text(l.label, 80); if (!isAnswerHttpsUrl(l.url)) return undefined;
+          exact(l, ["id", "label", "url", ...(version === 2 ? ["appearance"] : [])]); identifier(l.id); text(l.label, 80); appearance(l.appearance); if (!isAnswerHttpsUrl(l.url)) return undefined;
         }
         uniqueIds(e.links as AnswerEntity["links"]);
         exact(e.provenance, ["kind", "sourceId", "evidenceId", "checkedAt"]);
@@ -221,4 +330,24 @@ export function parseAnswerPresentation(value: unknown): AnswerPresentation | un
     }
     return JSON.parse(JSON.stringify(value)) as AnswerPresentation;
   } catch { return undefined; }
+}
+
+/** Old clients receive only their negotiated schema; no new model invocation. */
+export function answerPresentationForVersion(value: unknown, version: 1 | 2, locale?: string): AnswerPresentation | undefined {
+  const parsed = parseAnswerPresentation(value);
+  if (!parsed || parsed.schemaVersion === 1 || version === 2) return parsed;
+  return parseAnswerPresentation({ schemaVersion: 1, groups: parsed.groups.map(group => ({
+    templateId: group.templateId, templateRevision: group.templateRevision,
+    layout: group.layout === "comparison" ? "cards" : group.layout,
+    ...(group.heading ? { heading: group.heading } : {}),
+    entities: group.entities.map(entity => ({ ...entity,
+      attributes: entity.attributes.flatMap(attribute => {
+        const value = attribute.type === "money" ? formatAnswerMoney(attribute.value as AnswerMoney, parsed.locale ?? locale)
+          : attribute.type === "status" ? (attribute.value as AnswerStatus).label : attribute.value;
+        return value === undefined ? [] : [{ id: attribute.id, label: attribute.label,
+          type: ["money", "status"].includes(attribute.type) ? "string" : attribute.type, value }];
+      }),
+      links: entity.links.map(link => ({ id: link.id, label: link.label, url: link.url })),
+    })),
+  })) });
 }

@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.6.2
+ * Version:           1.6.3
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.6.2';
+const VERSION = '1.6.3';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {
@@ -759,6 +759,27 @@ final class AiKit
             'wpsuiteThemeCssHref' => $this->getWpsuiteThemeCssHref(),
             'wpsuiteThemeCssHrefs' => $this->getWpsuiteThemeCssHrefs(),
         );
+
+        // Declare shadow dependencies without loading or applying them to the
+        // document. Static crawlers can collect these before runtime mounts.
+        if (!is_admin()) {
+            $shared_stylesheets = !empty($constants['wpsuiteThemeCssHrefs'])
+                ? $constants['wpsuiteThemeCssHrefs']
+                : array($constants['wpsuiteThemeCssHref']);
+            $assets = array_merge(
+                array($constants['mantineCssHref'], $constants['aiKitUiCssHref']),
+                $shared_stylesheets
+            );
+            $assets = array_values(array_unique(array_filter($assets, static function ($url) {
+                return is_string($url) && $url !== '';
+            })));
+            if ($assets !== array()) {
+                wp_print_inline_script_tag(
+                    wp_json_encode(array('schemaVersion' => 1, 'assets' => $assets), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT),
+                    array('type' => 'application/json', 'data-static-export-assets' => '')
+                );
+            }
+        }
 
         $js = 'const __aikitGlobal = (typeof globalThis !== "undefined") ? globalThis : window;
     __aikitGlobal.WpSuite = __aikitGlobal.WpSuite ?? {};

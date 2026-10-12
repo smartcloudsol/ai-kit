@@ -62,6 +62,7 @@ function smartcloud_ai_kit_uninstall_site(): void
             $base = $directory . DIRECTORY_SEPARATOR . 'knowledge-sync-blog-' . get_current_blog_id();
             foreach (array($base . '.pem', $base . '.pending.pem') as $private_key_path) {
                 if (is_file($private_key_path)) {
+                    // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Uninstall removes only this blog's two exact local PEM paths, validated outside the webroot; no transport or path filters.
                     unlink($private_key_path);
                 }
             }

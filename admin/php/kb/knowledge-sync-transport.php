@@ -51,6 +51,7 @@ final class KnowledgeSyncFilePrivateKeyStore implements KnowledgeSyncPrivateKeyS
         }
         $directory = realpath($configured);
         $webroot = realpath(ABSPATH);
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- Security-sensitive local PEM storage outside the webroot cannot use FTP-backed WP Filesystem.
         if ($directory === false || !is_dir($directory) || !is_writable($directory)) {
             throw new KnowledgeSyncTransportException('invalid_key_directory', 'The key directory must already exist and be writable.');
         }
@@ -78,9 +79,12 @@ final class KnowledgeSyncFilePrivateKeyStore implements KnowledgeSyncPrivateKeyS
     public function writePending(string $private_key): void
     {
         $temporary = $this->pending_path . '.' . bin2hex(random_bytes(8)) . '.tmp';
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Write the exact local external-webroot PEM with an exclusive local lock; FTP-backed writes cannot preserve this contract.
         $written = file_put_contents($temporary, $private_key, LOCK_EX);
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod,WordPress.WP.AlternativeFunctions.rename_rename -- Same-directory atomic publication with local 0600 permissions is part of the private-key storage contract.
         if ($written !== strlen($private_key) || !chmod($temporary, 0600) || !rename($temporary, $this->pending_path)) {
             if (is_file($temporary)) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Remove only the exact local temporary PEM created by this operation; no filesystem transport or path filters.
                 unlink($temporary);
             }
             throw new KnowledgeSyncTransportException('key_write_failed', 'The pending private key could not be stored.');
@@ -94,24 +98,30 @@ final class KnowledgeSyncFilePrivateKeyStore implements KnowledgeSyncPrivateKeyS
         }
         $backup = $this->current_path . '.' . bin2hex(random_bytes(8)) . '.backup';
         $has_current = is_file($this->current_path);
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Atomic local rotation must preserve the current PEM for rollback before publishing the pending PEM.
         if ($has_current && !rename($this->current_path, $backup)) {
             throw new KnowledgeSyncTransportException('key_promotion_failed', 'The current private key could not be preserved for rotation.');
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Atomic same-directory replacement is required for concurrent key readers.
         if (!rename($this->pending_path, $this->current_path)) {
             if ($has_current && is_file($backup)) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Restore the exact local PEM backup after a failed atomic promotion.
                 rename($backup, $this->current_path);
             }
             throw new KnowledgeSyncTransportException('key_promotion_failed', 'The enrolled private key could not be promoted.');
         }
         if ($has_current && is_file($backup)) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Delete only this rotation's exact local backup after successful promotion.
             unlink($backup);
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- Enforce local owner-only PEM permissions, independent of WP Filesystem transport configuration.
         chmod($this->current_path, 0600);
     }
 
     public function discardPending(): void
     {
         if (is_file($this->pending_path)) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Delete the validated external-webroot local pending PEM, not an FTP-backed site file.
             unlink($this->pending_path);
         }
     }
@@ -119,6 +129,7 @@ final class KnowledgeSyncFilePrivateKeyStore implements KnowledgeSyncPrivateKeyS
     public function deleteAll(): void
     {
         foreach (array($this->current_path, $this->pending_path) as $path) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Delete only the two validated local PEM paths for this blog; private paths must not pass through filesystem filters.
             if (is_file($path) && !unlink($path)) {
                 throw new KnowledgeSyncTransportException('key_delete_failed', 'The local private key could not be removed.');
             }
@@ -130,6 +141,7 @@ final class KnowledgeSyncFilePrivateKeyStore implements KnowledgeSyncPrivateKeyS
         if (!is_file($path)) {
             return null;
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Read only a validated local external-webroot PEM path, never an HTTP URL or remote transport.
         $value = file_get_contents($path);
         if (!is_string($value) || $value === '') {
             throw new KnowledgeSyncTransportException('key_read_failed', 'The private key could not be read.');
@@ -944,6 +956,7 @@ final class KnowledgeSyncTransport
             $code = isset($decoded['code']) && is_string($decoded['code'])
                 ? sanitize_key($decoded['code'])
                 : 'backend_rejected';
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- This is a machine-readable exception code normalized with sanitize_key above, not rendered HTML.
             throw new KnowledgeSyncTransportException($code, 'The knowledge-sync backend rejected the request.');
         }
         return $decoded;
@@ -969,7 +982,7 @@ final class KnowledgeSyncTransport
         if (($compatibility['status'] ?? '') !== 'verified' || !is_int($version) || $version < $minimum_version) {
             throw new KnowledgeSyncTransportException(
                 'backend_capability_unavailable',
-                'The configured AI Kit backend does not support ' . $capability . '.'
+                'The configured AI Kit backend does not support the required capability.'
             );
         }
     }

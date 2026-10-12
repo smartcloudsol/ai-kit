@@ -50,7 +50,10 @@ final class AnswersSettings
         if (is_wp_error($response)) { return self::error(__('The WP Suite settings service could not be reached. Retry without discarding your edits.', 'smartcloud-ai-kit'), 502); }
         $status = wp_remote_retrieve_response_code($response);
         $data = json_decode(wp_remote_retrieve_body($response), true);
-        if (200 !== $status) { return self::error(sprintf(__('WP Suite settings request failed (HTTP %d).', 'smartcloud-ai-kit'), $status), $status >= 400 && $status < 500 ? $status : 502); }
+        if (200 !== $status) {
+            /* translators: %d: HTTP response status from the settings service. */
+            return self::error(sprintf(__('WP Suite settings request failed (HTTP %d).', 'smartcloud-ai-kit'), $status), $status >= 400 && $status < 500 ? $status : 502);
+        }
         if (!is_array($data) || ($data['accountId'] ?? null) !== $connection['accountId'] || ($data['siteId'] ?? null) !== $connection['siteId'] || !is_array($data['settings'] ?? null)) {
             return self::error(__('The settings response did not match the connected site. Reload the connection before saving.', 'smartcloud-ai-kit'), 502);
         }

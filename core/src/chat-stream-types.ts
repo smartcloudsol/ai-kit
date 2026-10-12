@@ -35,7 +35,7 @@ export type ChatStreamClientCommand =
       version: typeof CHAT_STREAM_PROTOCOL_VERSION;
       type: "turn.start";
       /** Opt in to sequenced presentation events; old clients omit this. */
-      presentationVersion?: 1;
+      presentationVersion?: 1 | 2;
       requestId: string;
       conversationId?: string;
       locale?: string;
@@ -52,7 +52,7 @@ export type ChatStreamClientCommand =
       version: typeof CHAT_STREAM_PROTOCOL_VERSION;
       type: "turn.resume";
       /** Declare support independently on reconnect, including another client. */
-      presentationVersion?: 1;
+      presentationVersion?: 1 | 2;
       requestId: string;
       conversationId: string;
       turnId: string;

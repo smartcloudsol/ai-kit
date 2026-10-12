@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import vm from "node:vm";
 import test from "node:test";
 import type { AnswerPresentation } from "@smart-cloud/ai-kit-core";
 
-import { runChatStreamTurn, summarizeChatActivities, isToolActivity, isSummaryActivity, type ChatActivity } from "../src/ai-chatbot/chatStream.ts";
+import { runChatStreamTurn, summarizeChatActivities, isToolActivity, isSummaryActivity, chatPresentationVersionForCapabilities, type ChatActivity } from "../src/ai-chatbot/chatStream.ts";
 
 const envelope = (
   type: string,
@@ -55,6 +58,85 @@ class FakeSocket {
   }
 }
 
+test("presentation capabilities opt into v2 only when explicitly advertised", () => {
+  for (const capabilities of [undefined, {}, { "ai.answer.presentation": 1 }, { "ai.answer.presentation": "2" }, { "ai.answer.presentation": 3 }]) {
+    assert.equal(chatPresentationVersionForCapabilities(capabilities), 1);
+  }
+  assert.equal(chatPresentationVersionForCapabilities({ "ai.answer.presentation": 2 }), 2);
+});
+
+test("unverified, unavailable and failing capability discovery cannot opt into v2", async () => {
+  const require = createRequire(import.meta.url);
+  const source = await readFile(new URL("../src/ai-chatbot/chatStream.ts", import.meta.url), "utf8");
+  const start = source.indexOf("export async function discoverChatPresentationVersion(");
+  const end = source.indexOf("/** The backend advertises", start);
+  assert.ok(start > 0 && end > start);
+  const transformed = await require("esbuild").transform(source.slice(start, end), { loader: "ts", format: "cjs" });
+  const module = { exports: {} as { discoverChatPresentationVersion: () => Promise<number> } };
+  let backend: unknown;
+  vm.runInNewContext(transformed.code, { module, exports: module.exports, chatPresentationVersionForCapabilities,
+    resolveBackend: async () => { if (backend instanceof Error) throw backend; return backend; } });
+  for (const status of ["verified", "unknown", undefined]) for (const available of [true, false]) {
+    backend = { available, compatibility: { status, manifest: { capabilities: { "ai.answer.presentation": 2 } } } };
+    assert.equal(await module.exports.discoverChatPresentationVersion(), available && status === "verified" ? 2 : 1);
+  }
+  backend = new Error("Unavailable manifest");
+  assert.equal(await module.exports.discoverChatPresentationVersion(), 1);
+});
+
+test("stream start and resume consistently use the negotiated display schema without changing transport version", async () => {
+  for (const presentationVersion of [undefined, 1, 2] as const) for (const resume of [false, true]) {
+    const negotiated = presentationVersion ?? 1;
+    const display = { ...presentation, schemaVersion: negotiated };
+    const result = await runChatStreamTurn({
+      url: "wss://stream.example.test/chat", text: "hello", locale: "en", requestId: "request-negotiated",
+      presentationVersion,
+      ...(resume ? { resume: { requestId: "request-negotiated", conversationId: "session-1", turnId: "turn-1", lastSeq: 0 } } : {}),
+      signal: new AbortController().signal,
+      ticketProvider: async () => ({ ticket: "safe-ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+      socketFactory: () => new FakeSocket((command, socket) => queueMicrotask(() => {
+        assert.equal(command.type, resume ? "turn.resume" : "turn.start");
+        assert.equal(command.version, 1);
+        assert.equal(command.presentationVersion, negotiated);
+        if (!resume) socket.emit("turn.accepted", 0, { sessionId: "session-1", assistantMessageId: "assistant-1", status: "running" });
+        socket.emit(resume ? "turn.snapshot" : "answer.completed", 1, { result: "Source-only answer", presentation: display, completion: "complete", lastSeq: 1, active: false });
+      })) as unknown as WebSocket,
+      onView: () => {},
+    });
+    assert.deepEqual(result.presentation, display);
+  }
+});
+
+test("v2 gap recovery preserves negotiated typed display values in every resume frame", async () => {
+  const typed = { ...presentation, schemaVersion: 2, locale: "en-US", groups: presentation.groups.map(group => ({ ...group,
+    entities: group.entities.map(entity => ({ ...entity, attributes: [
+      { id: "price", label: "Verified price", type: "money", role: "price", value: { amount: "0", currency: "USD", unit: "major" } },
+      { id: "availability", label: "Verified status", type: "status", role: "availability", value: { code: "unknown", label: "Source did not report inventory", semantics: "inventory" } },
+    ] })),
+  })) };
+  const commands: Record<string, unknown>[] = [];
+  const result = await runChatStreamTurn({
+    url: "wss://stream.example.test/chat", text: "hello", locale: "en", requestId: "request-v2-gap", presentationVersion: 2,
+    signal: new AbortController().signal,
+    ticketProvider: async () => ({ ticket: "safe-ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+    socketFactory: () => new FakeSocket((command, socket) => queueMicrotask(() => {
+      commands.push(command);
+      assert.equal(command.presentationVersion, 2);
+      if (command.type === "turn.start") {
+        socket.emit("turn.accepted", 0, { sessionId: "session-1", assistantMessageId: "assistant-1", status: "running" });
+        socket.emit("presentation.upsert", 2, { messageId: "assistant-1", presentation: typed });
+      } else {
+        socket.emit("answer.delta", 1, { text: "Verified source answer" });
+        socket.emit("answer.completed", 3, { completion: "complete" });
+      }
+    })) as unknown as WebSocket,
+    onView: () => {},
+  });
+  assert.deepEqual(commands.map(command => command.type), ["turn.start", "turn.resume"]);
+  assert.deepEqual(result.presentation, typed);
+  assert.equal(result.result, "Verified source answer");
+});
+
 test("validated presentation survives completion and completed snapshot replay", async () => {
   for (const terminal of ["answer.completed", "turn.snapshot"]) {
     const result = await runChatStreamTurn({
@@ -80,7 +162,7 @@ test("malformed presentation is ignored without losing streamed text", async () 
     socketFactory: () => new FakeSocket((_command, socket) => queueMicrotask(() => {
       socket.emit("turn.accepted", 0, { sessionId: "session-1", assistantMessageId: "assistant-1", status: "running" });
       socket.emit("answer.delta", 1, { text: "Retained text" });
-      socket.emit("answer.completed", 2, { presentation: { ...presentation, schemaVersion: 2 }, completion: "complete" });
+      socket.emit("answer.completed", 2, { presentation: { ...presentation, schemaVersion: 3 }, completion: "complete" });
     })) as unknown as WebSocket,
     onView: () => {},
   });

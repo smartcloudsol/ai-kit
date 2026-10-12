@@ -10,7 +10,9 @@ import {
   Stack,
   Text,
   Textarea,
+  type TextareaProps,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import {
   IconMaximize,
   IconMessage,
@@ -46,8 +48,10 @@ import React, {
   useMemo,
   useRef,
   useState,
+  type ComponentPropsWithoutRef,
+  type RefObject,
 } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { useAiRun } from "../useAiRun";
@@ -66,6 +70,7 @@ import {
 } from "./citations";
 import {
   discoverChatStreamUrl,
+  discoverChatPresentationVersion,
   runChatStreamTurn,
   sendChatStreamCancel,
   type ChatActivity,
@@ -78,6 +83,29 @@ import { resolveChatWelcome } from "./welcome";
 import { AnswerPresentationView } from "./AnswerPresentation";
 import { normalizeAnswerPresentation, withSafeAnswerPresentation } from "./answer-presentation-state";
 
+/** Keep wide authored tables inside the message rail, not the document viewport. */
+function ChatMarkdownTable({ children, node, ...props }: ComponentPropsWithoutRef<"table"> & ExtraProps) {
+  const heading = node?.children.find((child) => child.type === "element" && child.tagName === "caption")
+    ?? node?.children.find((child) => child.type === "element" && child.tagName === "thead");
+  const authoredText = (child: NonNullable<ExtraProps["node"]>["children"][number]): string =>
+    child.type === "text" ? child.value : "children" in child ? child.children.map(authoredText).join(" ") : "";
+  const label = props["aria-label"] ?? (heading ? authoredText(heading).replace(/\s+/g, " ").trim() : undefined);
+  return <div className="ai-chat-table-scroll" tabIndex={0} role={label ? "region" : undefined} aria-label={label}>
+    <table {...props}>{children}</table>
+  </div>;
+}
+
+/** Mobile idle chrome stays compact; draft text and focus retain room for editing. */
+function ChatComposerInput({ inputRef, ...props }: TextareaProps & { inputRef: RefObject<HTMLTextAreaElement> }) {
+  const mobile = useMediaQuery("(max-width: 600px)", false);
+  const [focused, setFocused] = useState(false);
+  const expanded = !mobile || focused || String(props.value ?? "").length > 0;
+  return <Textarea {...props} ref={inputRef} autosize minRows={expanded ? 3 : 1} maxRows={6}
+    onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+    onBlur={(event) => { setFocused(false); props.onBlur?.(event); }} />;
+}
+
+const CHAT_MARKDOWN_COMPONENTS = { table: ChatMarkdownTable };
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -1326,6 +1354,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           : undefined;
 
       const res = (await ai.run(async ({ signal, onStatus }) => {
+        const presentationVersion = await discoverChatPresentationVersion();
         if (trimmed && !selectedAudio && selectedImages.length === 0) {
           const streamUrl = await discoverChatStreamUrl();
           if (streamUrl && !signal.aborted) {
@@ -1334,6 +1363,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               url: streamUrl,
               text: trimmed,
               locale: I18n.language,
+              presentationVersion,
               sessionId: activeSessionId,
               requestId,
               signal,
@@ -1397,6 +1427,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             audio: selectedAudio?.blob,
             images: selectedImages.map((img) => img.file),
             locale: I18n.language,
+            presentationVersion,
             maxTokens,
           },
           {
@@ -1547,6 +1578,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       let latestView = pending.view;
       try {
         const url = await discoverChatStreamUrl();
+        const presentationVersion = await discoverChatPresentationVersion();
         if (!url) {
           throw new Error("The AI service is temporarily unavailable. Please try again.");
         }
@@ -1555,6 +1587,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             url,
             text: pending.text,
             locale: pending.locale,
+            presentationVersion,
             sessionId: pending.checkpoint.conversationId,
             requestId: pending.checkpoint.requestId,
             resume: pending.checkpoint,
@@ -2197,10 +2230,10 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
                         {msg.role === "assistant" ? (
                           <>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={CHAT_MARKDOWN_COMPONENTS}>
                               {msg.content}
                             </ReactMarkdown>
-                            <AnswerPresentationView presentation={msg.presentation} />
+                            <AnswerPresentationView presentation={msg.presentation} locale={I18n.language} />
                           </>
                         ) : (
                           <Text size="sm" miw="100px">
@@ -2491,10 +2524,11 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               </Modal>
 
               <Group>
-                <Textarea
+                <ChatComposerInput
                   className="ai-message"
-                  ref={questionInputRef}
+                  inputRef={questionInputRef}
                   placeholder={textareaPlaceholder}
+                  aria-label={textareaPlaceholder}
                   value={question}
                   onChange={(e) => {
                     setQuestion(e.target.value);
@@ -2505,7 +2539,6 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                     }
                   }}
                   onKeyDown={handleQuestionKeyDown}
-                  rows={3}
                   disabled={recording || !!composerAudio}
                 />
               </Group>

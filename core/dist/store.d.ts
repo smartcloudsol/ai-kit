@@ -28,7 +28,7 @@ declare const actions: {
     };
     setDirection(direction: "ltr" | "rtl" | "auto" | undefined | null): {
         type: string;
-        direction: "ltr" | "rtl" | "auto" | null | undefined;
+        direction: "auto" | "ltr" | "rtl" | null | undefined;
     };
     setConfig: (config: AiKitConfig) => {
         type: "SET_CONFIG";

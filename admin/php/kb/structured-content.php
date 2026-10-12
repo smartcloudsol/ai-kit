@@ -107,7 +107,7 @@ final class KnowledgeSyncStructuredContent
     {
         try { $policy = self::normalizePolicy($post_type, $policy, true); }
         catch (\InvalidArgumentException $error) {
-            throw new KnowledgeSyncProjectionException('structured_content_policy_invalid', $error->getMessage());
+            throw new KnowledgeSyncProjectionException('structured_content_policy_invalid', 'Selected structured-content policy is invalid.');
         }
         $fields = array();
         $schema = array();
@@ -174,7 +174,7 @@ final class KnowledgeSyncStructuredContent
 
     private static function urlAllowed(string $value): bool
     {
-        $parts = parse_url($value);
+        $parts = wp_parse_url($value);
         return preg_match('/[\x00-\x20\x7F]/', $value) !== 1 && filter_var($value, FILTER_VALIDATE_URL) !== false && is_array($parts) &&
             in_array(strtolower($parts['scheme'] ?? ''), array('https', 'http'), true) && !empty($parts['host']) &&
             !isset($parts['user']) && !isset($parts['pass']);

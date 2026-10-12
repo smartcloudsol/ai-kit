@@ -73,8 +73,11 @@ test("presentation negotiation is an optional literal version on both start and 
     const kind = discriminator.type.literal.text;
     if (kind === "turn.start" || kind === "turn.resume") {
       assert.ok(flag?.questionToken, `${kind} retains legacy requests without negotiation`);
-      assert.ok(ts.isLiteralTypeNode(flag.type) && ts.isNumericLiteral(flag.type.literal));
-      assert.equal(flag.type.literal.text, "1", `${kind} advertises only the supported presentation version`);
+      assert.ok(ts.isUnionTypeNode(flag.type));
+      assert.deepEqual(flag.type.types.map(type => {
+        assert.ok(ts.isLiteralTypeNode(type) && ts.isNumericLiteral(type.literal));
+        return type.literal.text;
+      }), ["1", "2"], `${kind} advertises only the supported presentation versions`);
     } else {
       assert.equal(flag, undefined, "cancellation does not negotiate rendering capabilities");
     }

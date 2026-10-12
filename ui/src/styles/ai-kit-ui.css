@@ -632,6 +632,8 @@
 .ai-chat-container-internal {
   display: flex;
   width: 100%;
+  min-width: 0;
+  min-height: 0;
   max-width: 1300px;
   margin-right: auto;
   margin-left: auto;
@@ -641,6 +643,7 @@
 
 /* Input Box */
 .ai-box-open {
+  flex-shrink: 0;
   gap: var(--ai-kit-space-2);
   padding: var(--ai-kit-space-4);
   border-top: 1px solid var(--ai-kit-color-border-light);
@@ -688,7 +691,24 @@
   }
 
   .ai-box-open {
-    padding: var(--ai-kit-space-3);
+    padding: var(--ai-kit-space-2);
+    gap: var(--ai-kit-space-1);
+  }
+
+  .ai-chat-header-bar {
+    min-height: 44px;
+  }
+
+  .ai-chatbot-generated-content-disclosure {
+    padding: var(--ai-kit-space-1) var(--ai-kit-space-2);
+  }
+
+  .ai-chat-container .ai-message textarea {
+    min-height: 0;
+    max-height: min(10rem, 25dvh);
+    /* The autosizer's inline overflow:hidden must not clip a bounded draft. */
+    overflow-y: auto !important;
+    resize: none;
   }
 }
 
@@ -752,6 +772,8 @@
 /* Chat area */
 .ai-chat-scroll {
   flex: 1;
+  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   padding: var(--ai-kit-space-4);
   overscroll-behavior: auto;
@@ -780,6 +802,7 @@
 }
 
 .ai-chat-bubble {
+  min-width: 0;
   padding: 10px 12px;
   border-radius: var(--ai-kit-radius-sm);
   background: var(--ai-kit-assistant-bubble-bg);
@@ -885,6 +908,59 @@
   border: 0;
   resize: vertical;
   min-height: 64px;
+}
+
+.ai-answer-link:hover {
+  filter: brightness(.94);
+}
+
+.ai-answer-link:focus-visible,
+.ai-answer-comparison-scroll:focus-visible,
+.ai-chat-table-scroll:focus-visible {
+  outline: 2px solid var(--ai-kit-color-primary, #1c7ed6);
+  outline-offset: 3px;
+}
+
+.ai-answer-status[data-answer-status-code="unknown"],
+.ai-answer-status[data-answer-status-code="info"] {
+  color: var(--ai-kit-color-text-muted, inherit);
+}
+
+.ai-answer-status[data-answer-status-code="warning"],
+.ai-answer-status[data-answer-status-code="backorder"],
+.ai-answer-status[data-answer-status-code="pending"] {
+  background: var(--ai-kit-chat-surface-subtle, transparent);
+}
+
+.ai-answer-status[data-answer-status-code="error"],
+.ai-answer-status[data-answer-status-code="unavailable"] {
+  color: var(--ai-kit-color-danger, inherit);
+}
+
+/* A focusable overflow rail preserves native touch and keyboard scrolling. */
+.ai-chat-table-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.ai-chat-table-scroll table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.ai-chat-table-scroll th,
+.ai-chat-table-scroll td {
+  min-width: 10rem;
+  max-width: 20rem;
+  padding: .5rem .75rem;
+  text-align: start;
+  vertical-align: top;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
 }
 
 /* Thumbs */

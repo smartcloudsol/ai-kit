@@ -98,6 +98,8 @@ export type ChatStreamOptions = {
   url: string;
   text: string;
   locale: string;
+  /** Selected only after a verified backend capability advertises this schema. */
+  presentationVersion?: 1 | 2;
   sessionId?: string;
   requestId: string;
   resume?: ChatStreamCheckpoint;
@@ -306,6 +308,20 @@ function abortError(): Error {
   return new DOMException("Chat turn cancelled", "AbortError");
 }
 
+export function chatPresentationVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | 2 {
+  return capabilities?.["ai.answer.presentation"] === 2 ? 2 : 1;
+}
+
+/** The same negotiation applies to HTTP prompts and every stream resume frame. */
+export async function discoverChatPresentationVersion(): Promise<1 | 2> {
+  try {
+    const backend = await resolveBackend();
+    if (!backend.available || backend.compatibility?.status !== "verified") return 1;
+    const manifest = backend.compatibility.manifest as { capabilities?: Record<string, unknown> } | undefined;
+    return chatPresentationVersionForCapabilities(manifest?.capabilities);
+  } catch { return 1; }
+}
+
 /** The backend advertises streaming only when its WebSocket route is ready. */
 export async function discoverChatStreamUrl(): Promise<string | undefined> {
   if (typeof WebSocket === "undefined") return undefined;
@@ -404,6 +420,7 @@ export async function runChatStreamTurn(
   options: ChatStreamOptions,
 ): Promise<ChatStreamResult> {
   if (options.signal.aborted) throw abortError();
+  const presentationVersion = options.presentationVersion === 2 ? 2 : 1;
 
   let checkpoint = options.resume;
   let sessionId = options.resume?.conversationId ?? options.sessionId;
@@ -460,7 +477,7 @@ export async function runChatStreamTurn(
           socket.send(JSON.stringify({
             version: 1,
             type: "turn.resume",
-            presentationVersion: 1,
+            presentationVersion,
             requestId: options.requestId,
             conversationId: checkpoint.conversationId,
             turnId: checkpoint.turnId,
@@ -666,7 +683,7 @@ export async function runChatStreamTurn(
               ? {
                   version: 1,
                   type: "turn.resume",
-                  presentationVersion: 1,
+                  presentationVersion,
                   requestId: options.requestId,
                   conversationId: checkpoint.conversationId,
                   turnId: checkpoint.turnId,
@@ -675,7 +692,7 @@ export async function runChatStreamTurn(
               : {
                   version: 1,
                   type: "turn.start",
-                  presentationVersion: 1,
+                  presentationVersion,
                   requestId: options.requestId,
                   conversationId: sessionId,
                   locale: options.locale,
@@ -725,7 +742,7 @@ export async function runChatStreamTurn(
             JSON.stringify({
               version: 1,
               type: "turn.resume",
-              presentationVersion: 1,
+              presentationVersion,
               requestId: options.requestId,
               conversationId: checkpoint.conversationId,
               turnId: checkpoint.turnId,

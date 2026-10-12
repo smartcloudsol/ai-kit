@@ -684,7 +684,7 @@ final class KnowledgeSyncReleaseCursorRepository
                 $acknowledged,
                 $now
             );
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Durable verified release cursor cache.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared -- The complete INSERT and all identifiers/values are prepared immediately above; durable verified release cursor cache.
             $success = $wpdb->query($sql) !== false && $success;
         }
         return $success;
@@ -883,7 +883,7 @@ final class KnowledgeSyncOutboxRepository
             ? " AND (o.publisher_gate_required = 0 OR (
                     o.desired_publisher_consumer_id IS NOT NULL AND
                     o.desired_publisher_sequence IS NOT NULL AND EXISTS (
-                        SELECT 1 FROM {$this->releaseCursorTableName()} AS rc
+                        SELECT 1 FROM %i AS rc
                         WHERE rc.blog_id = o.blog_id AND rc.post_type = o.post_type
                           AND rc.consumer_id = o.desired_publisher_consumer_id
                           AND rc.verified_sequence >= o.desired_publisher_sequence
@@ -891,6 +891,7 @@ final class KnowledgeSyncOutboxRepository
                 ))"
             : '';
         $update_gate_sql = $gate_sql;
+        $gate_args = $public_release_gate ? array($this->releaseCursorTableName()) : array();
         $select = "SELECT o.id FROM %i AS o
              WHERE ((o.state IN ('pending', 'retry_wait') AND (o.next_attempt_gmt IS NULL OR o.next_attempt_gmt <= %s))
                     OR (o.state = 'leased' AND o.lease_expires_gmt <= %s))
@@ -901,10 +902,11 @@ final class KnowledgeSyncOutboxRepository
         $select_args = array_merge(
             array($this->tableName(), $now, $now),
             $scope_args,
+            $gate_args,
             array($limit)
         );
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Durable queue claim.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Only fixed SQL clauses are assembled; every identifier and scoped value is passed to prepare below.
         $ids = array_map('intval', $wpdb->get_col($wpdb->prepare($select, ...$select_args)));
         if ($ids === array()) {
             return array();
@@ -928,9 +930,10 @@ final class KnowledgeSyncOutboxRepository
         $update_args = array_merge(
             array($this->tableName(), $lease_owner, $expires, $now),
             $ids,
-            array($now, $now)
+            array($now, $now),
+            $gate_args
         );
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared -- Dynamic ID placeholders are prepared below.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Dynamic ID placeholders and fixed gate clauses are prepared with all identifiers/values below.
         $wpdb->query($wpdb->prepare($update, ...$update_args));
 
         $read_back = "SELECT * FROM %i
@@ -977,21 +980,23 @@ final class KnowledgeSyncOutboxRepository
                     AND o.desired_publisher_consumer_id = o.leased_publisher_consumer_id
                     AND o.desired_publisher_sequence = o.leased_publisher_sequence
                     AND EXISTS (
-                        SELECT 1 FROM {$this->releaseCursorTableName()} AS rc
+                        SELECT 1 FROM %i AS rc
                         WHERE rc.blog_id = o.blog_id AND rc.post_type = o.post_type
                           AND rc.consumer_id = o.leased_publisher_consumer_id
                           AND rc.verified_sequence >= o.leased_publisher_sequence
                     )
                 ))"
             : '';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Last-moment generation and release eligibility check for an owned lease.
+        $arguments = array($this->tableName(), $id, $lease_owner);
+        if ($public_release_gate) {
+            $arguments[] = $this->releaseCursorTableName();
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Optional gate is a fixed SQL clause; the unpacked arguments match every identifier/value placeholder.
         return (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM %i AS o
              WHERE o.id = %d AND o.state = 'leased' AND o.lease_owner = %s
-               AND o.desired_generation = o.leased_generation{$gate_sql}",
-            $this->tableName(),
-            $id,
-            $lease_owner
+               AND o.desired_generation = o.leased_generation{$gate_sql}", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Fixed gate clause only; its table identifier is prepared in the arguments below.
+            ...$arguments
         )) === 1;
     }
 
@@ -1208,12 +1213,13 @@ final class KnowledgeSyncOutboxRepository
                AND o.publisher_gate_required = 1
                AND (o.desired_publisher_consumer_id IS NULL OR
                     o.desired_publisher_sequence IS NULL OR NOT EXISTS (
-                   SELECT 1 FROM {$this->releaseCursorTableName()} AS rc
+                   SELECT 1 FROM %i AS rc
                    WHERE rc.blog_id = o.blog_id AND rc.post_type = o.post_type
                      AND rc.consumer_id = o.desired_publisher_consumer_id
                      AND rc.verified_sequence >= o.desired_publisher_sequence
                ))",
-            $this->tableName()
+            $this->tableName(),
+            $this->releaseCursorTableName()
         ));
     }
 

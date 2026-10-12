@@ -536,6 +536,8 @@ export type PromptAudioInput = {
 
 export interface PromptArgs {
   messages: PromptMessages;
+  /** Explicit opt-in to the compatible backend display contract. */
+  presentationVersion?: 1 | 2;
   sharedContext?: string;
 
   outputLanguage?: AiKitLanguageCode;
@@ -682,6 +684,8 @@ export interface SearchMessageArgs {
 }
 
 export interface ChatMessageArgs {
+  /** Negotiated display envelope version; omit for legacy v1 delivery. */
+  presentationVersion?: 1 | 2;
   sessionId?: string;
   message?: string;
   audio?: Blob;

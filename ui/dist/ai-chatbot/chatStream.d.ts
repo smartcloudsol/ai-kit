@@ -54,6 +54,8 @@ export type ChatStreamOptions = {
     url: string;
     text: string;
     locale: string;
+    /** Selected only after a verified backend capability advertises this schema. */
+    presentationVersion?: 1 | 2;
     sessionId?: string;
     requestId: string;
     resume?: ChatStreamCheckpoint;
@@ -84,6 +86,9 @@ export declare function summarizeChatActivities(activities: ChatActivity[]): {
     websites: number;
     otherTools: number;
 };
+export declare function chatPresentationVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | 2;
+/** The same negotiation applies to HTTP prompts and every stream resume frame. */
+export declare function discoverChatPresentationVersion(): Promise<1 | 2>;
 /** The backend advertises streaming only when its WebSocket route is ready. */
 export declare function discoverChatStreamUrl(): Promise<string | undefined>;
 export declare function sendChatStreamCancel(socket: WebSocket | null, checkpoint: ChatStreamCheckpoint | undefined): void;

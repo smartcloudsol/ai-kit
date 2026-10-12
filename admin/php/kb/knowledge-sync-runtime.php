@@ -1336,6 +1336,7 @@ final class KnowledgeSyncRuntime
         $schedules[$this->cronScheduleName($minutes)] = array(
             'interval' => $minutes * 60,
             'display' => sprintf(
+                /* translators: %d: knowledge synchronization interval in minutes. */
                 __('Every %d minutes (AI Kit knowledge sync)', 'smartcloud-ai-kit'),
                 $minutes
             ),
@@ -1548,10 +1549,10 @@ final class KnowledgeSyncRuntime
             array($wpdb->prefix . 'smartcloud_ai_kit_kb_sync_outbox', $blog_id),
             $post_types
         );
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- The IN placeholders are generated from the validated scope length.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- The IN placeholders are generated from the validated scope length, with one bound argument for each placeholder.
         foreach ((array) $wpdb->get_results($wpdb->prepare(
             "SELECT state, COUNT(*) AS item_count FROM %i
-             WHERE blog_id = %d AND post_type IN ($placeholders) GROUP BY state",
+             WHERE blog_id = %d AND post_type IN ($placeholders) GROUP BY state", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- This fragment contains only one generated %s placeholder per validated post type, bound below.
             ...$arguments
         )) as $row) {
             if (isset($counts[$row->state])) {
