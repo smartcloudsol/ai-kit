@@ -22,6 +22,23 @@ function get_post_meta(int $post_id, string $key, bool $single = false): mixed
     $GLOBALS['structured_reads'][] = [$post_id, $key];
     return $GLOBALS['structured_values'][$post_id][$key] ?? null;
 }
+function post_type_supports(string $post_type, string $feature): bool
+{
+    return $post_type === 'post' && !in_array($feature, $GLOBALS['structured_unsupported_features'] ?? [], true);
+}
+function get_post_thumbnail_id(int $post_id): int { return (int) ($GLOBALS['structured_values'][$post_id]['_thumbnail_id'] ?? 0); }
+function wp_attachment_is_image(int $post_id): bool { return $post_id === 501; }
+function wp_get_attachment_image_url(int $post_id, string $size): string|false
+{
+    expect($size === 'full', 'Native image projection must request the real full-size source.');
+    return $GLOBALS['structured_image_urls'][$post_id] ?? false;
+}
+function get_posts(array $args): array
+{
+    $GLOBALS['structured_reference_queries'][] = $args;
+    if ($args['post_type'] === 'attachment') { return array_slice($GLOBALS['structured_child_attachments'] ?? [], $args['offset'], $args['posts_per_page']); }
+    return array_slice($GLOBALS['structured_reference_posts'] ?? [], $args['offset'], $args['posts_per_page']);
+}
 function structured_reject(callable $callback, string $expected): void
 {
     try { $callback(); }
@@ -52,8 +69,11 @@ $GLOBALS['structured_registered'] = [
 ];
 $GLOBALS['structured_values'][42] = ['public_reference' => 'https://booking.example.org/location?providerId=31', 'secret_token' => 'do-not-export'];
 $GLOBALS['structured_reads'] = [];
-$candidates = array_column(Structured::candidates('post'), null, 'sourceMetaKey');
+$discovered = Structured::candidates('post');
+$candidates = array_column(array_filter($discovered, static fn(array $field): bool => isset($field['sourceMetaKey'])), null, 'sourceMetaKey');
 expect(count($candidates) === 6 && $candidates['public_reference']['description'] === 'Subtype overrides global', 'Discovery merges registrations and excludes unsafe/unreadable/untyped/non-single fields.');
+$native_candidates = array_column(array_filter($discovered, static fn(array $field): bool => isset($field['sourcePostField'])), null, 'sourcePostField');
+expect(array_keys($native_candidates) === ['featuredImageUrl', 'featuredImageAlt', 'excerpt'], 'Only the fixed supported native sources are discoverable.');
 expect($GLOBALS['structured_reads'] === [], 'Discovery must never read values.');
 $mapping = ['sourceMetaKey' => 'public_reference', 'targetKey' => 'external_reference', 'type' => 'url', 'description' => 'Reference URL supplied by this content record'];
 $selection = ['enabled' => true, 'fields' => [$mapping]];
@@ -174,6 +194,78 @@ $options['smartcloud_ai_kit_kb_sync_settings'] = ['publicReleaseGate' => 'disabl
 $capture->onStructuredMetadataChanged(5, 42, 'public_reference', 'wordpress-approved');
 $args = end($wpdb->preparedArguments);
 expect($args[6] === 'pending' && $args[10] === 0, 'Without release gate, WordPress publication remains the approval path.');
+
+$image_mapping = ['sourcePostField' => 'featuredImageUrl', 'targetKey' => 'featured_image', 'type' => 'url', 'description' => 'Actual public featured image'];
+$alt_mapping = ['sourcePostField' => 'featuredImageAlt', 'targetKey' => 'featured_image_alt', 'type' => 'string', 'description' => 'Authored image alternative text'];
+$excerpt_mapping = ['sourcePostField' => 'excerpt', 'targetKey' => 'summary', 'type' => 'string', 'description' => 'Authored excerpt, not generated body text'];
+$native_selection = ['enabled' => true, 'fields' => [$image_mapping, $alt_mapping, $excerpt_mapping]];
+foreach ([array_replace($image_mapping, ['sourceMetaKey' => 'another']), array_replace($image_mapping, ['sourcePostField' => 'post_content']), array_replace($image_mapping, ['type' => 'string']), array_replace($alt_mapping, ['type' => 'url'])] as $bad) {
+    structured_reject(fn() => Structured::normalizePolicy('post', ['enabled' => true, 'fields' => [$bad]], true), 'policy');
+}
+structured_reject(fn() => Structured::normalizePolicy('post', ['enabled' => true, 'fields' => [$image_mapping, array_replace($image_mapping, ['targetKey' => 'other_image'])]], true), 'policy');
+$GLOBALS['structured_unsupported_features'] = ['thumbnail'];
+structured_reject(fn() => Structured::normalizePolicy('post', ['enabled' => true, 'fields' => [$image_mapping]], true), 'policy');
+expect(count(Structured::normalizePolicy('post', ['enabled' => false, 'fields' => [$image_mapping]], true)['fields']) === 1, 'Withdrawal remains possible after native source support disappears.');
+unset($GLOBALS['structured_unsupported_features']);
+$posts[501] = new WP_Post(501, 'attachment', 'inherit');
+$GLOBALS['structured_values'][42]['_thumbnail_id'] = 501;
+$GLOBALS['structured_values'][501]['_wp_attachment_image_alt'] = '<b>Actual portrait</b> &amp; clinic';
+$GLOBALS['structured_image_urls'][501] = 'https://cdn.example.org/real-portrait.jpg';
+$posts[42]->post_excerpt = '<p>Authored summary &amp; detail</p>';
+$native = Structured::project(42, 'post', $native_selection);
+expect((array) $native['fields'] === ['featured_image' => 'https://cdn.example.org/real-portrait.jpg', 'featured_image_alt' => 'Actual portrait & clinic', 'summary' => 'Authored summary & detail'], 'Native projection reads real featured media and strips authored text to plain values.');
+$posts[501]->post_status = 'private';
+expect((array) Structured::project(42, 'post', $native_selection)['fields'] === ['summary' => 'Authored summary & detail'], 'Private attachment is absent and withdraws image and alt.');
+$posts[501]->post_status = 'inherit';
+$posts[501]->post_parent = 502;
+$posts[502] = new WP_Post(502, 'post', 'draft');
+expect(!isset(Structured::project(42, 'post', $native_selection)['fields']->featured_image), 'Inherited attachment under unpublished parent cannot become public evidence.');
+$posts[502]->post_status = 'publish';
+$posts[502]->post_password = 'not-public';
+expect(!isset(Structured::project(42, 'post', $native_selection)['fields']->featured_image), 'Password-protected attachment parent cannot become public evidence.');
+$posts[501]->post_parent = 0;
+unset($GLOBALS['structured_image_urls'][501]);
+expect((array) Structured::project(42, 'post', $native_selection)['fields'] === ['summary' => 'Authored summary & detail'], 'Unavailable full image URL withdraws both image and alternative text.');
+$GLOBALS['structured_image_urls'][501] = 'https://cdn.example.org/real-portrait.jpg';
+unset($GLOBALS['structured_values'][42]['_thumbnail_id']);
+$posts[42]->post_excerpt = '';
+$missing_native = Structured::project(42, 'post', $native_selection);
+expect((array) $missing_native['fields'] === [] && count((array) $missing_native['fieldSchema']) === 3, 'Missing featured image and cleared authored excerpt remove values without inventing body fallbacks.');
+$GLOBALS['structured_values'][42]['_thumbnail_id'] = 501;
+$GLOBALS['structured_image_urls'][501] = 'javascript:bad';
+structured_reject(fn() => Structured::project(42, 'post', $native_selection), 'structured_content_value_invalid');
+$GLOBALS['structured_image_urls'][501] = 'https://cdn.example.org/real-portrait.jpg';
+$posts[42]->post_excerpt = str_repeat('x', 4097);
+structured_reject(fn() => Structured::project(42, 'post', $native_selection), 'structured_content_value_invalid');
+$posts[42]->post_excerpt = '';
+$GLOBALS['structured_test_capability'] = ['status' => 'verified', 'version' => 1];
+$native_policy = $policies->saveForPostType('post', array_replace($policy, ['structuredContent' => $native_selection]));
+$before_queries = $wpdb->queryCount;
+$capture->onStructuredMetadataChanged(1, 42, '_thumbnail_id', 501);
+expect($wpdb->queryCount === $before_queries + 1, 'Selected thumbnail replacement uses normal capture.');
+$GLOBALS['structured_reference_posts'] = [42];
+$capture->onStructuredMetadataChanged(2, 501, '_wp_attachment_image_alt', 'changed');
+expect($wpdb->queryCount === $before_queries + 2, 'Selected attachment alternative-text edits invalidate referencing source.');
+$capture->onFeaturedAttachmentChanged(501);
+expect($wpdb->queryCount === $before_queries + 3, 'Attachment deletion/file/visibility invalidation captures referencing content.');
+$GLOBALS['structured_child_attachments'] = [501];
+$capture->onAfterInsertPost(502, new WP_Post(502, 'post', 'draft'), true, new WP_Post(502, 'post', 'publish'));
+expect($wpdb->queryCount >= $before_queries + 4, 'Inherited attachment parent visibility changes invalidate referencing public records.');
+unset($GLOBALS['structured_child_attachments']);
+$GLOBALS['structured_reference_posts'] = array_merge(range(1000, 1099), [42]);
+$reference_query_count = count($GLOBALS['structured_reference_queries']);
+$capture->onFeaturedAttachmentChanged(501);
+expect(count($GLOBALS['structured_reference_queries']) === $reference_query_count + 2, 'Attachment invalidation uses bounded pages and reaches references after the first hundred.');
+$GLOBALS['structured_reference_posts'] = [42];
+$options['smartcloud_ai_kit_kb_sync_settings'] = ['publicReleaseGate' => 'static-publisher'];
+$capture->onFeaturedAttachmentChanged(501);
+$args = end($wpdb->preparedArguments);
+expect($args[6] === 'blocked' && $args[10] === 1 && $args[12] === '', 'Native attachment invalidation cannot bypass unavailable Publisher approval.');
+$options['smartcloud_ai_kit_kb_sync_settings'] = ['publicReleaseGate' => 'disabled'];
+$GLOBALS['structured_test_capability'] = ['status' => 'legacy'];
+expect($policies->saveForPostType('post', array_replace($native_policy, ['structuredContent' => ['enabled' => true, 'fields' => [$image_mapping]]]))['structuredContent']['enabled'], 'Native subset withdrawal is allowed without backend capability.');
+$GLOBALS['structured_test_capability'] = ['status' => 'verified', 'version' => 1];
+$policies->saveForPostType('post', $policy);
 // Unregistered sources cannot silently remove a stored policy or prevent explicit revocation.
 unset($GLOBALS['structured_registered']['post']['public_reference'], $GLOBALS['structured_registered']['']['public_reference']);
 expect($policies->getForPostType('post')['structuredContent']['enabled'], 'Registration removal must not erase stored policy.');

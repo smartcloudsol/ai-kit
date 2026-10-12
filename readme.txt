@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.3
+Stable tag: 1.6.4
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -184,6 +184,12 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 Full release history and detailed upgrade guidance: https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md
 
+= 1.6.4 =
+* Improve display-template editing with a compact list, private modal drafts, confirmed removal, field guidance and explicit apply/save steps.
+* Add opt-in synchronization of public featured images, alternative text and authored excerpts alongside registered own fields.
+* Support profile-owned, conditional navigation destinations and encoded source identifiers on compatible backends, without provider-specific logic.
+* Preserve existing display profiles and client response formats; missing or unverified facts do not create images, identifiers or booking availability.
+
 = 1.6.3 =
 * Answers: Add reusable product, comparison, recommendation and status presets with source-bound money, currency, units and explicit availability semantics.
 * Chatbot: Improve mobile tables, compact message entry and navigation buttons; hide technical provenance while preserving verified links and history.
@@ -226,6 +232,9 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Preserve existing admin links, permissions and compatibility with older plugin menus.
 
 == Upgrade Notice ==
+
+= 1.6.4 =
+Generated CTA links need orchestration v1.0.119 or display-policy capability 3. Native fields remain opt-in. Review mappings and complete sync/ingestion after source changes. Existing profiles are preserved; backend deployment is not automatic.
 
 = 1.6.3 =
 Typed display presets require orchestration v1.0.118 or presentation capability 2; older backends retain fallback. Static export needs exporter/workers 1.1.84 or later. Purge source caches and recrawl missing assets. Review source mappings; backend updates are not automatic.

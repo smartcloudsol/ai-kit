@@ -49,6 +49,18 @@ test("structured policies require explicit opt-in and retain disabled mappings",
   const contract = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
   const field = { sourceMetaKey: "registered_detail", targetKey: "detail", type: "string", description: "Detail" };
   assert.deepEqual(contract.parseStructuredContentPolicy({ enabled: false, fields: [field] }), { enabled: false, fields: [field] });
+  const image = { sourcePostField: "featuredImageUrl", targetKey: "featured_image", type: "url", description: "Actual featured image" };
+  assert.deepEqual(contract.parseStructuredContentPolicy({ enabled: true, fields: [image] }), { enabled: true, fields: [image] });
+  for (const bad of [{ ...image, sourceMetaKey: "image" }, { ...image, sourcePostField: "post_content" }, { ...image, type: "string" }, { ...image, sourcePostField: "featuredImageAlt" }, { ...image, sourcePostField: undefined }]) {
+    assert.throws(() => contract.parseStructuredContentPolicy({ enabled: true, fields: [bad] }));
+  }
+  assert.throws(() => contract.parseStructuredContentPolicy({ enabled: true, fields: [image, { ...image, targetKey: "second_image" }] }));
+  const sameNamedMeta = { sourceMetaKey: "featuredImageUrl", targetKey: "metadata_image", type: "string", description: "Separate metadata namespace" };
+  assert.equal(contract.parseStructuredContentPolicy({ enabled: true, fields: [image, sameNamedMeta] }).fields.length, 2);
+  for (const sourcePostField of ["featuredImageAlt", "excerpt"]) {
+    const text = { sourcePostField, targetKey: "detail", type: "string", description: "Authored text" };
+    assert.deepEqual(contract.parseStructuredContentPolicy({ enabled: false, fields: [text] }), { enabled: false, fields: [text] });
+  }
   for (const policy of [{ fields: [] }, { enabled: true, fields: [field, field] }, { enabled: true, fields: [{ ...field, targetKey: "source_id" }] }]) assert.throws(() => contract.parseStructuredContentPolicy(policy));
   assert.throws(() => contract.parseStructuredContentProjection({ schemaVersion: 1, enabled: true, fields: { detail: "a".repeat(4097) }, fieldSchema: { detail: { type: "string", description: "Detail" } } }));
   const missingValue = { schemaVersion: 1, enabled: true, fields: {}, fieldSchema: { detail: { type: "string", description: "Declared even when absent" } } };

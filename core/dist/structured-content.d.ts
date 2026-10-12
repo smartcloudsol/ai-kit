@@ -13,10 +13,17 @@ export interface StructuredContentFieldSchema {
     type: StructuredContentFieldType;
     description: string;
 }
-export interface StructuredContentFieldMapping extends StructuredContentFieldSchema {
+export type StructuredContentPostField = "featuredImageUrl" | "featuredImageAlt" | "excerpt";
+export type StructuredContentFieldSource = {
     sourceMetaKey: string;
+    sourcePostField?: never;
+} | {
+    sourcePostField: StructuredContentPostField;
+    sourceMetaKey?: never;
+};
+export type StructuredContentFieldMapping = StructuredContentFieldSchema & StructuredContentFieldSource & {
     targetKey: string;
-}
+};
 export interface StructuredContentPolicy {
     enabled: boolean;
     fields: StructuredContentFieldMapping[];

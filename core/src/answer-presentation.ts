@@ -17,6 +17,14 @@ export type AnswerSource =
   | { kind: "structured_content"; postTypes: string[] }
   | { kind: "external_rest"; toolId: string }
   | { kind: "external_mcp"; serverId: string; toolName: string };
+/** Navigation only: fixed approved destination plus encoded source-owned query values. */
+export interface AnswerLinkMapping {
+  id: string; label: string; allowedUrlPrefixes: string[];
+  pointer?: string;
+  urlTemplate?: { baseUrl: string; queryParameters: { name: string; pointer: string; required?: boolean }[] };
+  when?: { pointer: string; equals: string }[];
+  appearance?: "primary" | "secondary";
+}
 export interface AnswerTemplate {
   id: string;
   revision: number;
@@ -28,11 +36,11 @@ export interface AnswerTemplate {
   bindings: { id: string; title: string; description?: string };
   image?: { pointer: string; altPointer?: string; allowedUrlPrefixes: string[] };
   attributes: AnswerAttributeMapping[];
-  links: { id: string; label: string; pointer: string; allowedUrlPrefixes: string[]; appearance?: "primary" | "secondary" }[];
+  links: AnswerLinkMapping[];
   maxItems: number;
 }
 export interface AnswerPresentationPolicy {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   enabled: boolean;
   templates: AnswerTemplate[];
 }
@@ -80,10 +88,10 @@ function integer(v: unknown, max: number): asserts v is number {
   if (!Number.isSafeInteger(v) || (v as number) < 1 || (v as number) > max) throw new Error("Invalid answer presentation limit");
 }
 function layout(v: unknown, version: number): asserts v is AnswerLayout {
-  if (!(version === 2 ? ["compact-list", "cards", "carousel", "comparison"] : ["compact-list", "cards", "carousel"]).includes(v as string)) throw new Error("Invalid answer layout");
+  if (!(version >= 2 ? ["compact-list", "cards", "carousel", "comparison"] : ["compact-list", "cards", "carousel"]).includes(v as string)) throw new Error("Invalid answer layout");
 }
 function attributeType(v: unknown, version: number): asserts v is AnswerAttributeType {
-  if (!(version === 2 ? ["string", "number", "boolean", "string-list", "money", "status"] : ["string", "number", "boolean", "string-list"]).includes(v as string)) throw new Error("Invalid answer attribute type");
+  if (!(version >= 2 ? ["string", "number", "boolean", "string-list", "money", "status"] : ["string", "number", "boolean", "string-list"]).includes(v as string)) throw new Error("Invalid answer attribute type");
 }
 function preset(v: unknown): void {
   if (v !== undefined && !["product-cards", "comparison", "recommendations", "status-cards"].includes(v as string)) throw new Error("Invalid answer preset");
@@ -144,7 +152,8 @@ export function formatAnswerMoney(value: AnswerMoney, locale?: string): string |
 /** Enumerate every input pointer, including secondary typed-value bindings. */
 export function answerTemplatePointers(template: AnswerTemplate): string[] {
   return [template.bindings.id, template.bindings.title, template.bindings.description, template.image?.pointer, template.image?.altPointer,
-    ...template.attributes.flatMap(a => [a.pointer, a.money?.currencyPointer, a.money?.scalePointer]), ...template.links.map(l => l.pointer)]
+    ...template.attributes.flatMap(a => [a.pointer, a.money?.currencyPointer, a.money?.scalePointer]),
+    ...template.links.flatMap(l => [l.pointer, ...(l.urlTemplate?.queryParameters.map(parameter => parameter.pointer) ?? []), ...(l.when?.map(condition => condition.pointer) ?? [])])]
     .filter((p): p is string => p !== undefined);
 }
 function pointer(v: unknown): asserts v is string {
@@ -191,11 +200,11 @@ export function isAnswerUrlAllowed(value: unknown, allowed: string[]): value is 
 }
 export function parseAnswerPresentationPolicy(value: unknown): AnswerPresentationPolicy {
   exact(value, ["schemaVersion", "enabled", "templates"]);
-  if (![1, 2].includes(value.schemaVersion as number) || typeof value.enabled !== "boolean") throw new Error("Unsupported display policy");
+  if (![1, 2, 3].includes(value.schemaVersion as number) || typeof value.enabled !== "boolean") throw new Error("Unsupported display policy");
   const version = value.schemaVersion as number;
   list(value.templates, 12);
   for (const t of value.templates) {
-    exact(t, ["id", "revision", "layout", "heading", "source", "itemsPointer", "bindings", "image", "attributes", "links", "maxItems", ...(version === 2 ? ["preset"] : [])]);
+    exact(t, ["id", "revision", "layout", "heading", "source", "itemsPointer", "bindings", "image", "attributes", "links", "maxItems", ...(version >= 2 ? ["preset"] : [])]);
     identifier(t.id); integer(t.revision, 1000000); layout(t.layout, version); preset(t.preset); text(t.heading, 160, true); pointer(t.itemsPointer); integer(t.maxItems, 6);
     if (!record(t.source)) throw new Error("Missing display source");
     if (t.source.kind === "structured_content") {
@@ -215,7 +224,7 @@ export function parseAnswerPresentationPolicy(value: unknown): AnswerPresentatio
     }
     list(t.attributes, 8);
     for (const a of t.attributes) {
-      exact(a, ["id", "label", "pointer", "type", ...(version === 2 ? ["role", "money", "status"] : [])]); identifier(a.id); text(a.label, 80); pointer(a.pointer); attributeType(a.type, version); role(a.role);
+      exact(a, ["id", "label", "pointer", "type", ...(version >= 2 ? ["role", "money", "status"] : [])]); identifier(a.id); text(a.label, 80); pointer(a.pointer); attributeType(a.type, version); role(a.role);
       if (a.type === "money") {
         exact(a.money, ["currencyPointer", "unit", "scale", "scalePointer"]); pointer(a.money.currencyPointer);
         if (!["major", "minor"].includes(a.money.unit as string) || a.status !== undefined) throw new Error("Invalid money mapping");
@@ -238,13 +247,60 @@ export function parseAnswerPresentationPolicy(value: unknown): AnswerPresentatio
     uniqueIds(t.attributes as AnswerTemplate["attributes"]);
     list(t.links, 3);
     for (const l of t.links) {
-      exact(l, ["id", "label", "pointer", "allowedUrlPrefixes", ...(version === 2 ? ["appearance"] : [])]); identifier(l.id); text(l.label, 80); pointer(l.pointer); prefixes(l.allowedUrlPrefixes); appearance(l.appearance);
+      exact(l, ["id", "label", "pointer", "allowedUrlPrefixes", ...(version >= 2 ? ["appearance"] : []), ...(version >= 3 ? ["urlTemplate", "when"] : [])]);
+      identifier(l.id); text(l.label, 80); prefixes(l.allowedUrlPrefixes); appearance(l.appearance);
+      if ((l.pointer !== undefined) === (l.urlTemplate !== undefined)) throw new Error("Declare exactly one navigation URL source");
+      if (l.pointer !== undefined) pointer(l.pointer);
+      if (l.when !== undefined) {
+        list(l.when, 4);
+        if (!l.when.length) throw new Error("Missing navigation conditions");
+        const conditionPointers = new Set<string>();
+        for (const condition of l.when) {
+          exact(condition, ["pointer", "equals"]); pointer(condition.pointer); text(condition.equals, 256);
+          if (conditionPointers.has(condition.pointer)) throw new Error("Duplicate navigation condition field");
+          conditionPointers.add(condition.pointer);
+        }
+      }
+      if (l.urlTemplate !== undefined) {
+        exact(l.urlTemplate, ["baseUrl", "queryParameters"]);
+        if (!isAnswerUrlAllowed(l.urlTemplate.baseUrl, l.allowedUrlPrefixes) || new URL(l.urlTemplate.baseUrl).search || new URL(l.urlTemplate.baseUrl).hash) throw new Error("Invalid navigation URL base");
+        list(l.urlTemplate.queryParameters, 8);
+        if (!l.urlTemplate.queryParameters.length) throw new Error("Missing navigation query bindings");
+        const names = new Set<string>();
+        for (const parameter of l.urlTemplate.queryParameters) {
+          exact(parameter, ["name", "pointer", "required"]);
+          if (typeof parameter.name !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(parameter.name) || forbidden.has(parameter.name) || names.has(parameter.name)) throw new Error("Invalid or duplicate navigation query name");
+          if (parameter.required !== undefined && typeof parameter.required !== "boolean") throw new Error("Invalid navigation query requirement");
+          names.add(parameter.name); pointer(parameter.pointer);
+        }
+      }
     }
     uniqueIds(t.links as AnswerTemplate["links"]);
   }
   uniqueIds(value.templates as AnswerTemplate[]);
   if (new TextEncoder().encode(JSON.stringify(value)).length > 24000) throw new Error("Display policy exceeds limit");
   return JSON.parse(JSON.stringify(value)) as AnswerPresentationPolicy;
+}
+/** Missing identifiers omit the whole link. Never fetch, interpolate a host/path or execute code. */
+export function resolveAnswerLinkUrl(mapping: AnswerLinkMapping, item: unknown): string | undefined {
+  if (mapping.when?.some(condition => readAnswerPointer(item, condition.pointer) !== condition.equals)) return undefined;
+  if (mapping.urlTemplate === undefined) {
+    const value = mapping.pointer === undefined ? undefined : readAnswerPointer(item, mapping.pointer);
+    return isAnswerUrlAllowed(value, mapping.allowedUrlPrefixes) ? value : undefined;
+  }
+  const { baseUrl, queryParameters } = mapping.urlTemplate;
+  if (!isAnswerUrlAllowed(baseUrl, mapping.allowedUrlPrefixes)) return undefined;
+  const url = new URL(baseUrl);
+  if (url.search || url.hash || !queryParameters.length || queryParameters.length > 8) return undefined;
+  for (const parameter of queryParameters) {
+    const value = readAnswerPointer(item, parameter.pointer);
+    if ((value === undefined || value === "") && parameter.required === false) continue;
+    // External identifiers are opaque strings. Do not coerce unsafe numbers, booleans or arrays.
+    if (typeof value !== "string" || !value.trim() || value !== value.trim() || value.length > 256 || hasControls(value)) return undefined;
+    url.searchParams.set(parameter.name, value);
+  }
+  const value = url.toString();
+  return isAnswerUrlAllowed(value, mapping.allowedUrlPrefixes) ? value : undefined;
 }
 function validAttribute(value: unknown, type: AnswerAttributeType): value is AnswerAttributeValue {
   if (type === "money") return validMoney(value);
@@ -277,8 +333,8 @@ export function materializeAnswerEntity(template: AnswerTemplate, item: unknown,
     return validAttribute(value, a.type) ? [{ id: a.id, label: a.label, type: a.type, value, ...(a.role ? { role: a.role } : {}) }] : [];
   });
   const links = template.links.flatMap((l) => {
-    const url = readAnswerPointer(item, l.pointer);
-    return isAnswerUrlAllowed(url, l.allowedUrlPrefixes) ? [{ id: l.id, label: l.label, url, ...(l.appearance ? { appearance: l.appearance } : {}) }] : [];
+    const url = resolveAnswerLinkUrl(l, item);
+    return url === undefined ? [] : [{ id: l.id, label: l.label, url, ...(l.appearance ? { appearance: l.appearance } : {}) }];
   });
   return {
     ref, entityId: String(id), title,

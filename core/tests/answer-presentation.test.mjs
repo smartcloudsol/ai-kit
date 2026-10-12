@@ -81,6 +81,64 @@ function typedEntity(input = {}, t = typedTemplate()) {
 }
 function typedEnvelope(e = typedEntity()) { return { schemaVersion: 2, locale: "hu-HU", groups: [{ templateId: "product", templateRevision: 1, layout: "comparison", preset: "comparison", entities: [e] }] }; }
 
+test("v3 navigation uses fixed approved destinations and exact opaque source identifiers", () => {
+  const link = { id: "continue", label: "Continue", appearance: "primary", allowedUrlPrefixes: ["https://booking.example.org/clinic"],
+    urlTemplate: { baseUrl: "https://booking.example.org/clinic/people", queryParameters: [{ name: "personId", pointer: "/fields/external_person_id" }] } };
+  const t = typedTemplate({ links: [link] });
+  const policy = { schemaVersion: 3, enabled: true, templates: [t] };
+  assert.deepEqual(contract.parseAnswerPresentationPolicy(policy), policy);
+  for (const schemaVersion of [1, 2]) assert.throws(() => contract.parseAnswerPresentationPolicy({ ...policy, schemaVersion }));
+  const value = contract.materializeAnswerEntity(t, { id: "42", title: "A real record", fields: { external_person_id: "00031&other=untrusted/#?" } }, provenance, "entity-42");
+  const url = new URL(value.links[0].url);
+  assert.equal(url.pathname, "/clinic/people");
+  assert.deepEqual([...url.searchParams], [["personId", "00031&other=untrusted/#?"]]);
+  assert.equal(url.hash, "");
+  assert.ok(contract.answerTemplatePointers(t).includes("/fields/external_person_id"));
+  for (const id of [undefined, null, "", " 31", "31 ", 31, true, ["31"], { value: "31" }, "x".repeat(257), "31\n"]) {
+    assert.deepEqual(contract.materializeAnswerEntity(t, { id: "42", title: "Record", fields: { external_person_id: id } }, provenance, "entity-42").links, []);
+  }
+  // Resolved output remains an existing client-readable wire entity, not an executable URL recipe.
+  assert.ok(contract.parseAnswerPresentation(typedEnvelope(value)));
+});
+
+test("derived navigation fails closed on ambiguous sources, unsafe bases or query mappings", () => {
+  const base = { id: "continue", label: "Continue", allowedUrlPrefixes: ["https://booking.example.org/clinic"],
+    urlTemplate: { baseUrl: "https://booking.example.org/clinic/people", queryParameters: [{ name: "personId", pointer: "/fields/person_id" }] } };
+  const cases = [
+    { ...base, pointer: "/url" }, { ...base, urlTemplate: undefined },
+    ...["http://booking.example.org/clinic", "https://booking.example.org.evil/clinic", "https://booking.example.org/clinic-bad", "https://booking.example.org/clinic?fixed=1", "https://booking.example.org/clinic#fragment", "https://user:secret@booking.example.org/clinic", "https://127.0.0.1/clinic", "javascript:alert(1)"].map(baseUrl => ({ ...base, urlTemplate: { ...base.urlTemplate, baseUrl } })),
+    { ...base, urlTemplate: { ...base.urlTemplate, queryParameters: [] } },
+    { ...base, urlTemplate: { ...base.urlTemplate, queryParameters: [base.urlTemplate.queryParameters[0], base.urlTemplate.queryParameters[0]] } },
+    ...["__proto__", "constructor", "a&b", "", "a".repeat(65)].map(name => ({ ...base, urlTemplate: { ...base.urlTemplate, queryParameters: [{ name, pointer: "/fields/person_id" }] } })),
+    { ...base, urlTemplate: { ...base.urlTemplate, queryParameters: [{ name: "personId", pointer: "/constructor/value" }] } },
+    { ...base, urlTemplate: { ...base.urlTemplate, code: "execute" } },
+  ];
+  for (const link of cases) assert.throws(() => contract.parseAnswerPresentationPolicy({ schemaVersion: 3, enabled: true, templates: [typedTemplate({ links: [link] })] }));
+  const link = { ...base, urlTemplate: { ...base.urlTemplate, queryParameters: [{ name: "personId", pointer: "/fields/person_id" }, { name: "locationId", pointer: "/fields/location_id" }] } };
+  assert.equal(contract.resolveAnswerLinkUrl(link, { fields: { person_id: "1" } }), undefined);
+  assert.equal(contract.resolveAnswerLinkUrl(link, { fields: { person_id: "0001", location_id: "0002" } }), "https://booking.example.org/clinic/people?personId=0001&locationId=0002");
+});
+
+test("namespace-bound navigation is conditional, optional query identifiers are never inferred", () => {
+  const link = { id: "continue", label: "Continue", allowedUrlPrefixes: ["https://booking.example.org/"],
+    when: [{ pointer: "/fields/external_system", equals: "reviewed-system" }, { pointer: "/fields/external_organization_id", equals: "reviewed-organization" }],
+    urlTemplate: { baseUrl: "https://booking.example.org/people", queryParameters: [{ name: "personId", pointer: "/fields/person_id" }, { name: "specialtyId", pointer: "/fields/specialty_id", required: false }] } };
+  const policy = { schemaVersion: 3, enabled: true, templates: [typedTemplate({ links: [link] })] };
+  assert.deepEqual(contract.parseAnswerPresentationPolicy(policy), policy);
+  const fields = { external_system: "reviewed-system", external_organization_id: "reviewed-organization", person_id: "0001" };
+  assert.equal(contract.resolveAnswerLinkUrl(link, { fields }), "https://booking.example.org/people?personId=0001");
+  assert.equal(contract.resolveAnswerLinkUrl(link, { fields: { ...fields, specialty_id: "002" } }), "https://booking.example.org/people?personId=0001&specialtyId=002");
+  for (const changed of [{ external_system: undefined }, { external_system: "other" }, { external_organization_id: "other" }, { specialty_id: false }, { specialty_id: null }, { specialty_id: " x" }]) {
+    assert.equal(contract.resolveAnswerLinkUrl(link, { fields: { ...fields, ...changed } }), undefined);
+  }
+  assert.ok(contract.answerTemplatePointers(policy.templates[0]).includes("/fields/external_organization_id"));
+  for (const when of [[], [link.when[0], link.when[0]], [{ pointer: "/constructor", equals: "x" }], [{ pointer: "/fields/x", equals: 1 }], [{ pointer: "/fields/x", equals: "" }]]) {
+    assert.throws(() => contract.parseAnswerPresentationPolicy({ ...policy, templates: [typedTemplate({ links: [{ ...link, when }] })] }));
+  }
+  const directConditional = { ...link, pointer: "/url" }; delete directConditional.urlTemplate;
+  assert.throws(() => contract.parseAnswerPresentationPolicy({ schemaVersion: 2, enabled: true, templates: [typedTemplate({ links: [directConditional] })] }));
+});
+
 test("v2 presets and typed mapping remain provider independent and v1 remains strict", () => {
   for (const source of [{ kind: "structured_content", postTypes: ["service"] }, { kind: "external_rest", toolId: "catalog" }, { kind: "external_mcp", serverId: "catalog", toolName: "lookup" }]) {
     for (const preset of ["product-cards", "comparison", "recommendations", "status-cards"]) {

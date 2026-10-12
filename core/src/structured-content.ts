@@ -4,7 +4,11 @@ export const STRUCTURED_CONTENT_LIMITS = { fields: 32, stringBytes: 4096, listIt
 export type StructuredContentFieldType = "string" | "url" | "number" | "boolean" | "string-list";
 export type StructuredContentValue = string | number | boolean | string[];
 export interface StructuredContentFieldSchema { type: StructuredContentFieldType; description: string }
-export interface StructuredContentFieldMapping extends StructuredContentFieldSchema { sourceMetaKey: string; targetKey: string }
+export type StructuredContentPostField = "featuredImageUrl" | "featuredImageAlt" | "excerpt";
+export type StructuredContentFieldSource =
+  | { sourceMetaKey: string; sourcePostField?: never }
+  | { sourcePostField: StructuredContentPostField; sourceMetaKey?: never };
+export type StructuredContentFieldMapping = StructuredContentFieldSchema & StructuredContentFieldSource & { targetKey: string };
 export interface StructuredContentPolicy { enabled: boolean; fields: StructuredContentFieldMapping[] }
 export interface StructuredContentProjection {
   schemaVersion: 1;
@@ -54,13 +58,28 @@ export function parseStructuredContentPolicy(value: unknown): StructuredContentP
   const fields = policy.fields.map((raw, index) => {
     const path = `structuredContent.fields[${index}]`;
     const field = object(raw, path);
-    keys(field, ["sourceMetaKey", "targetKey", "type", "description"], path);
-    if (typeof field.sourceMetaKey !== "string" || !/^[A-Za-z0-9_-]{1,191}$/.test(field.sourceMetaKey) || ["__proto__", "prototype", "constructor"].includes(field.sourceMetaKey)) reject(`${path}.sourceMetaKey`, "Invalid source metadata key.");
+    keys(field, ["sourceMetaKey", "sourcePostField", "targetKey", "type", "description"], path);
+    const native = Object.hasOwn(field, "sourcePostField");
+    if (native === Object.hasOwn(field, "sourceMetaKey")) reject(path, "Select exactly one field source.");
+    const type = fieldType(field.type, path);
+    let source: StructuredContentFieldSource;
+    let sourceIdentity: string;
+    if (native) {
+      if (!["featuredImageUrl", "featuredImageAlt", "excerpt"].includes(field.sourcePostField as string)) reject(`${path}.sourcePostField`, "Unsupported native post field.");
+      const sourcePostField = field.sourcePostField as StructuredContentPostField;
+      if (type !== (sourcePostField === "featuredImageUrl" ? "url" : "string")) reject(`${path}.type`, "Native field type cannot be changed.");
+      source = { sourcePostField };
+      sourceIdentity = `post:${sourcePostField}`;
+    } else {
+      if (typeof field.sourceMetaKey !== "string" || !/^[A-Za-z0-9_-]{1,191}$/.test(field.sourceMetaKey) || ["__proto__", "prototype", "constructor"].includes(field.sourceMetaKey)) reject(`${path}.sourceMetaKey`, "Invalid source metadata key.");
+      source = { sourceMetaKey: field.sourceMetaKey };
+      sourceIdentity = `meta:${field.sourceMetaKey}`;
+    }
     if (typeof field.targetKey !== "string") reject(`${path}.targetKey`, "Expected target key.");
     targetKey(field.targetKey, path);
-    if (targets.has(field.targetKey) || sources.has(field.sourceMetaKey)) reject(path, "Duplicate field mapping.");
-    targets.add(field.targetKey); sources.add(field.sourceMetaKey);
-    return { sourceMetaKey: field.sourceMetaKey, targetKey: field.targetKey, type: fieldType(field.type, path), description: description(field.description, path) };
+    if (targets.has(field.targetKey) || sources.has(sourceIdentity)) reject(path, "Duplicate field mapping.");
+    targets.add(field.targetKey); sources.add(sourceIdentity);
+    return { ...source, targetKey: field.targetKey, type, description: description(field.description, path) };
   }).sort((a, b) => a.targetKey < b.targetKey ? -1 : a.targetKey > b.targetKey ? 1 : 0);
   return { enabled: policy.enabled, fields };
 }

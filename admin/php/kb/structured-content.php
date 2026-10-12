@@ -12,6 +12,12 @@ final class KnowledgeSyncStructuredContent
     public const MAX_LIST_ITEMS = 64;
     public const MAX_PAYLOAD_BYTES = 8192;
     private const TYPES = array('string', 'url', 'number', 'boolean', 'string-list');
+    private const POST_FIELDS = array('featuredImageUrl' => 'url', 'featuredImageAlt' => 'string', 'excerpt' => 'string');
+
+    private static function sourceIdentity(array $field): string
+    {
+        return isset($field['sourcePostField']) ? 'post:' . $field['sourcePostField'] : 'meta:' . $field['sourceMetaKey'];
+    }
 
     public static function targetKeyAllowed(string $key): bool
     {
@@ -27,8 +33,7 @@ final class KnowledgeSyncStructuredContent
     /** Only schema information is returned. No metadata values are read here. */
     public static function candidates(string $post_type): array
     {
-        if (!function_exists('get_registered_meta_keys')) { return array(); }
-        $registered = array_replace(get_registered_meta_keys('post'), get_registered_meta_keys('post', $post_type));
+        $registered = function_exists('get_registered_meta_keys') ? array_replace(get_registered_meta_keys('post'), get_registered_meta_keys('post', $post_type)) : array();
         $result = array();
         foreach ($registered as $key => $args) {
             if (!is_string($key) || preg_match('/^[A-Za-z0-9_-]{1,191}$/D', $key) !== 1 ||
@@ -51,6 +56,17 @@ final class KnowledgeSyncStructuredContent
             $result[$key] = array('sourceMetaKey' => $key, 'type' => $type, 'description' => $description);
         }
         ksort($result, SORT_STRING);
+        // These are fixed schema candidates, not values or arbitrary WP properties.
+        foreach (self::POST_FIELDS as $name => $type) {
+            $supported = $name === 'excerpt' ? 'excerpt' : 'thumbnail';
+            if (!function_exists('post_type_supports') || !post_type_supports($post_type, $supported)) { continue; }
+            $description = match ($name) {
+                'featuredImageUrl' => 'Full URL of the publicly visible featured image, if present.',
+                'featuredImageAlt' => 'Authored plain-text alternative text of the featured image, if present.',
+                'excerpt' => 'Authored plain-text post excerpt; never generated from the body.',
+            };
+            $result['post:' . $name] = array('sourcePostField' => $name, 'type' => $type, 'description' => $description);
+        }
         return array_values($result);
     }
 
@@ -61,25 +77,36 @@ final class KnowledgeSyncStructuredContent
             count($input['fields']) > self::MAX_FIELDS) {
             throw new \InvalidArgumentException('Invalid structured-content policy.');
         }
-        $candidates = $check_registration && $input['enabled'] ? array_column(self::candidates($post_type), null, 'sourceMetaKey') : array();
+        $candidates = array();
+        if ($check_registration && $input['enabled']) {
+            foreach (self::candidates($post_type) as $candidate) { $candidates[self::sourceIdentity($candidate)] = $candidate; }
+        }
         $fields = array();
         $sources = array();
         foreach ($input['fields'] as $field) {
-            if (!is_array($field) || array_diff(array_keys($field), array('sourceMetaKey', 'targetKey', 'type', 'description')) !== array() ||
-                !is_string($field['sourceMetaKey'] ?? null) || preg_match('/^[A-Za-z0-9_-]{1,191}$/D', $field['sourceMetaKey']) !== 1 ||
-                in_array($field['sourceMetaKey'], array('__proto__', 'constructor', 'prototype'), true) || !is_string($field['targetKey'] ?? null) ||
+            if (!is_array($field) || array_diff(array_keys($field), array('sourceMetaKey', 'sourcePostField', 'targetKey', 'type', 'description')) !== array() ||
+                array_key_exists('sourcePostField', $field) === array_key_exists('sourceMetaKey', $field) || !is_string($field['targetKey'] ?? null) ||
                 !self::targetKeyAllowed($field['targetKey']) || !in_array($field['type'] ?? null, self::TYPES, true) ||
                 !is_string($field['description'] ?? null) || trim($field['description']) === '' || strlen($field['description']) > self::MAX_DESCRIPTION_BYTES ||
-                preg_match('//u', $field['description']) !== 1 || isset($fields[$field['targetKey']]) || isset($sources[$field['sourceMetaKey']])) {
+                preg_match('//u', $field['description']) !== 1 || isset($fields[$field['targetKey']])) {
                 throw new \InvalidArgumentException('Invalid or duplicate structured-content field mapping.');
             }
-            $candidate = $candidates[$field['sourceMetaKey']] ?? null;
+            if (array_key_exists('sourcePostField', $field)) {
+                if (!is_string($field['sourcePostField']) || !isset(self::POST_FIELDS[$field['sourcePostField']]) || self::POST_FIELDS[$field['sourcePostField']] !== $field['type']) {
+                    throw new \InvalidArgumentException('Invalid native post-field mapping.');
+                }
+            } elseif (!is_string($field['sourceMetaKey']) || preg_match('/^[A-Za-z0-9_-]{1,191}$/D', $field['sourceMetaKey']) !== 1 || in_array($field['sourceMetaKey'], array('__proto__', 'constructor', 'prototype'), true)) {
+                throw new \InvalidArgumentException('Invalid source metadata key.');
+            }
+            $source = self::sourceIdentity($field);
+            if (isset($sources[$source])) { throw new \InvalidArgumentException('Duplicate field source.'); }
+            $candidate = $candidates[$source] ?? null;
             // A string registration may deliberately be narrowed to an HTTP(S) URL.
             if ($check_registration && $input['enabled'] && ($candidate === null || ($candidate['type'] !== $field['type'] && !($candidate['type'] === 'string' && $field['type'] === 'url')))) {
                 throw new \InvalidArgumentException('Structured-content field is not a compatible registered readable field.');
             }
             $fields[$field['targetKey']] = $field;
-            $sources[$field['sourceMetaKey']] = true;
+            $sources[$source] = true;
         }
         ksort($fields, SORT_STRING);
         return array('enabled' => $input['enabled'], 'fields' => array_values($fields));
@@ -96,8 +123,8 @@ final class KnowledgeSyncStructuredContent
         foreach ($next['fields'] as $field) {
             $old = $existing[$field['targetKey']] ?? null;
             if ($old === null) { return false; }
-            foreach (array('sourceMetaKey', 'targetKey', 'type', 'description') as $key) {
-                if ($old[$key] !== $field[$key]) { return false; }
+            foreach (array('sourceMetaKey', 'sourcePostField', 'targetKey', 'type', 'description') as $key) {
+                if (($old[$key] ?? null) !== ($field[$key] ?? null)) { return false; }
             }
         }
         return true;
@@ -113,13 +140,18 @@ final class KnowledgeSyncStructuredContent
         $schema = array();
         if ($policy['enabled']) {
             foreach ($policy['fields'] as $field) {
-                $key = $field['sourceMetaKey'];
                 $schema[$field['targetKey']] = array('type' => $field['type'], 'description' => $field['description']);
-                if (!metadata_exists('post', $post_id, $key)) { continue; }
-                $value = get_post_meta($post_id, $key, true);
+                if (isset($field['sourcePostField'])) {
+                    $value = self::nativeValue($post_id, $field['sourcePostField']);
+                    if ($value === null || $value === '') { continue; }
+                } else {
+                    $key = $field['sourceMetaKey'];
+                    if (!metadata_exists('post', $post_id, $key)) { continue; }
+                    $value = get_post_meta($post_id, $key, true);
+                    $value = self::decodeStorageValue($value, $field['type'], $post_type, $key);
+                }
                 // An explicitly cleared optional URL is absent, not a stale URL.
                 if ($field['type'] === 'url' && $value === '') { continue; }
-                $value = self::decodeStorageValue($value, $field['type'], $post_type, $key);
                 self::validateValue($value, $field['type']);
                 $fields[$field['targetKey']] = $value;
             }
@@ -130,6 +162,36 @@ final class KnowledgeSyncStructuredContent
             throw new KnowledgeSyncProjectionException('structured_content_too_large', 'Structured-content field payload exceeds its byte budget.');
         }
         return $payload;
+    }
+
+    private static function nativeValue(int $post_id, string $field): ?string
+    {
+        if ($field === 'excerpt') {
+            $post = get_post($post_id);
+            return $post instanceof \WP_Post && is_string($post->post_excerpt ?? null) ? self::plainText($post->post_excerpt) : null;
+        }
+        $attachment_id = (int) get_post_thumbnail_id($post_id);
+        $attachment = $attachment_id > 0 ? get_post($attachment_id) : null;
+        if (!$attachment instanceof \WP_Post || $attachment->post_type !== 'attachment' ||
+            !in_array($attachment->post_status, array('inherit', 'publish'), true) || !empty($attachment->post_password) || !wp_attachment_is_image($attachment_id)) { return null; }
+        // An inherited image belonging to private/draft/password-protected content is not approved public evidence.
+        if ($attachment->post_status === 'inherit' && !empty($attachment->post_parent)) {
+            $parent = get_post((int) $attachment->post_parent);
+            if (!$parent instanceof \WP_Post || $parent->post_status !== 'publish' || !empty($parent->post_password) ||
+                (function_exists('is_post_publicly_viewable') && !is_post_publicly_viewable($parent))) { return null; }
+        }
+        $url = wp_get_attachment_image_url($attachment_id, 'full');
+        if ($field === 'featuredImageAlt') {
+            if (!is_string($url) || $url === '' || !self::urlAllowed($url)) { return null; }
+            $alt = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+            return is_string($alt) ? self::plainText($alt) : null;
+        }
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    private static function plainText(string $value): string
+    {
+        return trim(wp_strip_all_tags(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
     }
 
     /** WordPress stores scalar metadata as strings; decode only the registered scalar storage representation. */

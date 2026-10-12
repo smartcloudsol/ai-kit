@@ -49,6 +49,26 @@ export type AnswerSource = {
     serverId: string;
     toolName: string;
 };
+/** Navigation only: fixed approved destination plus encoded source-owned query values. */
+export interface AnswerLinkMapping {
+    id: string;
+    label: string;
+    allowedUrlPrefixes: string[];
+    pointer?: string;
+    urlTemplate?: {
+        baseUrl: string;
+        queryParameters: {
+            name: string;
+            pointer: string;
+            required?: boolean;
+        }[];
+    };
+    when?: {
+        pointer: string;
+        equals: string;
+    }[];
+    appearance?: "primary" | "secondary";
+}
 export interface AnswerTemplate {
     id: string;
     revision: number;
@@ -68,17 +88,11 @@ export interface AnswerTemplate {
         allowedUrlPrefixes: string[];
     };
     attributes: AnswerAttributeMapping[];
-    links: {
-        id: string;
-        label: string;
-        pointer: string;
-        allowedUrlPrefixes: string[];
-        appearance?: "primary" | "secondary";
-    }[];
+    links: AnswerLinkMapping[];
     maxItems: number;
 }
 export interface AnswerPresentationPolicy {
-    schemaVersion: 1 | 2;
+    schemaVersion: 1 | 2 | 3;
     enabled: boolean;
     templates: AnswerTemplate[];
 }
@@ -135,6 +149,8 @@ export declare function readAnswerPointer(value: unknown, path: string): unknown
 export declare function isAnswerHttpsUrl(value: unknown): value is string;
 export declare function isAnswerUrlAllowed(value: unknown, allowed: string[]): value is string;
 export declare function parseAnswerPresentationPolicy(value: unknown): AnswerPresentationPolicy;
+/** Missing identifiers omit the whole link. Never fetch, interpolate a host/path or execute code. */
+export declare function resolveAnswerLinkUrl(mapping: AnswerLinkMapping, item: unknown): string | undefined;
 /** Called on approved projected source values, never on model-authored facts. */
 export declare function materializeAnswerEntity(template: AnswerTemplate, item: unknown, provenance: AnswerEntity["provenance"], ref: string): AnswerEntity | undefined;
 /** Fail closed on malformed/future envelopes; callers preserve the text answer. */

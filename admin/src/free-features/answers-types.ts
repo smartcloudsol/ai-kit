@@ -36,7 +36,7 @@ export interface KnowledgeSyncPolicy {
   documentProfile: string;
   structuredContent?: {
     enabled: boolean;
-    fields: Array<{ sourceMetaKey: string; targetKey: string; type: "string" | "url" | "number" | "boolean" | "string-list"; description: string }>;
+    fields: import("@smart-cloud/ai-kit-core").StructuredContentFieldMapping[];
   };
 }
 
@@ -46,6 +46,6 @@ export interface KnowledgeSyncStatus {
     value: string;
     label: string;
     taxonomies: Array<{ value: string; label: string }>;
-    structuredFields?: Array<{ sourceMetaKey: string; type: "string" | "url" | "number" | "boolean" | "string-list"; description: string }>;
+    structuredFields?: Array<import("@smart-cloud/ai-kit-core").StructuredContentFieldSchema & import("@smart-cloud/ai-kit-core").StructuredContentFieldSource>;
   }>;
 }

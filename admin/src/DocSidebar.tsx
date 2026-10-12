@@ -574,9 +574,27 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
       <Text>
         Write headings and button labels in the intended content language.
         Changing the assistant language does not translate authored template
-        copy. Add, remove or move attributes and links to control visibility and
-        order. Each template carries a revision and shows at most six items.
+        copy. The template list opens an editor for each template. Add, remove
+        or move attribute and navigation mappings to control visibility and
+        order; removing a mapping never deletes source data. Apply to profile
+        draft accepts the editor changes but does not save them to the backend.
+        Cancel discards changes in the editor only. Save conversation profile
+        activates the full profile draft, including confirmed template removals.
+        Each applied template change carries one new revision and shows at most six items.
         Missing images or prices do not prevent a valid title from appearing.
+      </Text>
+      <Text>
+        Navigation can read a complete verified HTTPS URL, or use a profile-owned
+        fixed HTTPS destination with required query parameters mapped to public
+        source identifiers. The latter needs verified display-policy version 3;
+        it does not change the response transport contract. Identifier values are
+        encoded, not evaluated. Missing required identifiers omit the link;
+        optional identifiers omit their query parameter rather than inventing
+        a value. Optional exact-string conditions can restrict a navigation
+        mapping to matching source records. Every condition must match, and
+        missing condition fields omit the link. These conditions require the
+        same version 3 policy capability and never grant source access. Never map
+        passwords, access tokens or personal data into public navigation.
       </Text>
       <Text>
         Preview executes a bounded authenticated read of the approved source,

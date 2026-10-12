@@ -6,6 +6,9 @@ define('ABSPATH', __DIR__ . '/');
 
 final class WP_Post
 {
+    public string $post_excerpt = '';
+    public int $post_parent = 0;
+    public string $post_password = '';
     public function __construct(
         public int $ID,
         public string $post_type,

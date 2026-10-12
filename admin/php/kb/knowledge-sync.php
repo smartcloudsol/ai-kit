@@ -1303,6 +1303,34 @@ final class KnowledgeSyncCapture
         foreach (array('added_post_meta', 'updated_post_meta', 'deleted_post_meta') as $hook) {
             add_action($hook, array($this, 'onStructuredMetadataChanged'), 20, 4);
         }
+        add_action('delete_attachment', array($this, 'onFeaturedAttachmentChanged'), 20, 1);
+    }
+
+    /** Invalidate every referencing public post in bounded pages; never export attachment data on its own. */
+    public function onFeaturedAttachmentChanged(int $attachment_id): void
+    {
+        if (!function_exists('get_posts')) { return; }
+        $offset = 0;
+        do {
+            $ids = get_posts(array('post_type' => 'any', 'post_status' => 'publish', 'fields' => 'ids',
+                'posts_per_page' => 100, 'offset' => $offset, 'orderby' => 'ID', 'order' => 'ASC',
+                'meta_key' => '_thumbnail_id', 'meta_value' => (string) $attachment_id, 'suppress_filters' => false));
+            foreach ($ids as $id) { $this->onStructuredMetadataChanged(null, (int) $id, '_thumbnail_id', null); }
+            $offset += count($ids);
+        } while (count($ids) === 100);
+    }
+
+    /** Parent visibility changes also change whether inherited image evidence is public. */
+    private function onAttachmentParentChanged(int $post_id): void
+    {
+        if (!function_exists('get_posts')) { return; }
+        $offset = 0;
+        do {
+            $ids = get_posts(array('post_type' => 'attachment', 'post_status' => 'any', 'post_parent' => $post_id,
+                'fields' => 'ids', 'posts_per_page' => 100, 'offset' => $offset, 'orderby' => 'ID', 'order' => 'ASC', 'suppress_filters' => false));
+            foreach ($ids as $id) { $this->onFeaturedAttachmentChanged((int) $id); }
+            $offset += count($ids);
+        } while (count($ids) === 100);
     }
 
     /** Own-field edits use the normal publisher-gated capture path, never the KB override bypass. */
@@ -1311,11 +1339,16 @@ final class KnowledgeSyncCapture
         unset($meta_id, $meta_value);
         if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) { return; }
         $post = get_post($post_id);
+        if ($post instanceof \WP_Post && $post->post_type === 'attachment' &&
+            in_array($meta_key, array('_wp_attachment_image_alt', '_wp_attached_file', '_wp_attachment_metadata'), true)) {
+            $this->onFeaturedAttachmentChanged($post_id);
+        }
         if (!$post instanceof \WP_Post || $post->post_status !== 'publish') { return; }
         $policy = $this->eligiblePolicy($post->post_type);
         if ($policy === null || empty($policy['structuredContent']['enabled'])) { return; }
         foreach ($policy['structuredContent']['fields'] as $field) {
-            if ($field['sourceMetaKey'] === $meta_key) {
+            if (($field['sourceMetaKey'] ?? null) === $meta_key ||
+                ($meta_key === '_thumbnail_id' && in_array($field['sourcePostField'] ?? '', array('featuredImageUrl', 'featuredImageAlt'), true))) {
                 if (!KnowledgeSyncPublicReleaseGate::enabled()) {
                     $this->onAfterInsertPost($post_id, $post, true, $post);
                     return;
@@ -1358,6 +1391,10 @@ final class KnowledgeSyncCapture
     public function onAfterInsertPost(int $post_id, \WP_Post $post, bool $update, ?\WP_Post $post_before): void
     {
         unset($update);
+
+        if ($post->post_type === 'attachment') { $this->onFeaturedAttachmentChanged($post_id); }
+        elseif ($post_before instanceof \WP_Post && ($post_before->post_status !== $post->post_status ||
+            ($post_before->post_password ?? '') !== ($post->post_password ?? ''))) { $this->onAttachmentParentChanged($post_id); }
 
         if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
             return;
@@ -1445,6 +1482,7 @@ final class KnowledgeSyncCapture
 
     public function onBeforeDeletePost(int $post_id, \WP_Post $post): void
     {
+        if ($post->post_type !== 'attachment') { $this->onAttachmentParentChanged($post_id); }
         if ($this->eligiblePolicy($post->post_type) === null) {
             return;
         }
