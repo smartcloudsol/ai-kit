@@ -1,4 +1,8 @@
 export const svDict: Record<string, string> = {
+  "Retrieving structured data": "Hämtar strukturerade data",
+  "Reading data fields": "Läser datafält",
+  "Preparing response display": "Förbereder visning av svaret",
+  "Retrieving related information": "Hämtar relaterad information",
   "Product search": "Produktsökning",
   "Product details": "Produktinformation",
   "Catalog lookup": "Kataloguppslag",

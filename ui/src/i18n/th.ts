@@ -1,4 +1,8 @@
 export const thDict: Record<string, string> = {
+  "Retrieving structured data": "กำลังดึงข้อมูลที่มีโครงสร้าง",
+  "Reading data fields": "กำลังอ่านฟิลด์ข้อมูล",
+  "Preparing response display": "กำลังเตรียมการแสดงคำตอบ",
+  "Retrieving related information": "กำลังดึงข้อมูลที่เกี่ยวข้อง",
   "Product search": "ค้นหาสินค้า",
   "Product details": "รายละเอียดสินค้า",
   "Catalog lookup": "ค้นหาในแค็ตตาล็อก",

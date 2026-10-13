@@ -1,4 +1,8 @@
 export const frDict: Record<string, string> = {
+  "Retrieving structured data": "Récupération des données structurées",
+  "Reading data fields": "Lecture des champs de données",
+  "Preparing response display": "Préparation de l’affichage de la réponse",
+  "Retrieving related information": "Récupération des informations associées",
   "Product search": "Recherche de produits",
   "Product details": "Détails du produit",
   "Catalog lookup": "Consultation du catalogue",

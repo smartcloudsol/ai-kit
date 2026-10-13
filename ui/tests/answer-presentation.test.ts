@@ -130,6 +130,29 @@ test("optional image is safe and layout remains useful without it", async () => 
   assert.equal(render(React.createElement(View, { presentation: value })), "");
 });
 
+test("card and carousel navigation fills each card with centered usable buttons", async () => {
+  const { View, React, render } = await renderer();
+  for (const layout of ["cards", "carousel"] as const) {
+    const value = typedFixture();
+    value.groups[0]!.layout = layout;
+    value.groups[0]!.entities[0]!.links.push({ id: "details", label: "Secondary information",
+      url: "https://example.com/details", appearance: "secondary" });
+    const html = render(React.createElement(View, { presentation: value }));
+    const anchors = html.match(/<a\b[^>]*class="ai-answer-link"[^>]*>/g) ?? [];
+    assert.equal(anchors.length, 2);
+    for (const anchor of anchors) {
+      assert.match(anchor, /(?:;|\")width:100%[;\"]/);
+      assert.match(anchor, /box-sizing:border-box/);
+      assert.match(anchor, /justify-content:center/);
+      assert.match(anchor, /text-align:center/);
+      assert.match(anchor, /min-height:2.75rem/);
+    }
+  }
+  const compact = render(React.createElement(View, { presentation: fixture("compact-list") }));
+  const compactAnchor = compact.match(/<a\b[^>]*class="ai-answer-link"[^>]*>/)?.[0] ?? "";
+  assert.doesNotMatch(compactAnchor, /(?:;|\")width:100%[;\"]/);
+});
+
 test("four generic presets display only verified values, authored status labels and genuine links", async () => {
   const { View, React, render } = await renderer();
   for (const preset of ["product-cards", "comparison", "recommendations", "status-cards"] as const) {
@@ -234,7 +257,8 @@ test("real browser keeps card tracks within narrow rails and bounded on desktop"
             publicText: rail.textContent,
             values: [...rail.querySelectorAll("dd")].map((value) => value.textContent),
             links: [...rail.querySelectorAll<HTMLAnchorElement>("a")].map((link) => ({ href: link.href,
-              height: link.getBoundingClientRect().height, tabIndex: link.tabIndex })),
+              height: link.getBoundingClientRect().height, width: link.getBoundingClientRect().width,
+              parentWidth: link.parentElement!.getBoundingClientRect().width, tabIndex: link.tabIndex })),
             documentWidth: document.documentElement.clientWidth, documentScrollWidth: document.documentElement.scrollWidth };
         });
         assert.ok(metrics.listWidth <= metrics.railWidth + 1, `${layout}/${width}: list must fit its rail`);
@@ -245,6 +269,8 @@ test("real browser keeps card tracks within narrow rails and bounded on desktop"
           assert.equal(link.href, "https://example.com/record");
           assert.equal(link.tabIndex, 0);
           assert.ok(link.height >= 44, "navigation buttons have usable pointer targets");
+          if (layout !== "compact-list") assert.ok(Math.abs(link.width - link.parentWidth) <= 1,
+            "card and carousel buttons span the full card content rail");
         }
         if (layout !== "carousel") assert.ok(metrics.scrollWidth <= metrics.clientWidth + 1, `${layout}/${width}: no clipped grid`);
         for (const card of metrics.cards) {

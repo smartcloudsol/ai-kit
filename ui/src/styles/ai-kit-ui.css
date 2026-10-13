@@ -910,6 +910,77 @@
   min-height: 64px;
 }
 
+/* One idle row at every size; focus within the whole composer opens the editor. */
+.ai-composer .ai-message {
+  min-width: 0;
+}
+
+.ai-composer .ai-composer-send,
+.ai-composer .ai-composer-reset {
+  min-height: 44px;
+}
+
+.ai-composer[data-composer-expanded="true"] .ai-composer-reset-actions {
+  order: -1;
+}
+
+.ai-composer[data-composer-expanded="false"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  align-items: center;
+}
+
+.ai-composer[data-composer-expanded="false"] .ai-composer-field {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.ai-composer[data-composer-expanded="false"] .ai-message textarea {
+  min-height: 44px;
+  max-height: 44px;
+  resize: none;
+  overflow-y: auto !important;
+}
+
+.ai-composer[data-composer-expanded="false"] .ai-actions,
+.ai-composer[data-composer-expanded="false"] .ai-composer-send-actions,
+.ai-composer[data-composer-expanded="false"] .ai-composer-reset-actions {
+  display: contents;
+}
+
+.ai-composer[data-composer-expanded="false"] .ai-composer-send,
+.ai-composer[data-composer-expanded="false"] .ai-composer-reset {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  grid-row: 1;
+}
+
+.ai-composer[data-composer-expanded="false"] .ai-composer-send {
+  grid-column: 2;
+}
+
+.ai-composer[data-composer-expanded="false"] .ai-composer-reset {
+  grid-column: 3;
+}
+
+.ai-composer[data-composer-expanded="false"] .ai-composer-action-label,
+.ai-composer[data-composer-expanded="false"] [data-ai-kit-add-image-button],
+.ai-composer[data-composer-expanded="false"] [data-ai-kit-clear-audio-button],
+.ai-composer[data-composer-expanded="false"] [data-ai-kit-microphone-button] {
+  display: none;
+}
+
+.ai-composer[data-composer-expanded="false"] .mantine-Button-section {
+  margin-inline: 0;
+}
+
+.ai-composer[data-composer-expanded="false"] .ai-thumbs {
+  grid-column: 1 / -1;
+}
+
 .ai-answer-link:hover {
   filter: brightness(.94);
 }

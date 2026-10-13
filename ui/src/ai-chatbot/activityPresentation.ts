@@ -7,6 +7,10 @@ const OPERATION_LABELS = {
   catalog_lookup: "Catalog lookup",
   external_read: "External tool",
   web_read: "Web sources",
+  structured_read: "Retrieving structured data",
+  structured_schema: "Reading data fields",
+  presentation: "Preparing response display",
+  tool_workflow: "Retrieving related information",
 } as const;
 
 export function safePublicActivityParams(value: unknown): Record<string, string> | undefined {
@@ -32,5 +36,7 @@ export function publicToolActivityLabel(activity: ChatActivity, translate: (key:
 export function publicToolActivityDetails(activity: ChatActivity): string | null {
   const params = safePublicActivityParams(activity.labelParams);
   if (!params) return null;
-  return [params.providerLabel, params.toolName].filter(Boolean).join(" · ") || null;
+  // Technical tool identifiers remain parseable for older streams, but are
+  // diagnostic metadata rather than visitor-facing explanations.
+  return params.providerLabel || null;
 }

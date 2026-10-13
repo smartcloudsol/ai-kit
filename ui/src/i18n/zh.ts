@@ -1,4 +1,8 @@
 export const zhDict: Record<string, string> = {
+  "Retrieving structured data": "正在获取结构化数据",
+  "Reading data fields": "正在读取数据字段",
+  "Preparing response display": "正在准备回答展示",
+  "Retrieving related information": "正在获取相关信息",
   "Product search": "商品搜索",
   "Product details": "商品详情",
   "Catalog lookup": "目录查询",

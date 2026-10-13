@@ -716,6 +716,11 @@ final class CategoryPathTestTransport {
         $capability = $GLOBALS['structured_test_capability'] ?? [];
         return ($capability['status'] ?? '') === 'verified' && is_int($capability['version'] ?? null) && $capability['version'] >= 1;
     }
+    public function supportsStructuredContentDocument(): bool
+    {
+        $capability = $GLOBALS['structured_test_capability'] ?? [];
+        return $this->supportsStructuredContent() && is_int($capability['documentVersion'] ?? null) && $capability['documentVersion'] >= 1;
+    }
 }
 class_alias(CategoryPathTestTransport::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncTransport');
 final class CategoryPathTestRenderer { public function render(WP_Post $post): string { return 'Body'; } }
@@ -729,6 +734,24 @@ $assigned_category_terms = [$taxonomy_terms['category'][2]];
 $lease = (object) ['leased_operation' => 'upsert', 'leased_source_version' => '1', 'leased_correlation_id' => 'test-paths', 'blog_id' => 1, 'post_type' => 'post', 'post_id' => 42];
 unset($GLOBALS['release_gate_provider_state']);
 $builder = new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncProjectionBuilder();
+$protected = clone $posts[42];
+$protected->post_password = 'fixture-password';
+expect(!\SmartCloud\WPSuite\AiKit\KnowledgeBase\knowledge_sync_post_is_public($protected), 'Password-protected published sources must not be public sync sources.');
+$before_queries = $wpdb->queryCount;
+$capture->onAfterInsertPost(42, $protected, true, $posts[42]);
+expect($wpdb->queryCount === $before_queries + 1 && end($wpdb->preparedArguments)[5] === 'delete', 'Adding a source password must revoke a previously published source.');
+$posts[42] = $protected;
+try {
+    $builder->build($lease);
+    throw new RuntimeException('A protected upsert must fail closed before rendering or metadata reads.');
+} catch (\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncProjectionException $error) {
+    expect($error->getMessage() === 'Leased upsert source is no longer public; its newer desired state must be processed.', 'A protected source must reject with the public-source diagnostic.');
+}
+$before_queries = $wpdb->queryCount;
+$capture->onSetObjectTerms(42, [], [11], 'post_tag', false, []);
+$capture->onBaseMetadataChanged(42, 'post-42/base', 'main');
+expect($wpdb->queryCount === $before_queries, 'Metadata and taxonomy changes must not restore a protected source.');
+$posts[42] = new WP_Post(42, 'post', 'publish');
 $legacy_fingerprint = $baseline_class::serializerFingerprint();
 $legacy = $builder->build($lease);
 expect(!isset($legacy['document']['classification']['categoryPaths']), 'Capability absence must preserve the legacy projection payload.');

@@ -482,6 +482,9 @@ final class KnowledgeSyncTransport
                 // Includes revocation. Never silently downgrade a v3 payload:
                 // that would pretend removal succeeded on an unknown backend.
                 $this->requireCapability('knowledge.structured-content', $settings['backendBaseUrl']);
+                if (($projection['document']['structuredContent']['schemaVersion'] ?? null) === 2) {
+                    $this->requireCapability('knowledge.structured-content.document-v2', $settings['backendBaseUrl']);
+                }
             }
         }
         $registration = $this->requiredRegistration();
@@ -708,6 +711,13 @@ final class KnowledgeSyncTransport
         $compatibility = $this->backendCompatibility();
         $version = $compatibility['capabilities']['knowledge.structured-content'] ?? null;
         return ($compatibility['status'] ?? '') === 'verified' && is_int($version) && $version >= 1;
+    }
+
+    public function supportsStructuredContentDocument(): bool
+    {
+        $compatibility = $this->backendCompatibility();
+        $version = $compatibility['capabilities']['knowledge.structured-content.document-v2'] ?? null;
+        return $this->supportsStructuredContent() && is_int($version) && $version >= 1;
     }
 
     /** @return array<string, mixed> */

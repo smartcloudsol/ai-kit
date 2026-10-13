@@ -5,7 +5,7 @@ import vm from "node:vm";
 import test from "node:test";
 import type { AnswerPresentation } from "@smart-cloud/ai-kit-core";
 
-import { runChatStreamTurn, summarizeChatActivities, isToolActivity, isSummaryActivity, chatPresentationVersionForCapabilities, type ChatActivity } from "../src/ai-chatbot/chatStream.ts";
+import { runChatStreamTurn, summarizeChatActivities, isToolActivity, isSummaryActivity, visibleProgressActivities, chatPresentationVersionForCapabilities, type ChatActivity } from "../src/ai-chatbot/chatStream.ts";
 
 const envelope = (
   type: string,
@@ -26,6 +26,21 @@ const presentation: AnswerPresentation = { schemaVersion: 1, groups: [{ template
   ref: "card-1", entityId: "verified-1", title: "Verified item", attributes: [], links: [],
   provenance: { kind: "external_mcp", sourceId: "approved-server", evidenceId: "evidence-1", checkedAt: "2026-10-11T12:00:00.000Z" },
 }] }] };
+
+test("progress retains useful tool history and only the latest active model stage without modifying replay data", () => {
+  const stage = (id: string, kind: ChatActivity['kind'], status: ChatActivity['status']): ChatActivity => ({
+    activityId: id, kind, status, labelKey: `chat.activity.${kind}`,
+  });
+  const search = stage('search', 'knowledge_search', 'completed');
+  const read = stage('read', 'other', 'failed');
+  const checking = stage('checking', 'checking_sources', 'running');
+  const activities = [stage('thought-1', 'thinking', 'completed'), search,
+    stage('thought-2', 'thinking', 'completed'), read, checking];
+  assert.deepEqual(visibleProgressActivities(activities), [search, read, checking]);
+  assert.equal(activities.length, 5);
+  assert.deepEqual(visibleProgressActivities([...activities, stage('finish', 'generating_response', 'completed')]), [search, read]);
+  assert.deepEqual(visibleProgressActivities([]), []);
+});
 
 class FakeSocket {
   readyState = 0;

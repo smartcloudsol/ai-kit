@@ -5,6 +5,7 @@ export type CitationLike = {
     title?: string;
     description?: string;
     snippet?: string;
+    sourceKind?: "knowledge_base" | "structured_content";
 };
 type CitationPayload = ProcessedCitations | CitationLike[] | undefined;
 /**

@@ -15,13 +15,13 @@ function EntityImage({ image }: { image: NonNullable<AnswerEntity["image"]> }) {
     onError={() => setFailed(true)} style={{ width: "100%", height: "auto", maxHeight: "12rem", objectFit: "contain", borderRadius: ".5rem" }} />;
 }
 
-function EntityLinks({ links }: { links: AnswerEntity["links"] }) {
+function EntityLinks({ links, fullWidth = false }: { links: AnswerEntity["links"]; fullWidth?: boolean }) {
   if (!links.length) return null;
-  return <div style={{ display: "flex", flexWrap: "wrap", gap: ".5rem 1rem" }}>
+  return <div style={{ display: "flex", flexWrap: "wrap", gap: ".5rem 1rem", ...(fullWidth ? { width: "100%" } : {}) }}>
       {links.map((link) => <a className="ai-answer-link" data-answer-link-appearance={link.appearance ?? "primary"}
         key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"
         style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: "2.75rem",
-          boxSizing: "border-box", padding: ".5rem .875rem", borderRadius: "var(--ai-kit-radius-sm, .75rem)",
+          boxSizing: "border-box", ...(fullWidth ? { width: "100%" } : {}), padding: ".5rem .875rem", borderRadius: "var(--ai-kit-radius-sm, .75rem)",
           background: link.appearance === "secondary" ? "transparent" : "var(--ai-kit-color-primary, #1c7ed6)",
           color: link.appearance === "secondary" ? "var(--ai-kit-color-primary, #1c7ed6)" : "var(--ai-kit-color-primary-contrast, #fff)",
           border: "1px solid var(--ai-kit-color-primary, #1c7ed6)",
@@ -54,7 +54,7 @@ function EntityContent({ entity, compact, locale }: { entity: AnswerEntity; comp
         <dt>{attribute.label}</dt><dd style={{ margin: 0 }}><AttributeValue attribute={attribute} locale={locale} /></dd>
       </div>)}
     </dl>}
-    <EntityLinks links={entity.links} />
+    <EntityLinks links={entity.links} fullWidth={!compact} />
   </>;
 }
 

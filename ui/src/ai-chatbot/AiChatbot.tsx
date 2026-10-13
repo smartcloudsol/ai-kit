@@ -12,7 +12,6 @@ import {
   Textarea,
   type TextareaProps,
 } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
 import {
   IconMaximize,
   IconMessage,
@@ -78,6 +77,7 @@ import {
   type ChatStreamResult,
   type ChatStreamView,
   isToolActivity,
+  visibleProgressActivities,
 } from "./chatStream";
 import { resolveChatWelcome } from "./welcome";
 import { AnswerPresentationView } from "./AnswerPresentation";
@@ -95,14 +95,24 @@ function ChatMarkdownTable({ children, node, ...props }: ComponentPropsWithoutRe
   </div>;
 }
 
-/** Mobile idle chrome stays compact; draft text and focus retain room for editing. */
-function ChatComposerInput({ inputRef, ...props }: TextareaProps & { inputRef: RefObject<HTMLTextAreaElement> }) {
-  const mobile = useMediaQuery("(max-width: 600px)", false);
+/** Focus anywhere inside the composer retains the editing layout, including its actions. */
+function ChatComposer({ children }: { children: (expanded: boolean) => React.ReactNode }) {
   const [focused, setFocused] = useState(false);
-  const expanded = !mobile || focused || String(props.value ?? "").length > 0;
-  return <Textarea {...props} ref={inputRef} autosize minRows={expanded ? 3 : 1} maxRows={6}
-    onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
-    onBlur={(event) => { setFocused(false); props.onBlur?.(event); }} />;
+  return <Stack className="ai-box ai-box-open ai-composer" data-composer-expanded={focused}
+    onFocusCapture={(event) => {
+      // Portalled confirmation dialogs do not focus the underlying composer.
+      if (event.currentTarget.contains(event.target as Node)) setFocused(true);
+    }}
+    onBlurCapture={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
+    }}>{children(focused)}</Stack>;
+}
+
+/** Idle drafts remain intact but consume only one line at every viewport size. */
+function ChatComposerInput({ inputRef, expanded, ...props }: TextareaProps & {
+  inputRef: RefObject<HTMLTextAreaElement>; expanded: boolean;
+}) {
+  return <Textarea {...props} ref={inputRef} autosize minRows={expanded ? 3 : 1} maxRows={expanded ? 6 : 1} />;
 }
 
 const CHAT_MARKDOWN_COMPONENTS = { table: ChatMarkdownTable };
@@ -1675,6 +1685,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   const handleQuestionKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // IME confirmation is not a send gesture (including legacy browser keyCode 229).
+      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         if (canSend) void ask();
@@ -1800,7 +1812,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     openButtonIconLayout,
   ]);
 
-  const progressActivities = streamView?.activities ?? [];
+  const progressActivities = visibleProgressActivities(streamView?.activities ?? []);
 
   const progressFallbackText = useMemo(() => {
     if (streamTransportState === "reconnecting") return I18n.get("Reconnecting…");
@@ -2491,7 +2503,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               {aiDisclosure}
             </Text>
 
-            <Stack className="ai-box ai-box-open">
+            <ChatComposer>{(composerExpanded) => <>
               {/* Reset confirmation dialog (Yes/No) */}
               <Modal
                 opened={resetDialogOpen}
@@ -2523,9 +2535,10 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                 </Group>
               </Modal>
 
-              <Group>
+              <Group className="ai-composer-field">
                 <ChatComposerInput
                   className="ai-message"
+                  expanded={composerExpanded}
                   inputRef={questionInputRef}
                   placeholder={textareaPlaceholder}
                   aria-label={textareaPlaceholder}
@@ -2588,19 +2601,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               )}
 
               <Group className="ai-actions" justify="space-between" w="100%">
-                <Group justify="flex-start">
-                  <Button
-                    variant="light"
-                    leftSection={<IconTrash size={18} />}
-                    onClick={handleResetClick}
-                    disabled={!hasMessages && !isChatBusy}
-                    data-ai-kit-reset-button
-                  >
-                    {I18n.get(labels.resetLabel)}
-                  </Button>
-                </Group>
-
-                <Group justify="flex-end">
+                <Group className="ai-composer-send-actions" justify="flex-end">
                   {/* Microphone button */}
                   {USE_AUDIO && (
                     <>
@@ -2665,13 +2666,32 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
                   {/* Send -> Cancel switch (ChatGPT-like) */}
                   <Button
+                    className="ai-composer-send"
                     leftSection={sendOrCancelIcon}
                     variant="filled"
+                    onPointerDown={(event) => { if (!composerExpanded) event.preventDefault(); }}
                     onClick={onSendOrCancel}
                     disabled={!isChatBusy && !canSend}
+                    aria-label={sendOrCancelLabel}
+                    title={sendOrCancelLabel}
                     data-ai-kit-send-button
                   >
-                    {sendOrCancelLabel}
+                    <span className="ai-composer-action-label">{sendOrCancelLabel}</span>
+                  </Button>
+                </Group>
+                <Group className="ai-composer-reset-actions" justify="flex-start">
+                  <Button
+                    className="ai-composer-reset"
+                    variant="light"
+                    leftSection={<IconTrash size={18} />}
+                    onPointerDown={(event) => { if (!composerExpanded) event.preventDefault(); }}
+                    onClick={handleResetClick}
+                    disabled={!hasMessages && !isChatBusy}
+                    aria-label={I18n.get(labels.resetLabel)}
+                    title={I18n.get(labels.resetLabel)}
+                    data-ai-kit-reset-button
+                  >
+                    <span className="ai-composer-action-label">{I18n.get(labels.resetLabel)}</span>
                   </Button>
                 </Group>
               </Group>
@@ -2721,7 +2741,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                   ))}
                 </Group>
               )}
-            </Stack>
+            </>}</ChatComposer>
           </div>
         </Modal.Root>
       )}

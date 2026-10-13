@@ -1,4 +1,8 @@
 export const deDict: Record<string, string> = {
+  "Retrieving structured data": "Strukturierte Daten abrufen",
+  "Reading data fields": "Datenfelder lesen",
+  "Preparing response display": "Antwortanzeige vorbereiten",
+  "Retrieving related information": "Zugehörige Informationen abrufen",
   "Product search": "Produktsuche",
   "Product details": "Produktdetails",
   "Catalog lookup": "Katalogabfrage",

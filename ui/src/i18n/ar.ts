@@ -1,4 +1,8 @@
 export const arDict: Record<string, string> = {
+  "Retrieving structured data": "جلب البيانات المنظمة",
+  "Reading data fields": "قراءة حقول البيانات",
+  "Preparing response display": "إعداد عرض الرد",
+  "Retrieving related information": "جلب المعلومات ذات الصلة",
   "Product search": "البحث عن المنتجات",
   "Product details": "تفاصيل المنتج",
   "Catalog lookup": "استعلام الكتالوج",

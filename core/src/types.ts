@@ -610,6 +610,8 @@ export interface PromptResult {
 
 export interface RetrievedDoc {
   docId: string;
+  /** Source role retained independently of the human-readable reference display. */
+  sourceKind?: "knowledge_base" | "external_tool" | "structured_content";
   title?: string;
   description?: string;
   author?: string;

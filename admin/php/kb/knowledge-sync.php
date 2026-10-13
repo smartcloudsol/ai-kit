@@ -29,6 +29,13 @@ function knowledge_sync_post_type_is_viewable(mixed $post_type_object): bool
         (!empty($post_type_object->_builtin) && !empty($post_type_object->public));
 }
 
+/** A published status does not make password-protected content public evidence. */
+function knowledge_sync_post_is_public(mixed $post): bool
+{
+    return $post instanceof \WP_Post && $post->post_status === 'publish' &&
+        empty($post->post_password) && knowledge_sync_post_type_is_viewable(get_post_type_object($post->post_type));
+}
+
 final class KnowledgeSyncPolicyStore
 {
     public const OPTION_NAME = 'smartcloud_ai_kit_kb_sync_policies';
@@ -67,6 +74,12 @@ final class KnowledgeSyncPolicyStore
             if (!class_exists(KnowledgeSyncTransport::class) || !KnowledgeSyncTransport::create()->supportsStructuredContent()) {
                 throw new \InvalidArgumentException(
                     'Update and configure the AI Kit backend with knowledge.structured-content v1 before enabling or changing structured-content fields.'
+                );
+            }
+            $nested = array_filter($structured['fields'], static fn(array $field): bool => in_array($field['type'], array('object', 'array'), true));
+            if ($nested !== array() && !KnowledgeSyncTransport::create()->supportsStructuredContentDocument()) {
+                throw new \InvalidArgumentException(
+                    'Update and verify the AI Kit backend with knowledge.structured-content.document-v2 before approving nested field mappings.'
                 );
             }
         }
@@ -1343,7 +1356,7 @@ final class KnowledgeSyncCapture
             in_array($meta_key, array('_wp_attachment_image_alt', '_wp_attached_file', '_wp_attachment_metadata'), true)) {
             $this->onFeaturedAttachmentChanged($post_id);
         }
-        if (!$post instanceof \WP_Post || $post->post_status !== 'publish') { return; }
+        if (!knowledge_sync_post_is_public($post)) { return; }
         $policy = $this->eligiblePolicy($post->post_type);
         if ($policy === null || empty($policy['structuredContent']['enabled'])) { return; }
         foreach ($policy['structuredContent']['fields'] as $field) {
@@ -1406,7 +1419,7 @@ final class KnowledgeSyncCapture
         }
 
         $before_status = $post_before instanceof \WP_Post ? $post_before->post_status : 'new';
-        if ($post->post_status === 'publish') {
+        if (knowledge_sync_post_is_public($post)) {
             $manual_review = $policy['reviewPolicy'] === 'manual-kb-review';
             $gate_required = KnowledgeSyncPublicReleaseGate::enabled();
             $publisher_position = $gate_required
@@ -1456,7 +1469,7 @@ final class KnowledgeSyncCapture
             return;
         }
         $post = get_post($post_id);
-        if ($post instanceof \WP_Post && $post->post_status === 'publish') {
+        if (knowledge_sync_post_is_public($post)) {
             $policy = $this->eligiblePolicy($post->post_type);
             if ($policy === null) {
                 return;
@@ -1528,7 +1541,7 @@ final class KnowledgeSyncCapture
         }
 
         $post = get_post($object_id);
-        if (!$post instanceof \WP_Post || $post->post_status !== 'publish') {
+        if (!knowledge_sync_post_is_public($post)) {
             return;
         }
 

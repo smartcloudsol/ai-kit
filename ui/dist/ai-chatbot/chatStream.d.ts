@@ -79,6 +79,10 @@ export declare class ChatStreamError extends Error {
     constructor(message: string, code: string, retryable?: boolean, status?: number, requestId?: string);
 }
 export declare function isToolActivity(activity: ChatActivity): boolean;
+/** Display useful execution history plus the latest active stage, not old thinking rows.
+ * The full activity list stays intact for persistence, diagnostics and replay.
+ */
+export declare function visibleProgressActivities(activities: readonly ChatActivity[]): ChatActivity[];
 /** An unnamed successful internal operation is not useful visitor-facing history. */
 export declare function isSummaryActivity(activity: ChatActivity): boolean;
 export declare function summarizeChatActivities(activities: ChatActivity[]): {

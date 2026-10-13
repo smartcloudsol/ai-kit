@@ -9,7 +9,8 @@ import { enDict } from "../src/i18n/en.ts";
 import { huDict } from "../src/i18n/hu.ts";
 
 const activity: ChatActivity = { activityId: "external-1", kind: "other", labelKey: "chat.activity.other", status: "running", labelParams: { operation: "catalog_search", providerLabel: "Demo Commerce", toolName: "search_catalog" } };
-const operations = { catalog_search: "Product search", product_details: "Product details", catalog_lookup: "Catalog lookup", external_read: "External tool", web_read: "Web sources" };
+const operations = { catalog_search: "Product search", product_details: "Product details", catalog_lookup: "Catalog lookup", external_read: "External tool", web_read: "Web sources",
+  structured_read: "Retrieving structured data", structured_schema: "Reading data fields", presentation: "Preparing response display", tool_workflow: "Retrieving related information" };
 
 test("all semantic operation labels resolve in English and Hungarian for every lifecycle state", () => {
   for (const dictionary of [enDict, huDict]) {
@@ -40,7 +41,12 @@ test("activity parameters retain only bounded public metadata and never raw desc
   }
   assert.deepEqual(safePublicActivityParams({ operation: "external_read", toolName: "x".repeat(64), providerLabel: "É".repeat(64) }), { operation: "external_read", toolName: "x".repeat(64), providerLabel: "É".repeat(64) });
   for (const invalid of [null, [], "catalog_search", { operation: 1 }]) assert.equal(safePublicActivityParams(invalid), undefined);
-  assert.equal(publicToolActivityDetails(activity), "Demo Commerce · search_catalog");
+  assert.equal(publicToolActivityDetails(activity), "Demo Commerce");
+  for (const status of ["running", "completed", "failed"] as const) {
+    const technicalOnly = { ...activity, status, labelParams: { operation: "structured_read", toolName: "get_content_record" } };
+    assert.equal(publicToolActivityDetails(technicalOnly), null);
+    assert.ok(!publicToolActivityLabel(technicalOnly, (key) => key)?.includes("get_content_record"));
+  }
 });
 
 // Exercise the actual private formatting functions without mounting unrelated
@@ -69,7 +75,7 @@ test("actual chatbot formatters distinguish page reading, preserve old tool labe
     assert.equal(activityLabel({ ...legacy, kind: "web_search", status: "completed" }, i18n), i18n.get("Web search completed"));
     assert.equal(activityLabel(activity, i18n), `${i18n.get("Product search")}…`);
     assert.equal(activityDetails({ ...legacy, safeDomains: ["one.example.com", "two.example.com", "three.example.com"] }, i18n), "one.example.com, two.example.com");
-    assert.equal(activityDetails({ ...activity, resultCount: 3, safeDomains: ["one.example.com"] }, i18n), `Demo Commerce · search_catalog · ${i18n.get("Results: {count}").replace("{count}", "3")}`);
+    assert.equal(activityDetails({ ...activity, resultCount: 3, safeDomains: ["one.example.com"] }, i18n), `Demo Commerce · ${i18n.get("Results: {count}").replace("{count}", "3")}`);
     assert.equal(activityDetails({ ...legacy, safeDomains: [] }, i18n), null);
   }
 });

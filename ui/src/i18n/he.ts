@@ -1,4 +1,8 @@
 export const heDict: Record<string, string> = {
+  "Retrieving structured data": "אחזור נתונים מובנים",
+  "Reading data fields": "קריאת שדות נתונים",
+  "Preparing response display": "הכנת תצוגת התשובה",
+  "Retrieving related information": "אחזור מידע קשור",
   "Product search": "חיפוש מוצרים",
   "Product details": "פרטי המוצר",
   "Catalog lookup": "שאילתה בקטלוג",

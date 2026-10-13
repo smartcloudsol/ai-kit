@@ -1,4 +1,8 @@
 export const hiDict: Record<string, string> = {
+  "Retrieving structured data": "संरचित डेटा प्राप्त किया जा रहा है",
+  "Reading data fields": "डेटा फ़ील्ड पढ़े जा रहे हैं",
+  "Preparing response display": "उत्तर का प्रदर्शन तैयार किया जा रहा है",
+  "Retrieving related information": "संबंधित जानकारी प्राप्त की जा रही है",
   "Product search": "उत्पाद खोज",
   "Product details": "उत्पाद का विवरण",
   "Catalog lookup": "कैटलॉग की जानकारी",

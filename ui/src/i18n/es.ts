@@ -1,4 +1,8 @@
 export const esDict: Record<string, string> = {
+  "Retrieving structured data": "Obtención de datos estructurados",
+  "Reading data fields": "Lectura de campos de datos",
+  "Preparing response display": "Preparación de la presentación de la respuesta",
+  "Retrieving related information": "Obtención de información relacionada",
   "Product search": "Búsqueda de productos",
   "Product details": "Detalles del producto",
   "Catalog lookup": "Consulta del catálogo",

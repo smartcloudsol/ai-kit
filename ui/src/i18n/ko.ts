@@ -1,4 +1,8 @@
 export const koDict: Record<string, string> = {
+  "Retrieving structured data": "구조화된 데이터 조회 중",
+  "Reading data fields": "데이터 필드 읽는 중",
+  "Preparing response display": "답변 표시 준비 중",
+  "Retrieving related information": "관련 정보 조회 중",
   "Product search": "제품 검색",
   "Product details": "제품 상세 정보",
   "Catalog lookup": "카탈로그 조회",

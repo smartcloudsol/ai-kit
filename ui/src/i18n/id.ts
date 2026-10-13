@@ -1,4 +1,8 @@
 export const idDict: Record<string, string> = {
+  "Retrieving structured data": "Mengambil data terstruktur",
+  "Reading data fields": "Membaca kolom data",
+  "Preparing response display": "Menyiapkan tampilan jawaban",
+  "Retrieving related information": "Mengambil informasi terkait",
   "Product search": "Pencarian produk",
   "Product details": "Detail produk",
   "Catalog lookup": "Pencarian katalog",

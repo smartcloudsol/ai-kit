@@ -1,4 +1,8 @@
 export const plDict: Record<string, string> = {
+  "Retrieving structured data": "Pobieranie danych strukturalnych",
+  "Reading data fields": "Odczytywanie pól danych",
+  "Preparing response display": "Przygotowywanie widoku odpowiedzi",
+  "Retrieving related information": "Pobieranie powiązanych informacji",
   "Product search": "Wyszukiwanie produktów",
   "Product details": "Szczegóły produktu",
   "Catalog lookup": "Sprawdzanie katalogu",

@@ -1,4 +1,8 @@
 export const itDict: Record<string, string> = {
+  "Retrieving structured data": "Recupero dei dati strutturati",
+  "Reading data fields": "Lettura dei campi dati",
+  "Preparing response display": "Preparazione della visualizzazione della risposta",
+  "Retrieving related information": "Recupero delle informazioni correlate",
   "Product search": "Ricerca prodotti",
   "Product details": "Dettagli del prodotto",
   "Catalog lookup": "Consultazione del catalogo",

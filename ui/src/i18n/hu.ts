@@ -1,4 +1,8 @@
 export const huDict: Record<string, string> = {
+  "Retrieving structured data": "Strukturált adatok lekérése",
+  "Reading data fields": "Adatmezők beolvasása",
+  "Preparing response display": "Válasz megjelenítésének előkészítése",
+  "Retrieving related information": "Kapcsolódó információk lekérése",
   "Product search": "Termékek keresése",
   "Product details": "Termékadatok",
   "Catalog lookup": "Katalógus lekérdezése",

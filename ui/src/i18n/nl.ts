@@ -1,4 +1,8 @@
 export const nlDict: Record<string, string> = {
+  "Retrieving structured data": "Gestructureerde gegevens ophalen",
+  "Reading data fields": "Gegevensvelden lezen",
+  "Preparing response display": "Antwoordweergave voorbereiden",
+  "Retrieving related information": "Gerelateerde informatie ophalen",
   "Product search": "Producten zoeken",
   "Product details": "Productdetails",
   "Catalog lookup": "Catalogus raadplegen",

@@ -149,7 +149,8 @@ function wp_remote_request(string $url, array $arguments): array
                 'apiSchemaVersion' => 7,
                 'capabilities' => array(
                     ...($capability_mode === 'paths' ? ['knowledge.taxonomy-paths' => 1] : ($capability_mode === 'invalid-paths' ? ['knowledge.taxonomy-paths' => '1'] : [])),
-                    ...($capability_mode === 'structured' ? ['knowledge.structured-content' => 1] : ($capability_mode === 'invalid-structured' ? ['knowledge.structured-content' => '1'] : [])),
+                    ...(in_array($capability_mode, ['structured', 'structured-document', 'invalid-structured-document'], true) ? ['knowledge.structured-content' => 1] : ($capability_mode === 'invalid-structured' ? ['knowledge.structured-content' => '1'] : [])),
+                    ...($capability_mode === 'structured-document' ? ['knowledge.structured-content.document-v2' => 1] : ($capability_mode === 'invalid-structured-document' ? ['knowledge.structured-content.document-v2' => '1'] : [])),
                     'knowledge.automation' => $capability_mode === 'v4'
                         ? 4
                         : ($capability_mode === 'v5' ? 5 : 6),
@@ -424,3 +425,24 @@ foreach ([true, false] as $enabled) {
     transport_expect($blocked, 'Unsupported backend cannot receive schema3 enabled or disabled projections.');
 }
 echo "Structured-content backend capability and delivery guards passed.\n";
+
+foreach (['structured', 'invalid-structured-document', 'verified', 'legacy'] as $mode) {
+    $transients = [];
+    $capability_mode = $mode;
+    transport_expect(!$transport->supportsStructuredContentDocument(), 'Nested document approval requires both verified integer capabilities.');
+}
+$transients = [];
+$capability_mode = 'structured-document';
+transport_expect($transport->supportsStructuredContentDocument(), 'Nested document capability is separately negotiated.');
+$transients = [];
+$capability_mode = 'structured';
+$before_nested_requests = count($requests);
+$nested_blocked = false;
+try {
+    $transport->dispatchBatch(null, [42 => ['schemaVersion' => 3, 'document' => ['structuredContent' => ['schemaVersion' => 2, 'enabled' => true, 'fields' => (object) [], 'fieldSchema' => (object) []]]]]);
+} catch (KnowledgeSyncTransportException $error) {
+    $nested_blocked = $error->errorCode === 'backend_capability_unavailable';
+}
+transport_expect($nested_blocked, 'Scalar capability alone must not dispatch a nested document or silently downgrade it.');
+transport_expect(count($requests) === $before_nested_requests + 1, 'Nested capability rejection precedes signing or content dispatch.');
+echo "Nested structured-document negotiation tests passed.\n";

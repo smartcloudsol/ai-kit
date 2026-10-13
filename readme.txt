@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.4
+Stable tag: 1.6.5
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -184,6 +184,14 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 Full release history and detailed upgrade guidance: https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md
 
+= 1.6.5 =
+* Synchronize explicitly registered nested objects and typed arrays with bounded schemas, selected fields and existing publication approval.
+* Keep message entry compact at every screen size; focus restores the editor and labelled actions. Expand card navigation buttons to the card width.
+* Show localized operation-specific progress without technical tool names or repeated historical thinking rows.
+* Merge duplicate public source links and omit raw structured-record JSON from citation previews while retaining internal grounding.
+* Configure simple read-only tool sequences and parallel dependencies with private modal drafts on compatible backends.
+* Update AI Kit Core to 1.5.21 and UI to 1.5.35; retain Hub 2.6.1.
+
 = 1.6.4 =
 * Improve display-template editing with a compact list, private modal drafts, confirmed removal, field guidance and explicit apply/save steps.
 * Add opt-in synchronization of public featured images, alternative text and authored excerpts alongside registered own fields.
@@ -217,21 +225,10 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Chatbot: Add visitor-language configuration for approved MCP tools and preserve source product names and readable references with a compatible backend.
 * Dependencies: Update AI Kit UI to 1.5.31.
 
-= 1.6.0 =
-* Keep backend mode, resolved API URL and access guidance in one compact Status panel.
-* Show current DocSearch and summarizer screenshots in the Getting started guide, with accessible image dialogs.
-* Present chatbot and semantic search as the primary visitor experience, with clear Free, Pro and backend requirements.
-* Remember completed Answers setup even when the chatbot and knowledge synchronization remain disabled.
-* Explain backend access with contextual sign-in and configuration guidance instead of an unexplained authorization error.
-* Improve shared navigation alignment, connection details, inline help and setup field guidance.
-* Explain scheduled knowledge synchronization results and sources waiting for verified site publication.
-* Combine Answers onboarding, status and detailed settings on one product page; show AI Tools as an informational panel.
-* Stage assistant appearance, conversation guidance and knowledge-source selections until the final setup step, with partial-save recovery.
-* Use the saved Chatbot Settings name for conversation identity instead of asking for a second assistant name.
-* Add shared product navigation and separate Platform Settings with reCAPTCHA, Styling and Translations tabs.
-* Preserve existing admin links, permissions and compatibility with older plugin menus.
-
 == Upgrade Notice ==
+
+= 1.6.5 =
+Nested sync needs document-v2 capability; tool-control and empty-reply fixes need orchestration v1.0.122. Review schemas, mappings and profile access, then complete approved sync/ingestion. Aggregates need a site-owned producer. Backend deployment is not automatic.
 
 = 1.6.4 =
 Generated CTA links need orchestration v1.0.119 or display-policy capability 3. Native fields remain opt-in. Review mappings and complete sync/ingestion after source changes. Existing profiles are preserved; backend deployment is not automatic.

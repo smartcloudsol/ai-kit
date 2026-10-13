@@ -467,7 +467,7 @@ final class KnowledgeSyncBaselineService
         $cursor = (int) $baseline->cursor_post_id;
         foreach ($post_ids as $post_id) {
             $post = get_post($post_id);
-            if (!$post instanceof \WP_Post || $post->post_status !== 'publish') {
+            if (!knowledge_sync_post_is_public($post)) {
                 continue;
             }
             if ($publisher_cursor !== null) {
@@ -757,7 +757,7 @@ final class KnowledgeSyncProjectionBuilder
         }
 
         $post = get_post((int) $lease->post_id);
-        if (!$post instanceof \WP_Post || $post->post_status !== 'publish') {
+        if (!knowledge_sync_post_is_public($post)) {
             throw new KnowledgeSyncProjectionException(
                 'source_no_longer_public',
                 'Leased upsert source is no longer public; its newer desired state must be processed.'
@@ -2023,8 +2023,7 @@ final class KnowledgeSyncRuntime
                     $policy === null ||
                     empty($policy['enabled']) ||
                     ($policy['reviewPolicy'] ?? 'disabled') === 'disabled' ||
-                    !$post instanceof \WP_Post ||
-                    $post->post_status !== 'publish' ||
+                    !knowledge_sync_post_is_public($post) ||
                     $post->post_type !== $post_type;
                 if ($is_orphaned_remote_source) {
                     if (($source['status'] ?? '') === 'tombstoned') {

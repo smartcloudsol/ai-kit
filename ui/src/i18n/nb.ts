@@ -1,4 +1,8 @@
 export const nbDict: Record<string, string> = {
+  "Retrieving structured data": "Henter strukturerte data",
+  "Reading data fields": "Leser datafelter",
+  "Preparing response display": "Forbereder visning av svaret",
+  "Retrieving related information": "Henter relatert informasjon",
   "Product search": "Produktsøk",
   "Product details": "Produktdetaljer",
   "Catalog lookup": "Katalogoppslag",

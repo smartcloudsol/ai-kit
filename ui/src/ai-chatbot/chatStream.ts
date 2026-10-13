@@ -248,6 +248,16 @@ export function isToolActivity(activity: ChatActivity): boolean {
   return !["thinking", "generating_response", "checking_sources"].includes(activity.kind);
 }
 
+/** Display useful execution history plus the latest active stage, not old thinking rows.
+ * The full activity list stays intact for persistence, diagnostics and replay.
+ */
+export function visibleProgressActivities(activities: readonly ChatActivity[]): ChatActivity[] {
+  let lastStage: ChatActivity | undefined;
+  for (const activity of activities) if (!isToolActivity(activity)) lastStage = activity;
+  return activities.filter(activity => isToolActivity(activity) ||
+    (activity === lastStage && activity.status === "running"));
+}
+
 /** An unnamed successful internal operation is not useful visitor-facing history. */
 export function isSummaryActivity(activity: ChatActivity): boolean {
   if (!isToolActivity(activity)) return false;

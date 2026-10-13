@@ -1,4 +1,8 @@
 export const enDict: Record<string, string> = {
+  "Retrieving structured data": "Retrieving structured data",
+  "Reading data fields": "Reading data fields",
+  "Preparing response display": "Preparing response display",
+  "Retrieving related information": "Retrieving related information",
   "Product search": "Product search",
   "Product details": "Product details",
   "Catalog lookup": "Catalog lookup",

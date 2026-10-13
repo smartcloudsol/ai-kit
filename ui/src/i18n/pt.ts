@@ -1,4 +1,8 @@
 export const ptDict: Record<string, string> = {
+  "Retrieving structured data": "Obtendo dados estruturados",
+  "Reading data fields": "Lendo campos de dados",
+  "Preparing response display": "Preparando a exibição da resposta",
+  "Retrieving related information": "Obtendo informações relacionadas",
   "Product search": "Pesquisa de produtos",
   "Product details": "Detalhes do produto",
   "Catalog lookup": "Consulta ao catálogo",

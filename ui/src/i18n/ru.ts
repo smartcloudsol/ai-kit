@@ -1,4 +1,8 @@
 export const ruDict: Record<string, string> = {
+  "Retrieving structured data": "Получение структурированных данных",
+  "Reading data fields": "Чтение полей данных",
+  "Preparing response display": "Подготовка отображения ответа",
+  "Retrieving related information": "Получение связанной информации",
   "Product search": "Поиск товаров",
   "Product details": "Сведения о товаре",
   "Catalog lookup": "Запрос к каталогу",

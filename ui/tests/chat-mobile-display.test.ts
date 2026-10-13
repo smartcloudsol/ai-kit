@@ -31,18 +31,46 @@ test("Markdown tables use a native focusable scroll rail and preserve table sema
   assert.doesNotMatch(html, /node="|role="presentation"/);
 });
 
-test("composer uses bounded responsive autosizing and retains its authored accessible label", async () => {
+test("composer uses focus containment at every size and retains accessible authored actions", async () => {
   const source = await componentsSource();
-  assert.match(source, /useMediaQuery\("\(max-width: 600px\)", false\)/);
-  assert.match(source, /!mobile \|\| focused \|\| String\(props.value \?\? ""\).length > 0/);
-  assert.match(source, /autosize minRows=\{expanded \? 3 : 1\} maxRows=\{6\}/);
+  assert.doesNotMatch(source, /useMediaQuery|String\(props.value/);
+  assert.match(source, /event.currentTarget.contains\(event.relatedTarget as Node \| null\)/);
+  assert.match(source, /autosize minRows=\{expanded \? 3 : 1\} maxRows=\{expanded \? 6 : 1\}/);
   const integration = await readFile(new URL("../src/ai-chatbot/AiChatbot.tsx", import.meta.url), "utf8");
   assert.match(integration, /aria-label=\{textareaPlaceholder\}/);
   assert.match(integration, /components=\{CHAT_MARKDOWN_COMPONENTS\}/);
   assert.match(integration, /data-ai-kit-ai-disclosure/);
+  assert.match(integration, /aria-label=\{sendOrCancelLabel\}/);
+  assert.match(integration, /aria-label=\{I18n.get\(labels.resetLabel\)\}/);
+  assert.match(integration, /expanded=\{composerExpanded\}/);
+  assert.ok(integration.indexOf('className="ai-composer-send-actions"') <
+    integration.indexOf('className="ai-composer-reset-actions"'), "tab order matches the compact visual order");
 });
 
-test("real browser keeps comparisons scrollable and mobile composer compact without losing drafts or clicks", {
+test("composer Enter sends only outside IME composition and Shift-Enter retains multiline editing", async () => {
+  const source = await readFile(new URL("../src/ai-chatbot/AiChatbot.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("const handleQuestionKeyDown = useCallback(");
+  const end = source.indexOf("const handleOpenClick", start);
+  const transformed = await require("esbuild").transform(`${source.slice(start, end)}\nexports.keyDown = handleQuestionKeyDown;`,
+    { loader: "tsx", format: "cjs" });
+  let sends = 0;
+  let prevented = 0;
+  const module = { exports: {} as { keyDown: (event: unknown) => void } };
+  vm.runInNewContext(transformed.code, { module, exports: module.exports,
+    useCallback: (callback: unknown) => callback, ask: () => { sends++; }, canSend: true });
+  const event = { key: "Enter", shiftKey: false, keyCode: 13, nativeEvent: { isComposing: false },
+    preventDefault: () => { prevented++; } };
+  module.exports.keyDown({ ...event, nativeEvent: { isComposing: true } });
+  module.exports.keyDown({ ...event, keyCode: 229 });
+  module.exports.keyDown({ ...event, shiftKey: true });
+  assert.equal(sends, 0);
+  assert.equal(prevented, 0);
+  module.exports.keyDown(event);
+  assert.equal(sends, 1);
+  assert.equal(prevented, 1);
+});
+
+test("real browser keeps comparisons scrollable and all-size composer compact without losing drafts or clicks", {
   skip: !process.env.WPSUITE_BROWSER_EXECUTABLE || !process.env.WPSUITE_BROWSER_DRIVER_PATH,
 }, async () => {
   const driver = require(process.env.WPSUITE_BROWSER_DRIVER_PATH!);
@@ -54,8 +82,7 @@ test("real browser keeps comparisons scrollable and mobile composer compact with
       stdin: { resolveDir: new URL("../", import.meta.url).pathname, loader: "tsx", contents: `
         import React, { useState } from "react";
         import { createRoot } from "react-dom/client";
-        import { MantineProvider, Textarea } from "@mantine/core";
-        import { useMediaQuery } from "@mantine/hooks";
+        import { MantineProvider, Stack, Button, Group, Textarea } from "@mantine/core";
         import ReactMarkdown from "react-markdown";
         import remarkGfm from "remark-gfm";
         ${await componentsSource()}
@@ -70,11 +97,22 @@ test("real browser keeps comparisons scrollable and mobile composer compact with
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={{table: ChatMarkdownTable}}>{${JSON.stringify(markdown)}}</ReactMarkdown>
               </div></div>
               <div data-ai-kit-ai-disclosure>Unchanged authored AI disclosure</div>
-              <div className="ai-box ai-box-open"><ChatComposerInput inputRef={ref} value={value} className="ai-message"
-                aria-label="Authored message label" placeholder="Authored placeholder" onChange={event => setValue(event.target.value)} />
-                <button id="send" onClick={() => { setSent(value); setValue(""); }}>Authored send</button>
-                <output id="sent">{sent}</output>
-              </div>
+              <ChatComposer>{expanded => <>
+                <Group className="ai-composer-field"><ChatComposerInput inputRef={ref} expanded={expanded} value={value} className="ai-message"
+                  aria-label="Authored message label" placeholder="Authored placeholder" onChange={event => setValue(event.target.value)} /></Group>
+                <Group className="ai-actions" justify="space-between">
+                  <Group className="ai-composer-send-actions"><Button id="send" className="ai-composer-send" leftSection={<span>→</span>}
+                    onPointerDown={event => { if (!expanded) event.preventDefault(); }}
+                    aria-label="Authored send" title="Authored send" onClick={() => { setSent(value); setValue(""); }}>
+                    <span className="ai-composer-action-label">Authored send</span></Button></Group>
+                  <Group className="ai-composer-reset-actions"><Button id="reset" className="ai-composer-reset" leftSection={<span>×</span>}
+                    onPointerDown={event => { if (!expanded) event.preventDefault(); }}
+                    aria-label="Authored reset" title="Authored reset" onClick={() => setValue("")}>
+                    <span className="ai-composer-action-label">Authored reset</span></Button></Group>
+                </Group>
+              </>}</ChatComposer>
+              <output id="sent">{sent}</output>
+              <button id="outside">Outside composer</button>
             </div>
           </div></MantineProvider>;
         }
@@ -97,6 +135,20 @@ test("real browser keeps comparisons scrollable and mobile composer compact with
     const inputHeight = () => page.$eval("textarea", (input: HTMLTextAreaElement) => input.getBoundingClientRect().height);
     await page.waitForFunction(() => document.querySelector("textarea")!.getBoundingClientRect().height < 60);
     const idleHeight = await inputHeight();
+    const compactMetrics = await page.evaluate(() => {
+      const input = document.querySelector("textarea")!.getBoundingClientRect();
+      const send = document.querySelector("#send")!.getBoundingClientRect();
+      const reset = document.querySelector("#reset")!.getBoundingClientRect();
+      return { inputRight: input.right, sendLeft: send.left, sendRight: send.right, resetLeft: reset.left,
+        sendWidth: send.width, sendHeight: send.height, resetWidth: reset.width,
+        labelDisplay: getComputedStyle(document.querySelector("#send .ai-composer-action-label")!).display };
+    });
+    assert.ok(compactMetrics.inputRight <= compactMetrics.sendLeft, "send is immediately after the input");
+    assert.ok(compactMetrics.sendRight <= compactMetrics.resetLeft, "reset follows send");
+    assert.equal(compactMetrics.sendWidth, 44);
+    assert.equal(compactMetrics.sendHeight, 44);
+    assert.equal(compactMetrics.resetWidth, 44);
+    assert.equal(compactMetrics.labelDisplay, "none");
     const tableMetrics = await page.evaluate(() => {
       const rail = document.querySelector<HTMLElement>(".ai-chat-table-scroll")!;
       const cell = rail.querySelector("th")!;
@@ -116,12 +168,21 @@ test("real browser keeps comparisons scrollable and mobile composer compact with
     await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height > idle + 20, idleHeight);
     await page.type("textarea", "Keep this draft");
     await page.focus("#send");
-    assert.ok(await inputHeight() > idleHeight + 20, "draft remains expanded after blur");
+    assert.ok(await inputHeight() > idleHeight + 20, "focus within actions retains the editor before clicking");
     await page.click("#send");
     assert.equal(await page.$eval("#sent", (node: HTMLElement) => node.textContent), "Keep this draft");
+    assert.ok(await inputHeight() > idleHeight + 20, "sending retains focus within the composer");
+    await page.focus("#outside");
     await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height <= idle + 1, idleHeight);
     await viewport({ width: 1000, height: 700 });
-    await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height > idle + 20, idleHeight);
+    await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height <= idle + 1, idleHeight);
+    await page.focus("textarea");
+    await page.type("textarea", "Send a collapsed draft");
+    await page.focus("#outside");
+    await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height <= idle + 1, idleHeight);
+    await page.click("#send");
+    assert.equal(await page.$eval("#sent", (node: HTMLElement) => node.textContent), "Send a collapsed draft",
+      "pointer focus does not relocate the compact send button before its click");
     await page.focus("textarea");
     await page.type("textarea", "line\n".repeat(40));
     await viewport({ width: 360, height: 450 });
@@ -130,6 +191,16 @@ test("real browser keeps comparisons scrollable and mobile composer compact with
       height: input.getBoundingClientRect().height, scrollHeight: input.scrollHeight, clientHeight: input.clientHeight }));
     assert.ok(bounded.value.length > 150, "resize preserves draft text");
     assert.ok(bounded.scrollHeight > bounded.clientHeight, "long draft scrolls rather than consuming the message rail");
+    await page.focus("#outside");
+    await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height <= idle + 1, idleHeight);
+    assert.equal(await page.$eval("textarea", (input: HTMLTextAreaElement) => input.value), bounded.value,
+      "collapsing a multiline draft never clears it");
+    await viewport({ width: 1000, height: 700 });
+    await page.focus("textarea");
+    await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height > idle + 20, idleHeight);
+    await page.focus("#reset");
+    await page.click("#reset");
+    assert.equal(await page.$eval("textarea", (input: HTMLTextAreaElement) => input.value), "");
     assert.equal(await page.$eval("[data-ai-kit-ai-disclosure]", (node: HTMLElement) => node.textContent), "Unchanged authored AI disclosure");
   } finally { await browser.close(); }
 });

@@ -1,4 +1,8 @@
 export const trDict: Record<string, string> = {
+  "Retrieving structured data": "Yapılandırılmış veriler alınıyor",
+  "Reading data fields": "Veri alanları okunuyor",
+  "Preparing response display": "Yanıt görünümü hazırlanıyor",
+  "Retrieving related information": "İlgili bilgiler alınıyor",
   "Product search": "Ürün arama",
   "Product details": "Ürün ayrıntıları",
   "Catalog lookup": "Katalog sorgulama",

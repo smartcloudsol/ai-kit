@@ -1,4 +1,8 @@
 export const jaDict: Record<string, string> = {
+  "Retrieving structured data": "構造化データを取得中",
+  "Reading data fields": "データフィールドを読み取り中",
+  "Preparing response display": "回答の表示を準備中",
+  "Retrieving related information": "関連情報を取得中",
   "Product search": "商品検索",
   "Product details": "商品詳細",
   "Catalog lookup": "カタログ照会",

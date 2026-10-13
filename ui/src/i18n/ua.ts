@@ -1,4 +1,8 @@
 export const uaDict: Record<string, string> = {
+  "Retrieving structured data": "Отримання структурованих даних",
+  "Reading data fields": "Читання полів даних",
+  "Preparing response display": "Підготовка відображення відповіді",
+  "Retrieving related information": "Отримання пов’язаної інформації",
   "Product search": "Пошук товарів",
   "Product details": "Відомості про товар",
   "Catalog lookup": "Запит до каталогу",
