@@ -83,6 +83,8 @@ export declare function isToolActivity(activity: ChatActivity): boolean;
  * The full activity list stays intact for persistence, diagnostics and replay.
  */
 export declare function visibleProgressActivities(activities: readonly ChatActivity[]): ChatActivity[];
+/** Completed history must not leave a busy turn without a current status caption. */
+export declare function needsProgressFallback(activities: readonly ChatActivity[], busy: boolean): boolean;
 /** An unnamed successful internal operation is not useful visitor-facing history. */
 export declare function isSummaryActivity(activity: ChatActivity): boolean;
 export declare function summarizeChatActivities(activities: ChatActivity[]): {

@@ -5,7 +5,7 @@ import vm from "node:vm";
 import test from "node:test";
 import type { AnswerPresentation } from "@smart-cloud/ai-kit-core";
 
-import { runChatStreamTurn, summarizeChatActivities, isToolActivity, isSummaryActivity, visibleProgressActivities, chatPresentationVersionForCapabilities, type ChatActivity } from "../src/ai-chatbot/chatStream.ts";
+import { runChatStreamTurn, summarizeChatActivities, isToolActivity, isSummaryActivity, visibleProgressActivities, needsProgressFallback, chatPresentationVersionForCapabilities, type ChatActivity } from "../src/ai-chatbot/chatStream.ts";
 
 const envelope = (
   type: string,
@@ -40,6 +40,63 @@ test("progress retains useful tool history and only the latest active model stag
   assert.equal(activities.length, 5);
   assert.deepEqual(visibleProgressActivities([...activities, stage('finish', 'generating_response', 'completed')]), [search, read]);
   assert.deepEqual(visibleProgressActivities([]), []);
+});
+
+test("busy turns retain a current caption after validation finishes without duplicating running activities", () => {
+  const stage = (id: string, kind: ChatActivity['kind'], status: ChatActivity['status']): ChatActivity => ({
+    activityId: id, kind, status, labelKey: `chat.activity.${kind}`,
+  });
+  const search = stage('search', 'knowledge_search', 'completed');
+  const validation = stage('checking', 'checking_sources', 'completed');
+  for (const activities of [[], [search], [validation], [search, validation],
+    [search, stage('validation-tool', 'validation', 'completed')]]) {
+    assert.equal(needsProgressFallback(activities, true), true);
+    assert.equal(needsProgressFallback(activities, false), false, 'terminal turns hide the fallback');
+  }
+  for (const kind of ['checking_sources', 'generating_response', 'thinking', 'validation', 'knowledge_search', 'other'] as const) {
+    const activities = [search, stage('active', kind, 'running')];
+    assert.equal(needsProgressFallback(activities, true), false, `running ${kind} already supplies a caption`);
+    assert.equal(needsProgressFallback(activities, false), false);
+  }
+  assert.deepEqual(visibleProgressActivities([search, validation]), [search], 'do not relabel completed validation as running');
+});
+
+test("chatbot renders a localized generation caption alongside completed history until the turn settles", async () => {
+  const source = await readFile(new URL("../src/ai-chatbot/AiChatbot.tsx", import.meta.url), "utf8");
+  const start = source.indexOf("{isChatBusy && (");
+  const end = source.indexOf("</Modal.Body>", start);
+  assert.ok(start >= 0 && end > start);
+  const transformed = await createRequire(import.meta.url)("esbuild").transform(`
+    exports.Progress = () => <>${source.slice(start, end)}</>;
+  `, { loader: "tsx", format: "cjs", jsx: "automatic" });
+  const require = createRequire(import.meta.url);
+  const React = require("react");
+  const render = (activities: ChatActivity[], busy: boolean) => {
+    const module = { exports: {} as { Progress: unknown } };
+    vm.runInNewContext(transformed.code, { module, exports: module.exports, require,
+      isChatBusy: busy, progressActivities: visibleProgressActivities(activities),
+      showProgressFallback: needsProgressFallback(activities, busy), progressFallbackText: "Localized generation",
+      I18n: { get: (key: string) => key }, activityLabel: (activity: ChatActivity) => `${activity.kind}:${activity.status}`,
+      activityDetails: () => null,
+      Stack: ({ children, ...props }: Record<string, unknown>) => React.createElement("div", props, children),
+      Text: ({ children }: Record<string, unknown>) => React.createElement("span", {}, children),
+    });
+    return require("react-dom/server").renderToStaticMarkup(React.createElement(module.exports.Progress));
+  };
+  const completed: ChatActivity[] = [{ activityId: "search", kind: "knowledge_search", status: "completed", labelKey: "search" },
+    { activityId: "checking", kind: "checking_sources", status: "completed", labelKey: "checking" }];
+  const html = render(completed, true);
+  assert.match(html, /knowledge_search:completed/);
+  assert.match(html, /Localized generation/);
+  assert.doesNotMatch(html, /checking_sources:completed/);
+  assert.equal(render(completed, false), "");
+  for (const kind of ['checking_sources', 'other'] as const) {
+    const active = [...completed, { activityId: "active", kind, status: "running" as const, labelKey: kind }];
+    const activeHtml = render(active, true);
+    assert.match(activeHtml, new RegExp(`${kind}:running`));
+    assert.doesNotMatch(activeHtml, /Localized generation/);
+  }
+  assert.match(source, /if \(streamView\?\.activities.length\) return I18n.get\("Generating response…"\)/);
 });
 
 class FakeSocket {

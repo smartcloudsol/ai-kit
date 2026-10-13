@@ -78,6 +78,7 @@ import {
   type ChatStreamView,
   isToolActivity,
   visibleProgressActivities,
+  needsProgressFallback,
 } from "./chatStream";
 import { resolveChatWelcome } from "./welcome";
 import { AnswerPresentationView } from "./AnswerPresentation";
@@ -1813,13 +1814,15 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
   ]);
 
   const progressActivities = visibleProgressActivities(streamView?.activities ?? []);
+  const showProgressFallback = needsProgressFallback(streamView?.activities ?? [], isChatBusy);
 
   const progressFallbackText = useMemo(() => {
     if (streamTransportState === "reconnecting") return I18n.get("Reconnecting…");
     if (streamTransportState === "sending") return I18n.get("Sending request…");
     if (streamTransportState === "waiting") return I18n.get("Waiting for reply…");
+    if (streamView?.activities.length) return I18n.get("Generating response…");
     return formatStatusEvent(ai.statusEvent, I18n) || I18n.get("Thinking…");
-  }, [I18n, streamTransportState, ai.statusEvent]);
+  }, [I18n, streamTransportState, ai.statusEvent, streamView?.activities.length]);
 
   const statusLineText = useMemo(() => {
     if (isChatBusy) {
@@ -2460,7 +2463,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
               {isChatBusy && (
                 <Stack className="ai-chat-progress" gap="xs" role="status" aria-live="polite">
-                  {progressActivities.length > 0 ? progressActivities.map((activity) => {
+                  {progressActivities.map((activity) => {
                     const details = activityDetails(activity, I18n);
                     return (
                       <Stack key={activity.activityId} gap={2} data-status={activity.status}>
@@ -2468,7 +2471,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                         {details && <Text size="xs" className="ai-chat-progress-detail" style={{ overflowWrap: "anywhere" }}>{details}</Text>}
                       </Stack>
                     );
-                  }) : (
+                  })}
+                  {showProgressFallback && (
                     <Text size="sm">{progressFallbackText}</Text>
                   )}
                   <div className="typing-indicator" aria-hidden="true">

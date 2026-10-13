@@ -258,6 +258,11 @@ export function visibleProgressActivities(activities: readonly ChatActivity[]): 
     (activity === lastStage && activity.status === "running"));
 }
 
+/** Completed history must not leave a busy turn without a current status caption. */
+export function needsProgressFallback(activities: readonly ChatActivity[], busy: boolean): boolean {
+  return busy && !visibleProgressActivities(activities).some(activity => activity.status === "running");
+}
+
 /** An unnamed successful internal operation is not useful visitor-facing history. */
 export function isSummaryActivity(activity: ChatActivity): boolean {
   if (!isToolActivity(activity)) return false;

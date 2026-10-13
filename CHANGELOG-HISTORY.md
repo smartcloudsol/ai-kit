@@ -4,6 +4,11 @@ This archive preserves the original changelog and upgrade guidance verbatim. The
 
 == Changelog ==
 
+= 1.6.6 =
+* Keep a localized response-generation status visible after source checks and completed tool operations while the reply is still being prepared.
+* Preserve operation history without duplicating active progress or retaining pending status after the request ends.
+* Update AI Kit UI to 1.5.36; retain Core 1.5.21 and Hub 2.6.1.
+
 = 1.6.2 =
 * Knowledge sources: Explicitly select registered, public custom fields and map them to neutral typed fields for structured synchronization.
 * Answers: Enable profile-scoped own-content record and schema tools on a compatible backend, bound to the current Knowledge Base result and source version.
@@ -434,6 +439,9 @@ Fixed the pre-run language detection/translation flow for AiFeature blocks so it
 * Pro features: Chatbot, frontend Feature block/shortcode, and backend-only/fallback hooks.
 
 == Upgrade Notice ==
+
+= 1.6.6 =
+Progress feedback works with the existing streaming backend. The separate bounded answer-completion retry requires orchestration v1.0.123 or an equivalent backend update. Citation requirements remain enforced; no new structured-field or price-record requirement is imposed. Backend deployment is not automatic.
 
 = 1.6.2 =
 Structured content synchronization requires orchestration v1.0.117 or an equivalent backend providing knowledge.structured-content capability version 1. It is disabled by default. Review selected public fields, mappings, profile permissions and enrolled workspace/site identifiers before enabling it; a source workspace ID is not an AWS account ID. Complete source synchronization and Knowledge Base ingestion before testing record tools. Remote field removal or disabling is confirmed only after backend acknowledgment. Existing non-structured synchronization remains supported. This plugin update does not deploy the backend or enable provider-specific booking integrations.
