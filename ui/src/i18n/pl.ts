@@ -27,6 +27,7 @@ export const plDict: Record<string, string> = {
   "Subcategories: {count}": "Podkategorie: {count}",
   "Tags: {count}": "Tagi: {count}",
   "Results: {count}": "Wyniki: {count}",
+  "Documents found: {count}": "Znalezione dokumenty: {count}",
   "Retry": "Spróbuj ponownie",
   "The answer could not be verified against its cited sources. Please try again.": "Nie udało się zweryfikować odpowiedzi na podstawie cytowanych źródeł. Proszę spróbować ponownie.",
   "The knowledge base search could not be completed. Please try again.": "Nie udało się ukończyć wyszukiwania w bazie wiedzy. Proszę spróbować ponownie.",

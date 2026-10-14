@@ -27,6 +27,7 @@ export const arDict: Record<string, string> = {
   "Subcategories: {count}": "الفئات الفرعية: {count}",
   "Tags: {count}": "الوسوم: {count}",
   "Results: {count}": "النتائج: {count}",
+  "Documents found: {count}": "المستندات التي تم العثور عليها: {count}",
   "Retry": "إعادة المحاولة",
   "The answer could not be verified against its cited sources. Please try again.": "تعذر التحقق من الإجابة بالرجوع إلى المصادر المذكورة. يُرجى إعادة المحاولة.",
   "The knowledge base search could not be completed. Please try again.": "تعذر إكمال البحث في قاعدة المعرفة. يُرجى إعادة المحاولة.",

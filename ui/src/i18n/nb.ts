@@ -27,6 +27,7 @@ export const nbDict: Record<string, string> = {
   "Subcategories: {count}": "Underkategorier: {count}",
   "Tags: {count}": "Etiketter: {count}",
   "Results: {count}": "Resultater: {count}",
+  "Documents found: {count}": "Dokumenter funnet: {count}",
   "Retry": "Prøv igjen",
   "The answer could not be verified against its cited sources. Please try again.": "Svaret kunne ikke bekreftes ut fra de oppgitte kildene. Prøv igjen.",
   "The knowledge base search could not be completed. Please try again.": "Søket i kunnskapsbasen kunne ikke fullføres. Prøv igjen.",

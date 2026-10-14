@@ -27,6 +27,7 @@ export const idDict: Record<string, string> = {
   "Subcategories: {count}": "Subkategori: {count}",
   "Tags: {count}": "Tag: {count}",
   "Results: {count}": "Hasil: {count}",
+  "Documents found: {count}": "Dokumen ditemukan: {count}",
   "Retry": "Coba lagi",
   "The answer could not be verified against its cited sources. Please try again.": "Jawaban tidak dapat diverifikasi berdasarkan sumber yang dikutip. Silakan coba lagi.",
   "The knowledge base search could not be completed. Please try again.": "Pencarian basis pengetahuan tidak dapat diselesaikan. Silakan coba lagi.",

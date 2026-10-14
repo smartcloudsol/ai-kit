@@ -27,6 +27,7 @@ export const heDict: Record<string, string> = {
   "Subcategories: {count}": "תת־קטגוריות: {count}",
   "Tags: {count}": "תגיות: {count}",
   "Results: {count}": "תוצאות: {count}",
+  "Documents found: {count}": "מסמכים שנמצאו: {count}",
   "Retry": "ניסיון חוזר",
   "The answer could not be verified against its cited sources. Please try again.": "לא ניתן היה לאמת את התשובה מול המקורות שצוינו. נא לנסות שוב.",
   "The knowledge base search could not be completed. Please try again.": "לא ניתן היה להשלים את החיפוש במאגר הידע. נא לנסות שוב.",

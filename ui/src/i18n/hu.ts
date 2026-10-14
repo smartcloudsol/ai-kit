@@ -27,6 +27,7 @@ export const huDict: Record<string, string> = {
   "Subcategories: {count}": "Alkategóriák: {count}",
   "Tags: {count}": "Címkék: {count}",
   "Results: {count}": "Találatok: {count}",
+  "Documents found: {count}": "Talált dokumentumok: {count}",
   "Retry": "Újrapróbálás",
   "The answer could not be verified against its cited sources. Please try again.": "A választ nem sikerült ellenőrizni a hivatkozott források alapján. Kérjük, próbálja újra.",
   "The knowledge base search could not be completed. Please try again.": "A tudástárkeresés nem fejeződött be. Kérjük, próbálja újra.",

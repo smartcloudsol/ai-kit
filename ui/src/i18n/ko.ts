@@ -27,6 +27,7 @@ export const koDict: Record<string, string> = {
   "Subcategories: {count}": "하위 카테고리: {count}",
   "Tags: {count}": "태그: {count}",
   "Results: {count}": "결과: {count}",
+  "Documents found: {count}": "찾은 문서: {count}",
   "Retry": "다시 시도",
   "The answer could not be verified against its cited sources. Please try again.": "인용된 출처를 기준으로 답변을 검증하지 못했습니다. 다시 시도해 주세요.",
   "The knowledge base search could not be completed. Please try again.": "지식 기반 검색을 완료하지 못했습니다. 다시 시도해 주세요.",

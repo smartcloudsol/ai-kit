@@ -61,6 +61,7 @@ const REQUIRED_KEYS = [
   "We couldn't verify that you're human. Please try again.",
   "You are not authorized to use this AI feature. Please sign in or contact the site owner.",
   "Request ID",
+  "Documents found: {count}",
 ];
 
 test("all UI locales have full i18n key parity with en", () => {
@@ -85,6 +86,8 @@ test("all UI locales have full i18n key parity with en", () => {
         `Locale ${locale} must contain non-empty value for required key: ${key}`,
       );
     }
+    assert.ok(dict["Documents found: {count}"].includes("{count}"),
+      `Locale ${locale} must retain the document-count placeholder`);
   }
 });
 

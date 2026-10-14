@@ -12,6 +12,9 @@ export type ChatStreamActivity = {
     categoryCount?: number;
     subcategoryCount?: number;
     tagCount?: number;
+    /** Distinct source documents returned by a knowledge-base search. */
+    documentCount?: number;
+    /** Returned results; knowledge-base searches count retrieved chunks. */
     resultCount?: number;
     urls?: string[];
     status: "running" | "completed" | "failed";

@@ -27,6 +27,7 @@ export const deDict: Record<string, string> = {
   "Subcategories: {count}": "Unterkategorien: {count}",
   "Tags: {count}": "Tags: {count}",
   "Results: {count}": "Ergebnisse: {count}",
+  "Documents found: {count}": "Gefundene Dokumente: {count}",
   "Retry": "Erneut versuchen",
   "The answer could not be verified against its cited sources. Please try again.": "Die Antwort konnte anhand der zitierten Quellen nicht verifiziert werden. Bitte versuchen Sie es erneut.",
   "The knowledge base search could not be completed. Please try again.": "Die Suche in der Wissensdatenbank konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.",

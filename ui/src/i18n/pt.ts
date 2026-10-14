@@ -27,6 +27,7 @@ export const ptDict: Record<string, string> = {
   "Subcategories: {count}": "Subcategorias: {count}",
   "Tags: {count}": "Etiquetas: {count}",
   "Results: {count}": "Resultados: {count}",
+  "Documents found: {count}": "Documentos encontrados: {count}",
   "Retry": "Tentar novamente",
   "The answer could not be verified against its cited sources. Please try again.": "Não foi possível verificar a resposta com base nas fontes citadas. Tente novamente.",
   "The knowledge base search could not be completed. Please try again.": "Não foi possível concluir a pesquisa na base de conhecimento. Tente novamente.",

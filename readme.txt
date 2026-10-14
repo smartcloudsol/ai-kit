@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.6
+Stable tag: 1.6.7
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -184,6 +184,11 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 Full release history and detailed upgrade guidance: https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md
 
+= 1.6.7 =
+* Show distinct source-document totals on compatible backends; hide legacy chunk counts.
+* Remove the unused prompt template editor and clarify the remaining templates' roles.
+* Update AI Kit Core to 1.5.22 and UI to 1.5.37; retain Hub 2.6.1.
+
 = 1.6.6 =
 * Keep a localized response-generation status visible after source checks and completed tool operations while the reply is still being prepared.
 * Preserve operation history without duplicating active progress or retaining pending status after the request ends.
@@ -231,6 +236,9 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Dependencies: Update AI Kit UI to 1.5.31.
 
 == Upgrade Notice ==
+
+= 1.6.7 =
+Document totals need orchestration v1.0.124 or equivalent. Older backends retain progress without misleading chunk totals. Unused prompt settings are hidden. Review saved Shopify schemas after a backend upgrade for larger catalog pages. Backend deployment is not automatic.
 
 = 1.6.6 =
 Progress feedback works with existing streaming backends. The separate bounded answer-completion retry needs orchestration v1.0.123 or equivalent. Citation rules remain enforced; structured fields and price records are not newly required. Backend deployment is not automatic.

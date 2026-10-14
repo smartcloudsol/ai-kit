@@ -347,7 +347,9 @@ const activityDetails = (
     const query = Array.from(activity.query.trim()).slice(0, 100).join("");
     details.push(I18n.get("Search query: {query}").replace("{query}", query));
   }
-  if (activity.resultCount !== undefined) {
+  if (activity.kind === "knowledge_search" && activity.documentCount !== undefined) {
+    details.push(I18n.get("Documents found: {count}").replace("{count}", String(activity.documentCount)));
+  } else if (activity.kind !== "knowledge_search" && activity.resultCount !== undefined) {
     details.push(I18n.get("Results: {count}").replace("{count}", String(activity.resultCount)));
   } else if (activity.kind === "knowledge_search") {
     for (const [count, key] of [

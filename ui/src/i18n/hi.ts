@@ -27,6 +27,7 @@ export const hiDict: Record<string, string> = {
   "Subcategories: {count}": "उपश्रेणियाँ: {count}",
   "Tags: {count}": "टैग: {count}",
   "Results: {count}": "परिणाम: {count}",
+  "Documents found: {count}": "मिले दस्तावेज़: {count}",
   "Retry": "फिर से प्रयास करें",
   "The answer could not be verified against its cited sources. Please try again.": "उद्धृत स्रोतों के आधार पर उत्तर की पुष्टि नहीं हो सकी। कृपया फिर से प्रयास करें।",
   "The knowledge base search could not be completed. Please try again.": "ज्ञान आधार में खोज पूरी नहीं हो सकी। कृपया फिर से प्रयास करें।",

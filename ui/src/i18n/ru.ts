@@ -27,6 +27,7 @@ export const ruDict: Record<string, string> = {
   "Subcategories: {count}": "Подкатегории: {count}",
   "Tags: {count}": "Теги: {count}",
   "Results: {count}": "Результаты: {count}",
+  "Documents found: {count}": "Найдено документов: {count}",
   "Retry": "Повторить",
   "The answer could not be verified against its cited sources. Please try again.": "Не удалось проверить ответ по указанным источникам. Повторите попытку.",
   "The knowledge base search could not be completed. Please try again.": "Не удалось завершить поиск в базе знаний. Повторите попытку.",

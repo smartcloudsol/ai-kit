@@ -79,3 +79,24 @@ test("actual chatbot formatters distinguish page reading, preserve old tool labe
     assert.equal(activityDetails({ ...legacy, safeDomains: [] }, i18n), null);
   }
 });
+
+test("knowledge searches show distinct documents without relabeling legacy chunk counts", async () => {
+  const { activityDetails } = await chatbotFormatting();
+  for (const dictionary of [enDict, huDict]) {
+    const i18n = { get: (key: string) => dictionary[key] ?? key };
+    assert.ok(dictionary["Documents found: {count}"]?.includes("{count}"));
+    const knowledgeSearch: ChatActivity = {
+      activityId: "kb", kind: "knowledge_search", labelKey: "chat.activity.knowledge_search",
+      status: "completed", query: "WordPress search", resultCount: 8,
+    };
+    const query = i18n.get("Search query: {query}").replace("{query}", "WordPress search");
+    assert.equal(activityDetails({ ...knowledgeSearch, documentCount: 2 }, i18n),
+      `${query} · ${i18n.get("Documents found: {count}").replace("{count}", "2")}`);
+    assert.equal(activityDetails({ ...knowledgeSearch, documentCount: 0, resultCount: 0 }, i18n),
+      `${query} · ${i18n.get("Documents found: {count}").replace("{count}", "0")}`);
+    assert.equal(activityDetails(knowledgeSearch, i18n), query);
+    assert.equal(activityDetails({ ...knowledgeSearch, query: undefined }, i18n), null);
+    assert.equal(activityDetails({ ...knowledgeSearch, kind: "web_search", documentCount: 2 }, i18n),
+      i18n.get("Results: {count}").replace("{count}", "8"));
+  }
+});

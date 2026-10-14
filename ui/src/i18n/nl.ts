@@ -27,6 +27,7 @@ export const nlDict: Record<string, string> = {
   "Subcategories: {count}": "Subcategorieën: {count}",
   "Tags: {count}": "Tags: {count}",
   "Results: {count}": "Resultaten: {count}",
+  "Documents found: {count}": "Gevonden documenten: {count}",
   "Retry": "Opnieuw proberen",
   "The answer could not be verified against its cited sources. Please try again.": "Het antwoord kon niet worden geverifieerd aan de hand van de aangehaalde bronnen. Probeer het opnieuw.",
   "The knowledge base search could not be completed. Please try again.": "De zoekopdracht in de kennisbank kon niet worden voltooid. Probeer het opnieuw.",

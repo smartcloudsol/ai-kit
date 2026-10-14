@@ -27,6 +27,7 @@ export const svDict: Record<string, string> = {
   "Subcategories: {count}": "Underkategorier: {count}",
   "Tags: {count}": "Taggar: {count}",
   "Results: {count}": "Resultat: {count}",
+  "Documents found: {count}": "Hittade dokument: {count}",
   "Retry": "Försök igen",
   "The answer could not be verified against its cited sources. Please try again.": "Svaret kunde inte verifieras mot de angivna källorna. Försök igen.",
   "The knowledge base search could not be completed. Please try again.": "Sökningen i kunskapsbasen kunde inte slutföras. Försök igen.",

@@ -27,6 +27,7 @@ export const jaDict: Record<string, string> = {
   "Subcategories: {count}": "サブカテゴリ数: {count}",
   "Tags: {count}": "タグ数: {count}",
   "Results: {count}": "結果数: {count}",
+  "Documents found: {count}": "見つかった文書数: {count}",
   "Retry": "再試行",
   "The answer could not be verified against its cited sources. Please try again.": "引用された出典に基づいて回答を検証できませんでした。もう一度お試しください。",
   "The knowledge base search could not be completed. Please try again.": "ナレッジベース検索を完了できませんでした。もう一度お試しください。",

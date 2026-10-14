@@ -27,6 +27,7 @@ export const thDict: Record<string, string> = {
   "Subcategories: {count}": "หมวดหมู่ย่อย: {count}",
   "Tags: {count}": "แท็ก: {count}",
   "Results: {count}": "ผลลัพธ์: {count}",
+  "Documents found: {count}": "เอกสารที่พบ: {count}",
   "Retry": "ลองอีกครั้ง",
   "The answer could not be verified against its cited sources. Please try again.": "ไม่สามารถตรวจสอบคำตอบกับแหล่งข้อมูลที่อ้างอิงได้ โปรดลองอีกครั้ง",
   "The knowledge base search could not be completed. Please try again.": "ไม่สามารถค้นหาฐานความรู้จนเสร็จได้ โปรดลองอีกครั้ง",

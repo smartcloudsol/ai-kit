@@ -27,6 +27,7 @@ export const esDict: Record<string, string> = {
   "Subcategories: {count}": "Subcategorías: {count}",
   "Tags: {count}": "Etiquetas: {count}",
   "Results: {count}": "Resultados: {count}",
+  "Documents found: {count}": "Documentos encontrados: {count}",
   "Retry": "Reintentar",
   "The answer could not be verified against its cited sources. Please try again.": "No se pudo verificar la respuesta con las fuentes citadas. Vuelva a intentarlo.",
   "The knowledge base search could not be completed. Please try again.": "No se pudo completar la búsqueda en la base de conocimientos. Vuelva a intentarlo.",

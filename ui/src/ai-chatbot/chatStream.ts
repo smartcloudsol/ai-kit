@@ -30,6 +30,7 @@ export type ChatActivity = {
   categoryCount?: number;
   subcategoryCount?: number;
   tagCount?: number;
+  documentCount?: number;
   resultCount?: number;
   urls?: string[];
   status: "running" | "completed" | "failed";
@@ -209,12 +210,12 @@ function parseActivity(value: unknown): ChatActivity | undefined {
         )
         .slice(0, 10)
     : undefined;
-  const details: Pick<ChatActivity, "query" | "categoryCount" | "subcategoryCount" | "tagCount" | "resultCount" | "urls"> = {};
+  const details: Pick<ChatActivity, "query" | "categoryCount" | "subcategoryCount" | "tagCount" | "documentCount" | "resultCount" | "urls"> = {};
   if (typeof activity.query === "string") {
     // eslint-disable-next-line no-control-regex -- Activity text must not include control characters.
     details.query = activity.query.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 300);
   }
-  for (const key of ["categoryCount", "subcategoryCount", "tagCount", "resultCount"] as const) {
+  for (const key of ["categoryCount", "subcategoryCount", "tagCount", "documentCount", "resultCount"] as const) {
     const count = activity[key];
     if (typeof count === "number" && Number.isSafeInteger(count) && count >= 0) details[key] = count;
   }

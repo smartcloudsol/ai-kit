@@ -684,7 +684,7 @@ test("retains safe search details at completion and discards unsafe URL data", a
   let finalActivities: ChatActivity[] = [];
   const activity = {
     activityId: "kb", kind: "knowledge_search", labelKey: "chat.activity.knowledge_search", status: "completed",
-    query: "WordPress search", categoryCount: 2, subcategoryCount: -1, tagCount: 3, resultCount: 8,
+    query: "WordPress search", categoryCount: 2, subcategoryCount: -1, tagCount: 3, documentCount: 2, resultCount: 8,
     urls: ["https://example.com/docs?q=secret#part", "javascript:alert(1)", "http://localhost/admin", "https://user:password@example.com/"],
     internalResult: "not-for-the-client",
   };
@@ -706,9 +706,34 @@ test("retains safe search details at completion and discards unsafe URL data", a
   assert.equal(finalActivities[0]?.categoryCount, 2);
   assert.equal(finalActivities[0]?.subcategoryCount, undefined);
   assert.equal(finalActivities[0]?.tagCount, 3);
+  assert.equal(finalActivities[0]?.documentCount, 2);
   assert.equal(finalActivities[0]?.resultCount, 8);
   assert.deepEqual(finalActivities[0]?.urls, ["https://example.com/docs"]);
   assert.doesNotMatch(JSON.stringify(finalActivities), /secret|password|not-for-the-client/);
+});
+
+test("document counts survive snapshots and reject malformed values without using chunk counts", async () => {
+  let finalActivities: ChatActivity[] = [];
+  const counts = [0, 2, undefined, -1, 1.5, "3", Number.MAX_SAFE_INTEGER + 1, null];
+  await runChatStreamTurn({
+    url: "wss://stream.example.test/chat", text: "search", locale: "en", requestId: "request-document-counts",
+    signal: new AbortController().signal,
+    ticketProvider: async () => ({ ticket: "ticket", sessionId: "session-1", expiresAt: new Date(Date.now() + 60_000).toISOString() }),
+    socketFactory: () => new FakeSocket((command, socket) => {
+      if (command.type === "turn.start") queueMicrotask(() => {
+        socket.emit("turn.accepted", 0, { sessionId: "session-1" });
+        socket.emit("turn.snapshot", 1, { lastSeq: 1, active: true, result: "", activities: counts.map((documentCount, index) => ({
+          activityId: `kb-${index}`, kind: "knowledge_search", labelKey: "chat.activity.knowledge_search",
+          status: "completed", resultCount: 8, documentCount,
+        })) });
+        socket.emit("answer.completed", 2, { result: "Found" });
+      });
+    }) as unknown as WebSocket,
+    onView: (view) => { finalActivities = view.activities; },
+  });
+  assert.deepEqual(finalActivities.map(activity => activity.documentCount),
+    [0, 2, undefined, undefined, undefined, undefined, undefined, undefined]);
+  assert.ok(finalActivities.every(activity => activity.resultCount === 8));
 });
 
 test("retains bounded tool metadata through running, completion, reconnect snapshot and replay", async () => {

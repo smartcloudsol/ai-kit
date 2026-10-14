@@ -27,6 +27,7 @@ export const uaDict: Record<string, string> = {
   "Subcategories: {count}": "Підкатегорії: {count}",
   "Tags: {count}": "Теги: {count}",
   "Results: {count}": "Результати: {count}",
+  "Documents found: {count}": "Знайдено документів: {count}",
   "Retry": "Спробувати ще раз",
   "The answer could not be verified against its cited sources. Please try again.": "Не вдалося перевірити відповідь за наведеними джерелами. Спробуйте ще раз.",
   "The knowledge base search could not be completed. Please try again.": "Не вдалося завершити пошук у базі знань. Спробуйте ще раз.",

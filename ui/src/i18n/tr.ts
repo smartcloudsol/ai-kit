@@ -27,6 +27,7 @@ export const trDict: Record<string, string> = {
   "Subcategories: {count}": "Alt kategoriler: {count}",
   "Tags: {count}": "Etiketler: {count}",
   "Results: {count}": "Sonuçlar: {count}",
+  "Documents found: {count}": "Bulunan belgeler: {count}",
   "Retry": "Yeniden dene",
   "The answer could not be verified against its cited sources. Please try again.": "Yanıt, belirtilen kaynaklarla doğrulanamadı. Lütfen yeniden deneyin.",
   "The knowledge base search could not be completed. Please try again.": "Bilgi tabanı araması tamamlanamadı. Lütfen yeniden deneyin.",

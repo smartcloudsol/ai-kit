@@ -27,6 +27,7 @@ export const itDict: Record<string, string> = {
   "Subcategories: {count}": "Sottocategorie: {count}",
   "Tags: {count}": "Tag: {count}",
   "Results: {count}": "Risultati: {count}",
+  "Documents found: {count}": "Documenti trovati: {count}",
   "Retry": "Riprova",
   "The answer could not be verified against its cited sources. Please try again.": "Non è stato possibile verificare la risposta rispetto alle fonti citate. Riprovare.",
   "The knowledge base search could not be completed. Please try again.": "Non è stato possibile completare la ricerca nella base di conoscenza. Riprovare.",

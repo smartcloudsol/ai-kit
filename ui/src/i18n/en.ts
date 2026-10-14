@@ -27,6 +27,7 @@ export const enDict: Record<string, string> = {
   "Subcategories: {count}": "Subcategories: {count}",
   "Tags: {count}": "Tags: {count}",
   "Results: {count}": "Results: {count}",
+  "Documents found: {count}": "Documents found: {count}",
   "Retry": "Retry",
   "The answer could not be verified against its cited sources. Please try again.": "The answer could not be verified against its cited sources. Please try again.",
   "The knowledge base search could not be completed. Please try again.": "The knowledge base search could not be completed. Please try again.",

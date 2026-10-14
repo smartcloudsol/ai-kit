@@ -27,6 +27,7 @@ export const frDict: Record<string, string> = {
   "Subcategories: {count}": "Sous-catégories : {count}",
   "Tags: {count}": "Étiquettes : {count}",
   "Results: {count}": "Résultats : {count}",
+  "Documents found: {count}": "Documents trouvés : {count}",
   "Retry": "Réessayer",
   "The answer could not be verified against its cited sources. Please try again.": "La réponse n’a pas pu être vérifiée à partir des sources citées. Veuillez réessayer.",
   "The knowledge base search could not be completed. Please try again.": "La recherche dans la base de connaissances n’a pas pu être terminée. Veuillez réessayer.",

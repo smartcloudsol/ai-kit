@@ -27,6 +27,7 @@ export const zhDict: Record<string, string> = {
   "Subcategories: {count}": "子分类：{count}",
   "Tags: {count}": "标签：{count}",
   "Results: {count}": "结果：{count}",
+  "Documents found: {count}": "找到的文档数：{count}",
   "Retry": "重试",
   "The answer could not be verified against its cited sources. Please try again.": "无法根据引用的来源验证答案。请重试。",
   "The knowledge base search could not be completed. Please try again.": "未能完成知识库搜索。请重试。",

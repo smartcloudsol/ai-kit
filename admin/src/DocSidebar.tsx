@@ -1113,71 +1113,59 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         <span className="highlightable">Prompt Templates</span>
       </Title>
       <Text>
-        Prompt templates control how the backend processes KB queries and
-        generates responses. Each template is a markdown-formatted prompt with
-        placeholders and instructions for AI models.
+        These templates serve DocSearch, conversation history summaries, and
+        prompt requests without a conversation profile. Configure the
+        chatbot&apos;s main instructions in <strong>Conversation profile</strong>,
+        not in this template editor. Each template contains model instructions
+        and placeholders.
       </Text>
       <Text mt="xs">
-        Templates are stored in S3 and loaded at runtime by the backend. Changes
-        take effect immediately after saving.
+        Templates are stored in S3 and loaded at runtime by the backend. A
+        running backend instance may retain a cached copy until its template
+        cache refreshes after saving.
       </Text>
 
       <Title order={4} mt="md">
-        <strong>Retrieval Templates (RAG Pipeline):</strong>
+        <strong>Retrieval and History Templates:</strong>
       </Title>
 
       <Text mt="xs">
-        <strong>QUERY template:</strong> The model uses this to build the KB
-        retrieval query. It analyzes the user&apos;s question and selects
-        relevant categories, subcategories, and tags for metadata filtering.
-        Output must be JSON format (query, categories, subCategories, tags).
+        <strong>QUERY template:</strong> Builds the KB retrieval query and
+        metadata filters for prompt requests without a conversation profile.
+        Output must be JSON (query, categories, subCategories, tags).
+        Profile-driven chat and DocSearch do not use this query template.
       </Text>
 
       <Text mt="xs">
         <strong>SUMMARY template:</strong> When conversation history grows too
         long, this template summarizes previous messages and context so the
-        model can remember prior conversation without reprocessing every old
-        message.
+        model can retain earlier context without reprocessing every old
+        message. This includes profile-driven chat, but is separate from the
+        standalone summarize operation.
       </Text>
 
       <Title order={4} mt="md">
-        <strong>Answer Templates (Chatbot Mode):</strong>
+        <strong>Answers Without a Conversation Profile:</strong>
       </Title>
 
       <Text mt="xs">
-        <strong>ANSWER template:</strong> Default answer template in Chatbot
-        mode when KB retrieval returned one or more snippets. The assistant must
-        answer using the retrieved snippets/shared context according to the
-        effective grounding policy.
+        <strong>ANSWER template:</strong> Default answer instructions for
+        prompt requests without a conversation profile. Profile-driven chat
+        uses the conversation profile and backend instructions instead.
       </Text>
 
       <Text mt="xs">
-        <strong>ANSWER-AMBIGUOUS-SOURCES template:</strong> Used when the KB
-        query/filter step indicates multiple similarly relevant top-level
-        categories. The assistant must ask exactly one short clarification
-        question (no answer yet) to disambiguate which category the user needs.
+        <strong>ANSWER-KB-ONLY template:</strong> Fallback for non-profile
+        requests when no KB evidence is available, grounding is required, and
+        answering without KB evidence is disabled. It states that the requested
+        information is unavailable rather than guessing.
       </Text>
 
       <Text mt="xs">
-        <strong>ANSWER-KB-ONLY template:</strong> Used when grounding is
-        required and fallback without KB is not allowed (requiresGrounding
-        &amp;&amp; !allowFallbackWithoutKb). The assistant explicitly states
-        that the documentation does not contain the requested information and
-        does not fall back to general knowledge.
-      </Text>
-
-      <Text mt="xs">
-        <strong>ANSWER-ASK-WHEN-NO-KB template:</strong> Used when grounding is
-        not required, but fallback without KB is not allowed (!requiresGrounding
-        &amp;&amp; !allowFallbackWithoutKb). The assistant asks clarifying
-        questions instead of guessing or using general knowledge.
-      </Text>
-
-      <Text mt="xs">
-        <strong>ANSWER-KB-PREFERRED template:</strong> Used when grounding is
-        not required and fallback without KB is allowed (!requiresGrounding
-        &amp;&amp; allowFallbackWithoutKb). The assistant may answer from
-        general knowledge, clearly labeled as not found in docs.
+        <strong>ANSWER-ASK-WHEN-NO-KB template:</strong> Fallback for non-profile
+        requests when no KB evidence is available, grounding is optional, and
+        answering without KB evidence is disabled. It asks for clarification
+        instead of guessing.
       </Text>
 
       <Title order={4} mt="md">
@@ -1192,12 +1180,11 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
       </Text>
 
       <Text mt="xs" c="dimmed" size="sm">
-        <strong>Note:</strong> The backend automatically selects the appropriate
-        answer template based on retrieval results and the category grounding
-        policy defined in metadata-config.yaml. Chatbot mode uses ANSWER when
-        snippets are found, and switches to fallback templates (AMBIGUOUS,
-        KB-ONLY, ASK-WHEN-NO-KB, KB-PREFERRED) when retrieval returns no
-        snippets or needs disambiguation.
+        <strong>Note:</strong> The backend selects the active answer path from
+        the request mode, conversation profile, retrieval results, and grounding
+        policy. The two missing-source fallback templates above do not control
+        profile-driven chat. Grounding policies remain configurable independently
+        of these template files.
       </Text>
 
       <Title order={3} mt="md" id="kb-disable-source">

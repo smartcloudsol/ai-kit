@@ -10,6 +10,7 @@ export type ChatActivity = {
     categoryCount?: number;
     subcategoryCount?: number;
     tagCount?: number;
+    documentCount?: number;
     resultCount?: number;
     urls?: string[];
     status: "running" | "completed" | "failed";
