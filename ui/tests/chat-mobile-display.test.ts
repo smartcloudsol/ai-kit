@@ -70,6 +70,35 @@ test("composer Enter sends only outside IME composition and Shift-Enter retains 
   assert.equal(prevented, 1);
 });
 
+test("accepted submission releases only its own still-focused composer control", async () => {
+  const transformed = await require("esbuild").transform(`${await componentsSource()}\nexports.release = releaseSubmittedComposerFocus;`,
+    { loader: "tsx", format: "cjs", jsx: "automatic" });
+  const module = { exports: {} as { release: (composer: unknown, active: unknown) => void } };
+  vm.runInNewContext(transformed.code, { module, exports: module.exports, require });
+  let blurs = 0;
+  const input = { blur: () => { blurs++; } };
+  const send = { blur: () => { blurs++; } };
+  const outside = { blur: () => { throw new Error("unrelated focus must be preserved"); } };
+  const composer = { contains: (node: unknown) => node === input || node === send,
+    ownerDocument: { activeElement: input as unknown } };
+  module.exports.release(composer, input);
+  composer.ownerDocument.activeElement = send;
+  module.exports.release(composer, send);
+  assert.equal(blurs, 2, "both Enter and send-button submission can collapse");
+  composer.ownerDocument.activeElement = outside;
+  module.exports.release(composer, input);
+  module.exports.release(composer, outside);
+  composer.ownerDocument.activeElement = send;
+  module.exports.release(composer, input);
+  module.exports.release(null, input);
+  assert.equal(blurs, 2, "attachment preparation must not steal newly moved focus");
+  const source = await readFile(new URL("../src/ai-chatbot/AiChatbot.tsx", import.meta.url), "utf8");
+  const ask = source.slice(source.indexOf("const ask = useCallback("), source.indexOf("const handleQuestionKeyDown"));
+  assert.ok(ask.indexOf("releaseSubmittedComposerFocus(") > ask.indexOf("userAttachments = await buildUserAttachments"));
+  assert.doesNotMatch(ask, /questionInputRef.current(?:\?\.|\.)focus\(/,
+    "completion, failure and cancellation must not reopen the composer or steal focus");
+});
+
 test("real browser keeps comparisons scrollable and all-size composer compact without losing drafts or clicks", {
   skip: !process.env.WPSUITE_BROWSER_EXECUTABLE || !process.env.WPSUITE_BROWSER_DRIVER_PATH,
 }, async () => {
@@ -90,20 +119,28 @@ test("real browser keeps comparisons scrollable and all-size composer compact wi
           const [value, setValue] = useState("");
           const [sent, setSent] = useState("");
           const ref = React.useRef(null);
+          const composerRef = React.useRef(null);
+          const send = () => {
+            if (!value.trim()) return;
+            releaseSubmittedComposerFocus(composerRef.current, document.activeElement);
+            setSent(value); setValue("");
+          };
           return <MantineProvider><div className="ai-chat-container" style={{ width: "100%", height: "100%", maxWidth: "100%" }}>
             <div className="ai-chat-container-internal">
               <div className="ai-chat-header-bar">Authored assistant title</div>
               <div className="ai-chat-scroll"><div className="ai-chat-bubble">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={{table: ChatMarkdownTable}}>{${JSON.stringify(markdown)}}</ReactMarkdown>
+                <details id="references"><summary>References</summary>Verified source</details>
               </div></div>
               <div data-ai-kit-ai-disclosure>Unchanged authored AI disclosure</div>
-              <ChatComposer>{expanded => <>
+              <ChatComposer composerRef={composerRef}>{expanded => <>
                 <Group className="ai-composer-field"><ChatComposerInput inputRef={ref} expanded={expanded} value={value} className="ai-message"
-                  aria-label="Authored message label" placeholder="Authored placeholder" onChange={event => setValue(event.target.value)} /></Group>
+                  aria-label="Authored message label" placeholder="Authored placeholder" onChange={event => setValue(event.target.value)}
+                  onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } }} /></Group>
                 <Group className="ai-actions" justify="space-between">
                   <Group className="ai-composer-send-actions"><Button id="send" className="ai-composer-send" leftSection={<span>→</span>}
                     onPointerDown={event => { if (!expanded) event.preventDefault(); }}
-                    aria-label="Authored send" title="Authored send" onClick={() => { setSent(value); setValue(""); }}>
+                    aria-label="Authored send" title="Authored send" onClick={send}>
                     <span className="ai-composer-action-label">Authored send</span></Button></Group>
                   <Group className="ai-composer-reset-actions"><Button id="reset" className="ai-composer-reset" leftSection={<span>×</span>}
                     onPointerDown={event => { if (!expanded) event.preventDefault(); }}
@@ -171,11 +208,21 @@ test("real browser keeps comparisons scrollable and all-size composer compact wi
     assert.ok(await inputHeight() > idleHeight + 20, "focus within actions retains the editor before clicking");
     await page.click("#send");
     assert.equal(await page.$eval("#sent", (node: HTMLElement) => node.textContent), "Keep this draft");
-    assert.ok(await inputHeight() > idleHeight + 20, "sending retains focus within the composer");
-    await page.focus("#outside");
     await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height <= idle + 1, idleHeight);
+    assert.equal(await page.evaluate(() => document.querySelector(".ai-composer")!.contains(document.activeElement)), false);
+    await page.click("#references summary");
+    assert.equal(await page.$eval("#references", (node: HTMLDetailsElement) => node.open), true,
+      "the first reference click opens it without a late composer layout shift");
     await viewport({ width: 1000, height: 700 });
     await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height <= idle + 1, idleHeight);
+    await page.focus("textarea");
+    await page.keyboard.press("Enter");
+    assert.equal(await page.evaluate(() => document.activeElement?.tagName), "TEXTAREA", "empty Enter preserves editing focus");
+    await page.type("textarea", "Keyboard submission");
+    await page.keyboard.press("Enter");
+    await waitHeight((idle: number) => document.querySelector("textarea")!.getBoundingClientRect().height <= idle + 1, idleHeight);
+    assert.equal(await page.$eval("#sent", (node: HTMLElement) => node.textContent), "Keyboard submission");
+    assert.equal(await page.evaluate(() => document.querySelector(".ai-composer")!.contains(document.activeElement)), false);
     await page.focus("textarea");
     await page.type("textarea", "Send a collapsed draft");
     await page.focus("#outside");
@@ -184,7 +231,9 @@ test("real browser keeps comparisons scrollable and all-size composer compact wi
     assert.equal(await page.$eval("#sent", (node: HTMLElement) => node.textContent), "Send a collapsed draft",
       "pointer focus does not relocate the compact send button before its click");
     await page.focus("textarea");
+    await page.keyboard.down("Shift");
     await page.type("textarea", "line\n".repeat(40));
+    await page.keyboard.up("Shift");
     await viewport({ width: 360, height: 450 });
     await page.waitForFunction(() => document.querySelector("textarea")!.getBoundingClientRect().height <= 115);
     const bounded = await page.$eval("textarea", (input: HTMLTextAreaElement) => ({ value: input.value,

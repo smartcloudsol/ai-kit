@@ -95,9 +95,7 @@ test("renders the chatbot disclosure beside status and outside the composer box"
   const disclosureIndex = component.indexOf(
     'className="ai-generated-content-disclosure ai-chatbot-generated-content-disclosure"',
   );
-  const composerIndex = component.indexOf(
-    '<ChatComposer>',
-  );
+  const composerIndex = component.search(/<ChatComposer(?:\s|>)/);
 
   assert.ok(statusIndex >= 0, "chatbot status line must be rendered");
   assert.ok(disclosureIndex > statusIndex, "disclosure must follow status");

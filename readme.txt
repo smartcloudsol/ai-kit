@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.7
+Stable tag: 1.6.8
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -184,6 +184,12 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 Full release history and detailed upgrade guidance: https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md
 
+= 1.6.8 =
+* Review approved structured fields in a searchable, bounded list with one editable details panel.
+* Show source descriptions before approval, clarify fixed field types and keep nested schemas collapsible and scrollable.
+* Collapse message entry after a valid submission without stealing focus back when the response finishes.
+* Update AI Kit UI to 1.5.38; retain Core 1.5.22 and Hub 2.6.1.
+
 = 1.6.7 =
 * Show distinct source-document totals on compatible backends; hide legacy chunk counts.
 * Remove the unused prompt template editor and clarify the remaining templates' roles.
@@ -223,19 +229,10 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Chatbot: Preserve bounded display snapshots, source references and check times across streaming, reconnects and saved history.
 * Dependencies: Update AI Kit Core to 1.5.18 and AI Kit UI to 1.5.32.
 
-= 1.6.1 =
-* Answers: Start with a reviewed assistant preset for site guidance, services, product discovery or customer support, then tailor it to your business before saving.
-* Answers: Set up supported live catalog connections with guided fields, connection checks and explicit read-only approval instead of assembling MCP JSON.
-* Answers: Pair live catalog products with published WordPress pages through guided search, with language-specific mappings and a choice of original, local-first or local-only links.
-* Answers: Review page suggestions from verified local integrations while preserving product identity, live prices, variants and availability from the catalog.
-* Answers: Discover approved web sources during setup, with explicit review of the required evidence policy and preservation of existing detailed settings.
-* Admin: Keep large JSON fields manageable with bounded, resizable local editors and expanded connection setup help.
-* Admin: Keep setup menus visible, derive connection details from the selected backend, and recognize existing service endpoints to prevent duplicate connections.
-* Chatbot: Show concise tool names, provider or source website, and distinct running, completed, failed and interrupted activity states.
-* Chatbot: Add visitor-language configuration for approved MCP tools and preserve source product names and readable references with a compatible backend.
-* Dependencies: Update AI Kit UI to 1.5.31.
-
 == Upgrade Notice ==
+
+= 1.6.8 =
+Existing field approvals and mappings are preserved; no new fields are automatically enabled. The separate omitted-search recovery and accurate source-validation activity need orchestration v1.0.125 or equivalent. Backend deployment is not automatic.
 
 = 1.6.7 =
 Document totals need orchestration v1.0.124 or equivalent. Older backends retain progress without misleading chunk totals. Unused prompt settings are hidden. Review saved Shopify schemas after a backend upgrade for larger catalog pages. Backend deployment is not automatic.

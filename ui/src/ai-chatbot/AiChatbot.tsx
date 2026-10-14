@@ -97,9 +97,12 @@ function ChatMarkdownTable({ children, node, ...props }: ComponentPropsWithoutRe
 }
 
 /** Focus anywhere inside the composer retains the editing layout, including its actions. */
-function ChatComposer({ children }: { children: (expanded: boolean) => React.ReactNode }) {
+function ChatComposer({ children, composerRef }: {
+  children: (expanded: boolean) => React.ReactNode;
+  composerRef?: RefObject<HTMLDivElement>;
+}) {
   const [focused, setFocused] = useState(false);
-  return <Stack className="ai-box ai-box-open ai-composer" data-composer-expanded={focused}
+  return <Stack ref={composerRef} className="ai-box ai-box-open ai-composer" data-composer-expanded={focused}
     onFocusCapture={(event) => {
       // Portalled confirmation dialogs do not focus the underlying composer.
       if (event.currentTarget.contains(event.target as Node)) setFocused(true);
@@ -107,6 +110,14 @@ function ChatComposer({ children }: { children: (expanded: boolean) => React.Rea
     onBlurCapture={(event) => {
       if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
     }}>{children(focused)}</Stack>;
+}
+
+/** Release only the submitting control, never a control the visitor focused while preparing attachments. */
+function releaseSubmittedComposerFocus(composer: HTMLDivElement | null, submittedFocus: Element | null) {
+  if (composer && submittedFocus && composer.contains(submittedFocus) &&
+    composer.ownerDocument.activeElement === submittedFocus && "blur" in submittedFocus) {
+    (submittedFocus as HTMLElement).blur();
+  }
 }
 
 /** Idle drafts remain intact but consume only one line at every viewport size. */
@@ -519,6 +530,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const questionInputRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<{ id: string; storedAt: number } | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -1311,6 +1323,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     // Can send if we have text OR audio
     if ((!trimmed && !selectedAudio) || ai.busy || sendLockRef.current) return;
     sendLockRef.current = true;
+    const submittedFocus = composerRef.current?.ownerDocument.activeElement ?? null;
     if (fromStarter) {
       setQuestion("");
       questionRef.current = "";
@@ -1332,6 +1345,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       setStatusLineError((error as Error)?.message || I18n.get("Unexpected error"));
       return;
     }
+    releaseSubmittedComposerFocus(composerRef.current, submittedFocus);
     setActiveOp("chat");
 
     const userMessageId = createMessageId("user");
@@ -1561,7 +1575,6 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       streamCheckpointRef.current = undefined;
       setActiveOp((prev) => (prev === "chat" ? null : prev));
       cancelRequestedRef.current = false;
-      if (questionInputRef.current) questionInputRef.current.focus();
       scrollToBottom();
     }
   }, [I18n,
@@ -2509,7 +2522,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               {aiDisclosure}
             </Text>
 
-            <ChatComposer>{(composerExpanded) => <>
+            <ChatComposer composerRef={composerRef}>{(composerExpanded) => <>
               {/* Reset confirmation dialog (Yes/No) */}
               <Modal
                 opened={resetDialogOpen}
