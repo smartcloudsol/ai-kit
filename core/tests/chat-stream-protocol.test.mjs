@@ -77,7 +77,7 @@ test("presentation negotiation is an optional literal version on both start and 
       assert.deepEqual(flag.type.types.map(type => {
         assert.ok(ts.isLiteralTypeNode(type) && ts.isNumericLiteral(type.literal));
         return type.literal.text;
-      }), ["1", "2"], `${kind} advertises only the supported presentation versions`);
+      }), ["1", "2", "3"], `${kind} advertises only the supported presentation versions`);
     } else {
       assert.equal(flag, undefined, "cancellation does not negotiate rendering capabilities");
     }

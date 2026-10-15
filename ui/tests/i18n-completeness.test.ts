@@ -62,6 +62,29 @@ const REQUIRED_KEYS = [
   "You are not authorized to use this AI feature. Please sign in or contact the site owner.",
   "Request ID",
   "Documents found: {count}",
+  "Previous results",
+  "Next results",
+  "Results",
+  "of",
+  "More results available",
+  "Results expired. Search again.",
+  "{first}–{last} of {total}",
+  "Check shipping quote",
+  "Create temporary cart and check shipping",
+  "Submitting sends these items and the entered delivery address to the shop and creates a temporary cart to calculate shipping. It does not place an order or make a payment. The address remains with the shop under its privacy policy.",
+  "Country code",
+  "Postal code",
+  "City",
+  "State or province code",
+  "Address line 1",
+  "Address line 2",
+  "Shipping quote",
+  "Shipping option",
+  "Shipments",
+  "Numbers in brackets identify separate shipment groups, not interchangeable options for the whole order.",
+  "The shop changed the requested items or returned a cart warning. No shipping quote is presented for an unconfirmed cart.",
+  "Confirmation expired. Request a new action.",
+  "Confirmation cancelled.",
 ];
 
 test("all UI locales have full i18n key parity with en", () => {
@@ -131,4 +154,31 @@ test("customer-facing action labels use the intended meaning", () => {
   assert.equal(frDict.Search, "Rechercher");
   assert.equal(frDict.Show, "Afficher");
   assert.equal(frDict.Type, "Type");
+});
+
+test("catalog and carousel labels preserve pagination meaning and placeholders", () => {
+  for (const [locale, dict] of Object.entries(catalogs)) {
+    const position = dict["{first}–{last} of {total}"];
+    const placeholders = [...position.matchAll(/\{([^{}]+)\}/g)]
+      .map((match) => match[1])
+      .sort();
+
+    assert.deepEqual(placeholders, ["first", "last", "total"],
+      `Locale ${locale} must retain each carousel position placeholder exactly once`);
+    assert.notEqual(dict["Previous results"], dict["Next results"],
+      `Locale ${locale} must distinguish previous and next results`);
+  }
+
+  assert.equal(enDict["Previous results"], "Previous results");
+  assert.equal(enDict["Next results"], "Next results");
+  assert.equal(enDict.Results, "Results");
+  assert.equal(enDict.of, "of");
+  assert.equal(enDict["More results available"], "More results available");
+  assert.equal(enDict["Results expired. Search again."], "Results expired. Search again.");
+  assert.equal(huDict["Previous results"], "Előző találatok");
+  assert.equal(huDict["Next results"], "Következő találatok");
+  assert.equal(huDict.Results, "Találatok");
+  assert.equal(huDict["More results available"], "További találatok érhetők el");
+  assert.equal(huDict["Results expired. Search again."],
+    "A találatok érvényessége lejárt. Kérjük, indítson új keresést.");
 });

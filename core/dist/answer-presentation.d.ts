@@ -75,6 +75,7 @@ export interface AnswerTemplate {
     layout: AnswerLayout;
     preset?: AnswerPreset;
     heading?: string;
+    textDisplay?: "plain-text" | "markdown";
     source: AnswerSource;
     itemsPointer: string;
     bindings: {
@@ -92,7 +93,7 @@ export interface AnswerTemplate {
     maxItems: number;
 }
 export interface AnswerPresentationPolicy {
-    schemaVersion: 1 | 2 | 3;
+    schemaVersion: 1 | 2 | 3 | 4;
     enabled: boolean;
     templates: AnswerTemplate[];
 }
@@ -101,6 +102,7 @@ export interface AnswerEntity {
     entityId: string;
     title: string;
     description?: string;
+    descriptionMarkdown?: string;
     image?: {
         url: string;
         alt: string;
@@ -111,6 +113,7 @@ export interface AnswerEntity {
         type: AnswerAttributeType;
         value: AnswerAttributeValue;
         role?: AnswerAttributeMapping["role"];
+        markdown?: string | string[];
     }[];
     links: {
         id: string;
@@ -126,7 +129,7 @@ export interface AnswerEntity {
     };
 }
 export interface AnswerPresentation {
-    schemaVersion: 1 | 2;
+    schemaVersion: 1 | 2 | 3;
     locale?: string;
     groups: {
         templateId: string;
@@ -152,8 +155,8 @@ export declare function parseAnswerPresentationPolicy(value: unknown): AnswerPre
 /** Missing identifiers omit the whole link. Never fetch, interpolate a host/path or execute code. */
 export declare function resolveAnswerLinkUrl(mapping: AnswerLinkMapping, item: unknown): string | undefined;
 /** Called on approved projected source values, never on model-authored facts. */
-export declare function materializeAnswerEntity(template: AnswerTemplate, item: unknown, provenance: AnswerEntity["provenance"], ref: string): AnswerEntity | undefined;
+export declare function materializeAnswerEntity(template: AnswerTemplate, item: unknown, provenance: AnswerEntity["provenance"], ref: string, displayText?: (value: string, pointer: string) => string, displayMarkdown?: (value: string, pointer: string) => string | undefined): AnswerEntity | undefined;
 /** Fail closed on malformed/future envelopes; callers preserve the text answer. */
 export declare function parseAnswerPresentation(value: unknown): AnswerPresentation | undefined;
 /** Old clients receive only their negotiated schema; no new model invocation. */
-export declare function answerPresentationForVersion(value: unknown, version: 1 | 2, locale?: string): AnswerPresentation | undefined;
+export declare function answerPresentationForVersion(value: unknown, version: 1 | 2 | 3, locale?: string): AnswerPresentation | undefined;

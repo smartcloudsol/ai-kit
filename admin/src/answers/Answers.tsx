@@ -523,6 +523,8 @@ export default function Answers({
                 />
                 <ConnectionSetup catalog={snapshot.profile?.setup} existing={draft.connections} disabled={saving} previewConnection={previewConversationConnection}
                   openHelp={() => context.openHelp("answers-connections")}
+                  openShopifyHelp={() => context.openHelp("answers-shopify-storefront")}
+                  advancedSettingsUrl={snapshot.settings?.advanced_tools_url}
                   restUrl={plugin.restUrl} nonce={plugin.nonce} previewProducts={previewConversationProducts}
                   openProductPageHelp={() => context.openHelp("answers-product-pages")}
                   onChange={(server) => setDraft({ ...draft, connections: draft.connections.map((item) => item.id === server.id ? server : item) })}

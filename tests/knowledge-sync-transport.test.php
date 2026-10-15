@@ -149,8 +149,9 @@ function wp_remote_request(string $url, array $arguments): array
                 'apiSchemaVersion' => 7,
                 'capabilities' => array(
                     ...($capability_mode === 'paths' ? ['knowledge.taxonomy-paths' => 1] : ($capability_mode === 'invalid-paths' ? ['knowledge.taxonomy-paths' => '1'] : [])),
-                    ...(in_array($capability_mode, ['structured', 'structured-document', 'invalid-structured-document'], true) ? ['knowledge.structured-content' => 1] : ($capability_mode === 'invalid-structured' ? ['knowledge.structured-content' => '1'] : [])),
+                    ...(in_array($capability_mode, ['structured', 'structured-document', 'invalid-structured-document', 'structured-text-formats', 'invalid-structured-text-formats'], true) ? ['knowledge.structured-content' => 1] : ($capability_mode === 'invalid-structured' ? ['knowledge.structured-content' => '1'] : [])),
                     ...($capability_mode === 'structured-document' ? ['knowledge.structured-content.document-v2' => 1] : ($capability_mode === 'invalid-structured-document' ? ['knowledge.structured-content.document-v2' => '1'] : [])),
+                    ...($capability_mode === 'structured-text-formats' ? ['knowledge.structured-content.text-formats' => 1] : ($capability_mode === 'invalid-structured-text-formats' ? ['knowledge.structured-content.text-formats' => '1'] : [])),
                     'knowledge.automation' => $capability_mode === 'v4'
                         ? 4
                         : ($capability_mode === 'v5' ? 5 : 6),
@@ -446,3 +447,23 @@ try {
 transport_expect($nested_blocked, 'Scalar capability alone must not dispatch a nested document or silently downgrade it.');
 transport_expect(count($requests) === $before_nested_requests + 1, 'Nested capability rejection precedes signing or content dispatch.');
 echo "Nested structured-document negotiation tests passed.\n";
+
+foreach (['structured', 'structured-document', 'invalid-structured-text-formats', 'verified', 'legacy'] as $mode) {
+    $transients = [];
+    $capability_mode = $mode;
+    transport_expect(!$transport->supportsStructuredContentTextFormats(), 'Text formats require a separately verified integer capability.');
+}
+$transients = [];
+$capability_mode = 'structured-text-formats';
+transport_expect($transport->supportsStructuredContentTextFormats(), 'Text-format capability is independently negotiated.');
+$transients = [];
+$capability_mode = 'structured-document';
+$before_format_requests = count($requests);
+$format_blocked = false;
+try {
+    $transport->dispatchBatch(null, [42 => ['schemaVersion' => 3, 'document' => ['structuredContent' => ['schemaVersion' => 3, 'enabled' => true, 'fields' => (object) ['detail' => '<p>Source</p>'], 'fieldSchema' => (object) ['detail' => ['type' => 'string', 'description' => 'Detail', 'contentFormat' => 'html']]]]]]);
+} catch (KnowledgeSyncTransportException $error) {
+    $format_blocked = $error->errorCode === 'backend_capability_unavailable';
+}
+transport_expect($format_blocked && count($requests) === $before_format_requests + 1, 'Formatted dispatch refuses old backend before signing, credentials or content transmission.');
+echo "Structured text-format capability and dispatch guards passed.\n";

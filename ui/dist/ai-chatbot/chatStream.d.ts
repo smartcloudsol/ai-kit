@@ -1,4 +1,4 @@
-import { type ProcessedCitations, type PromptResult, type AnswerPresentation } from "@smart-cloud/ai-kit-core";
+import { type ConfirmedVisitorAction, type VisitorActionProposal, type VisitorActionResult, type ProcessedCitations, type PromptResult, type AnswerPresentation } from "@smart-cloud/ai-kit-core";
 export type ChatActivity = {
     activityId: string;
     kind: "knowledge_search" | "web_search" | "web_read" | "calculation" | "script" | "validation" | "thinking" | "generating_response" | "checking_sources" | "other";
@@ -24,6 +24,8 @@ export type ChatStreamCheckpoint = {
 };
 export type ChatStreamView = {
     text: string;
+    visitorActions?: VisitorActionProposal[];
+    visitorActionResult?: VisitorActionResult;
     presentation?: AnswerPresentation;
     activities: ChatActivity[];
     citations: StreamCitation[];
@@ -39,6 +41,8 @@ export type StreamCitation = {
 };
 export type ChatStreamResult = {
     result: string;
+    visitorActions?: VisitorActionProposal[];
+    visitorActionResult?: VisitorActionResult;
     presentation?: AnswerPresentation;
     sessionId: string;
     messageId?: string;
@@ -56,7 +60,12 @@ export type ChatStreamOptions = {
     text: string;
     locale: string;
     /** Selected only after a verified backend capability advertises this schema. */
-    presentationVersion?: 1 | 2;
+    presentationVersion?: 1 | 2 | 3;
+    /** Selected only after verified ai.catalog.pagination capability discovery; handles contain no client-selected queries. */
+    catalogPageVersion?: 1;
+    catalogContinuation?: string;
+    visitorActionVersion?: 1;
+    visitorAction?: ConfirmedVisitorAction;
     sessionId?: string;
     requestId: string;
     resume?: ChatStreamCheckpoint;
@@ -93,9 +102,14 @@ export declare function summarizeChatActivities(activities: ChatActivity[]): {
     websites: number;
     otherTools: number;
 };
-export declare function chatPresentationVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | 2;
+export declare function chatPresentationVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | 2 | 3;
+export declare function chatCatalogPageVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | undefined;
+export declare function chatVisitorActionVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | undefined;
+export declare function discoverChatVisitorActionVersion(): Promise<1 | undefined>;
 /** The same negotiation applies to HTTP prompts and every stream resume frame. */
-export declare function discoverChatPresentationVersion(): Promise<1 | 2>;
+export declare function discoverChatPresentationVersion(): Promise<1 | 2 | 3>;
+/** Older or unverified backends must never receive the new catalog request fields. */
+export declare function discoverChatCatalogPageVersion(): Promise<1 | undefined>;
 /** The backend advertises streaming only when its WebSocket route is ready. */
 export declare function discoverChatStreamUrl(): Promise<string | undefined>;
 export declare function sendChatStreamCancel(socket: WebSocket | null, checkpoint: ChatStreamCheckpoint | undefined): void;

@@ -59,18 +59,18 @@ function existingProfile(connections = []) {
     scope: { allowedTopics: ["Owner scope"] }, model: { modelId: "owner-model" }, safety: { guardrailIdentifier: "owner-guardrail" }, memory: { preserveEvidenceReferences: true }, actions: [{ id: "owner-action" }],
   };
 }
-async function fixture({ width = 1280, height = 1000, discovery = true, connections = [], connectionOnly = false, previewServer = server() } = {}) {
+async function fixture({ width = 1280, height = 1000, discovery = true, connections = [], connectionOnly = false, previewServer = server(), advancedToolsUrl = "http://guided.test/wordpress/wp-admin/admin.php?page=smartcloud-ai-kit&section=conversation-profile&profile-section=tools#conversation-profile-tools-settings" } = {}) {
   const page = await browser.newPage({ viewport: { width, height } });
   page.setDefaultTimeout(5000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.addInitScript(({ profile, catalog, discovery, preview, connectionOnly }) => {
+  await page.addInitScript(({ profile, catalog, discovery, preview, connectionOnly, advancedToolsUrl }) => {
     window.fixture = {
       checks: [], writes: [], help: [], adds: [], preview, connectionOnly,
       profile: { configured: true, ...(discovery ? { setup: catalog } : {}), document: { profile, revision: "profile-1" } },
-      appearance: { connected: true, revision: "appearance-1", plan: "pro", backend_configured: true, can_edit_pages: true, preview_url: "https://fixture.test/", values: { enableChatbot: true, title: "Saved assistant", greeting: "Hello", placeholder: "Ask", openButtonPosition: "bottom-right", brandColor: "" } },
+      appearance: { connected: true, revision: "appearance-1", plan: "pro", backend_configured: true, can_edit_pages: true, preview_url: "https://fixture.test/", ...(typeof advancedToolsUrl === "string" ? { advanced_tools_url: advancedToolsUrl } : {}), values: { enableChatbot: true, title: "Saved assistant", greeting: "Hello", placeholder: "Ask", openButtonPosition: "bottom-right", brandColor: "" } },
     };
-  }, { profile: existingProfile(connections), catalog, discovery, connectionOnly, preview: { connectorId: "shopify-storefront-catalog", server: previewServer, operationLabels: { search_catalog: "Search published products" } } });
+  }, { profile: existingProfile(connections), catalog, discovery, connectionOnly, advancedToolsUrl, preview: { connectorId: "shopify-storefront-catalog", server: previewServer, operationLabels: { search_catalog: "Search published products" } } });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/api/answers-onboarding") return route.fulfill({ contentType: "application/json", body: JSON.stringify({ completed: true }) });
@@ -108,6 +108,53 @@ async function finish(page) {
   await page.getByRole("button", { name: "Finish setup", exact: true }).click();
   await page.getByRole("heading", { name: "Answers setup", exact: true }).waitFor();
 }
+
+for (const width of [1280, 360]) {
+  test(`Shopify guidance opens focused help and isolated advanced settings without losing the wizard draft at ${width}px`, async () => {
+    const { page, errors } = await fixture({ width });
+    try {
+      assert.equal(await page.getByText("Shopify catalog and advanced setup", { exact: true }).count(), 0);
+      await chooseConnection(page);
+      await page.getByText("Shopify catalog and advanced setup", { exact: true }).waitFor();
+      const draft = page.getByRole("textbox", { name: "General context", exact: true });
+      await draft.fill("Unsaved owner guidance that must survive navigation.");
+      const domain = page.getByRole("textbox", { name: "Shop domain", exact: true });
+      await domain.fill("unsaved-test.myshopify.com");
+      await page.getByRole("button", { name: "Shopify setup help", exact: true }).click();
+      assert.deepEqual(await page.evaluate(() => window.fixture.help), ["answers-shopify-storefront"]);
+      const link = page.getByRole("link", { name: "Advanced Shopify connection settings (opens in a new tab)", exact: true });
+      assert.equal(await link.getAttribute("target"), "_blank");
+      assert.deepEqual((await link.getAttribute("rel")).split(/\s+/).sort(), ["noopener", "noreferrer"]);
+      assert.equal(await link.getAttribute("href"), "http://guided.test/wordpress/wp-admin/admin.php?page=smartcloud-ai-kit&section=conversation-profile&profile-section=tools#conversation-profile-tools-settings");
+      const popupPromise = page.waitForEvent("popup");
+      await link.click();
+      const popup = await popupPromise;
+      await popup.waitForLoadState();
+      assert.equal(await popup.evaluate(() => window.opener === null), true);
+      await popup.close();
+      assert.equal(await draft.inputValue(), "Unsaved owner guidance that must survive navigation.");
+      assert.equal(await domain.inputValue(), "unsaved-test.myshopify.com");
+      assert.deepEqual(await page.evaluate(() => ({ writes: window.fixture.writes, checks: window.fixture.checks, adds: window.fixture.adds })), { writes: [], checks: [], adds: [] });
+      const dimensions = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, viewport: innerWidth }));
+      assert.ok(dimensions.scroll <= dimensions.viewport + 1, JSON.stringify(dimensions));
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  });
+}
+
+test("existing Shopify connections expose guidance without discovery; unsafe or missing destinations never render links", async () => {
+  for (const advancedToolsUrl of [null, "https://other.test/admin.php?section=conversation-profile&profile-section=tools", "javascript:alert(1)", "/admin.php?section=conversation-profile&profile-section=tools"]) {
+    const { page, errors } = await fixture({ connections: [server()], discovery: false, advancedToolsUrl });
+    try {
+      await page.getByText("Shopify catalog and advanced setup", { exact: true }).waitFor();
+      assert.equal(await page.getByRole("link", { name: "Advanced Shopify connection settings", exact: false }).count(), 0);
+      await page.getByRole("button", { name: "Shopify setup help", exact: true }).click();
+      assert.deepEqual(await page.evaluate(() => window.fixture.help), ["answers-shopify-storefront"]);
+      assert.deepEqual(await page.evaluate(() => ({ writes: window.fixture.writes, checks: window.fixture.checks })), { writes: [], checks: [] });
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  }
+});
 
 test("real wizard preset selection and preview never save; explicit apply preserves advanced profile", async () => {
   const { page, errors } = await fixture();

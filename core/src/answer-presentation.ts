@@ -31,6 +31,7 @@ export interface AnswerTemplate {
   layout: AnswerLayout;
   preset?: AnswerPreset;
   heading?: string;
+  textDisplay?: "plain-text" | "markdown";
   source: AnswerSource;
   itemsPointer: string;
   bindings: { id: string; title: string; description?: string };
@@ -40,7 +41,7 @@ export interface AnswerTemplate {
   maxItems: number;
 }
 export interface AnswerPresentationPolicy {
-  schemaVersion: 1 | 2 | 3;
+  schemaVersion: 1 | 2 | 3 | 4;
   enabled: boolean;
   templates: AnswerTemplate[];
 }
@@ -49,19 +50,52 @@ export interface AnswerEntity {
   entityId: string;
   title: string;
   description?: string;
+  descriptionMarkdown?: string;
   image?: { url: string; alt: string };
-  attributes: { id: string; label: string; type: AnswerAttributeType; value: AnswerAttributeValue; role?: AnswerAttributeMapping["role"] }[];
+  attributes: { id: string; label: string; type: AnswerAttributeType; value: AnswerAttributeValue; role?: AnswerAttributeMapping["role"]; markdown?: string | string[] }[];
   links: { id: string; label: string; url: string; appearance?: "primary" | "secondary" }[];
   provenance: { kind: AnswerSource["kind"]; sourceId: string; evidenceId: string; checkedAt: string };
 }
 export interface AnswerPresentation {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   locale?: string;
   groups: { templateId: string; templateRevision: number; layout: AnswerLayout; preset?: AnswerPreset; heading?: string; entities: AnswerEntity[] }[];
 }
 export const ANSWER_PRESENTATION_MAX_BYTES = 12000;
 export const ANSWER_PRESENTATION_MAX_GROUPS = 2;
 const forbidden = new Set(["__proto__", "constructor", "prototype"]);
+/** Bound inert data before serialization, so getters, hooks and prototype values never run. */
+function plainData(value: unknown, maxBytes: number): void {
+  let nodes = 0;
+  let bytes = 0;
+  const ancestors = new Set<object>();
+  const visit = (entry: unknown, depth: number): void => {
+    if (++nodes > 4096 || depth > 16) throw new Error("Answer presentation data exceeds structural limits");
+    if (typeof entry === "string") bytes += new TextEncoder().encode(entry).length;
+    else if (entry !== null && typeof entry === "object") {
+      if (ancestors.has(entry) || Object.getOwnPropertySymbols(entry).length) throw new Error("Invalid answer presentation data");
+      const array = Array.isArray(entry);
+      const prototype: unknown = Object.getPrototypeOf(entry);
+      if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) throw new Error("Invalid answer presentation data");
+      const descriptors = Object.getOwnPropertyDescriptors(entry);
+      if (array && (entry.length > 256 || Object.keys(descriptors).length !== entry.length + 1)) throw new Error("Invalid answer presentation list");
+      ancestors.add(entry);
+      for (const [key, descriptor] of Object.entries(descriptors)) {
+        if (array && key === "length") continue;
+        if (!Object.hasOwn(descriptor, "value") || !descriptor.enumerable ||
+            (array && !/^(?:0|[1-9]\d*)$/.test(key))) throw new Error("Invalid answer presentation data");
+        bytes += new TextEncoder().encode(key).length;
+        const child: unknown = descriptor.value;
+        if (array && child === undefined) throw new Error("Invalid answer presentation list");
+        visit(child, depth + 1);
+      }
+      ancestors.delete(entry);
+    } else if (entry !== undefined && entry !== null && typeof entry !== "boolean" &&
+        !(typeof entry === "number" && Number.isFinite(entry))) throw new Error("Invalid answer presentation data");
+    if (bytes > maxBytes) throw new Error("Answer presentation data exceeds byte limits");
+  };
+  visit(value, 0);
+}
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 function exact(v: unknown, keys: string[]): asserts v is Record<string, unknown> {
   if (!record(v) || Object.keys(v).some((k) => !keys.includes(k))) throw new Error("Invalid answer presentation object");
@@ -199,12 +233,14 @@ export function isAnswerUrlAllowed(value: unknown, allowed: string[]): value is 
   });
 }
 export function parseAnswerPresentationPolicy(value: unknown): AnswerPresentationPolicy {
+  plainData(value, 24000);
   exact(value, ["schemaVersion", "enabled", "templates"]);
-  if (![1, 2, 3].includes(value.schemaVersion as number) || typeof value.enabled !== "boolean") throw new Error("Unsupported display policy");
+  if (![1, 2, 3, 4].includes(value.schemaVersion as number) || typeof value.enabled !== "boolean") throw new Error("Unsupported display policy");
   const version = value.schemaVersion as number;
   list(value.templates, 12);
   for (const t of value.templates) {
-    exact(t, ["id", "revision", "layout", "heading", "source", "itemsPointer", "bindings", "image", "attributes", "links", "maxItems", ...(version >= 2 ? ["preset"] : [])]);
+    exact(t, ["id", "revision", "layout", "heading", "source", "itemsPointer", "bindings", "image", "attributes", "links", "maxItems", ...(version >= 2 ? ["preset"] : []), ...(version >= 4 ? ["textDisplay"] : [])]);
+    if (Object.hasOwn(t, "textDisplay") && t.textDisplay !== "plain-text" && t.textDisplay !== "markdown") throw new Error("Invalid answer text display format");
     identifier(t.id); integer(t.revision, 1000000); layout(t.layout, version); preset(t.preset); text(t.heading, 160, true); pointer(t.itemsPointer); integer(t.maxItems, 6);
     if (!record(t.source)) throw new Error("Missing display source");
     if (t.source.kind === "structured_content") {
@@ -216,6 +252,7 @@ export function parseAnswerPresentationPolicy(value: unknown): AnswerPresentatio
     } else if (t.source.kind === "external_mcp") {
       exact(t.source, ["kind", "serverId", "toolName"]); identifier(t.source.serverId); identifier(t.source.toolName);
     } else throw new Error("Unsupported display source");
+    if (t.textDisplay === "markdown" && t.source.kind !== "structured_content") throw new Error("Markdown display requires a structured source");
     exact(t.bindings, ["id", "title", "description"]); pointer(t.bindings.id); pointer(t.bindings.title);
     if (t.bindings.description !== undefined) pointer(t.bindings.description);
     if (t.image !== undefined) {
@@ -310,17 +347,36 @@ function validAttribute(value: unknown, type: AnswerAttributeType): value is Ans
   if (type === "boolean") return typeof value === "boolean";
   return Array.isArray(value) && value.length <= 12 && value.every((x) => typeof x === "string" && !!x.trim() && x.length <= 120);
 }
+function validMarkdown(value: unknown, maximum: number): value is string {
+  return typeof value === "string" && !!value.trim() && value.length <= maximum && !hasControls(value, true);
+}
+function markdownAttribute(value: unknown, attribute: Pick<AnswerEntity["attributes"][number], "type" | "value" | "role">): value is string | string[] {
+  if (attribute.role !== undefined && attribute.role !== "detail") return false;
+  return attribute.type === "string" ? validMarkdown(value, 2000) : attribute.type === "string-list" && Array.isArray(attribute.value) &&
+    Array.isArray(value) && value.length === attribute.value.length && value.length <= 12 && value.every(item => validMarkdown(item, 2000));
+}
 /** Called on approved projected source values, never on model-authored facts. */
-export function materializeAnswerEntity(template: AnswerTemplate, item: unknown, provenance: AnswerEntity["provenance"], ref: string): AnswerEntity | undefined {
+export function materializeAnswerEntity(template: AnswerTemplate, item: unknown, provenance: AnswerEntity["provenance"], ref: string,
+  displayText: (value: string, pointer: string) => string = value => value,
+  displayMarkdown?: (value: string, pointer: string) => string | undefined): AnswerEntity | undefined {
+  const markdown = (value: string, pointer: string): string | undefined => {
+    if (template.textDisplay !== "markdown" || template.source.kind !== "structured_content") return undefined;
+    try { return displayMarkdown?.(value, pointer); } catch { return undefined; }
+  };
   const id = readAnswerPointer(item, template.bindings.id);
   const title = readAnswerPointer(item, template.bindings.title);
   if ((typeof id !== "string" && typeof id !== "number") || (typeof id === "number" && !Number.isSafeInteger(id)) || !String(id).trim() || String(id).length > 256 || typeof title !== "string" || !title.trim() || title.length > 240) return undefined;
-  const description = template.bindings.description === undefined ? undefined : readAnswerPointer(item, template.bindings.description);
+  const rawDescription = template.bindings.description === undefined ? undefined : readAnswerPointer(item, template.bindings.description);
+  const description = typeof rawDescription === "string" && template.bindings.description !== undefined ? displayText(rawDescription, template.bindings.description) : rawDescription;
+  const descriptionMarkdown = typeof rawDescription === "string" && template.bindings.description !== undefined &&
+    typeof description === "string" && !!description.trim() ? markdown(rawDescription, template.bindings.description) : undefined;
   const imageUrl = template.image && readAnswerPointer(item, template.image.pointer);
   const alt = template.image?.altPointer === undefined ? undefined : readAnswerPointer(item, template.image.altPointer);
   const attributes = template.attributes.flatMap((a) => {
     const sourceValue = readAnswerPointer(item, a.pointer);
     let value: unknown = sourceValue;
+    if ((a.role === undefined || a.role === "detail") && a.type === "string" && typeof sourceValue === "string") value = displayText(sourceValue, a.pointer);
+    else if ((a.role === undefined || a.role === "detail") && a.type === "string-list" && Array.isArray(sourceValue)) value = (sourceValue as unknown[]).map(entry => typeof entry === "string" ? displayText(entry, a.pointer) : entry);
     if (a.type === "money" && a.money) {
       if ((typeof sourceValue !== "string" && typeof sourceValue !== "number") || (typeof sourceValue === "number" && (!Number.isFinite(sourceValue) || Math.abs(sourceValue) > Number.MAX_SAFE_INTEGER))) return [];
       const scale = a.money.scalePointer === undefined ? a.money.scale : readAnswerPointer(item, a.money.scalePointer);
@@ -330,7 +386,11 @@ export function materializeAnswerEntity(template: AnswerTemplate, item: unknown,
       value = mapped ? { code: mapped.code, label: mapped.label, semantics: a.status.semantics }
         : a.status.unknownLabel ? { code: "unknown", label: a.status.unknownLabel, semantics: a.status.semantics } : undefined;
     }
-    return validAttribute(value, a.type) ? [{ id: a.id, label: a.label, type: a.type, value, ...(a.role ? { role: a.role } : {}) }] : [];
+    if (!validAttribute(value, a.type)) return [];
+    const metadata = (a.role === undefined || a.role === "detail") && a.type === "string" && typeof sourceValue === "string" ? markdown(sourceValue, a.pointer)
+      : (a.role === undefined || a.role === "detail") && a.type === "string-list" && Array.isArray(sourceValue) && sourceValue.length > 0 ? (sourceValue as unknown[]).map(entry => typeof entry === "string" ? markdown(entry, a.pointer) : undefined) : undefined;
+    return [{ id: a.id, label: a.label, type: a.type, value, ...(a.role ? { role: a.role } : {}),
+      ...(markdownAttribute(metadata, { type: a.type, value, ...(a.role ? { role: a.role } : {}) }) ? { markdown: metadata } : {}) }];
   });
   const links = template.links.flatMap((l) => {
     const url = resolveAnswerLinkUrl(l, item);
@@ -339,6 +399,7 @@ export function materializeAnswerEntity(template: AnswerTemplate, item: unknown,
   return {
     ref, entityId: String(id), title,
     ...(typeof description === "string" && description.trim() ? { description: description.slice(0, 800) } : {}),
+    ...(validMarkdown(descriptionMarkdown, 4000) ? { descriptionMarkdown } : {}),
     ...(template.image && isAnswerUrlAllowed(imageUrl, template.image.allowedUrlPrefixes) ? { image: { url: imageUrl, alt: typeof alt === "string" && alt.length <= 240 ? alt : title } } : {}),
     attributes, links, provenance: { ...provenance },
   };
@@ -346,19 +407,21 @@ export function materializeAnswerEntity(template: AnswerTemplate, item: unknown,
 /** Fail closed on malformed/future envelopes; callers preserve the text answer. */
 export function parseAnswerPresentation(value: unknown): AnswerPresentation | undefined {
   try {
+    plainData(value, ANSWER_PRESENTATION_MAX_BYTES);
     if (new TextEncoder().encode(JSON.stringify(value)).length > ANSWER_PRESENTATION_MAX_BYTES) return undefined;
-    exact(value, ["schemaVersion", "groups", ...(record(value) && value.schemaVersion === 2 ? ["locale"] : [])]);
-    if (![1, 2].includes(value.schemaVersion as number)) return undefined;
+    exact(value, ["schemaVersion", "groups", ...(record(value) && (value.schemaVersion === 2 || value.schemaVersion === 3) ? ["locale"] : [])]);
+    if (![1, 2, 3].includes(value.schemaVersion as number)) return undefined;
     const version = value.schemaVersion as number;
     if (value.locale !== undefined) { text(value.locale, 35); new Intl.NumberFormat(value.locale as string); }
     list(value.groups, ANSWER_PRESENTATION_MAX_GROUPS);
     const refs = new Set<string>();
     for (const g of value.groups) {
-      exact(g, ["templateId", "templateRevision", "layout", "heading", "entities", ...(version === 2 ? ["preset"] : [])]);
+      exact(g, ["templateId", "templateRevision", "layout", "heading", "entities", ...(version >= 2 ? ["preset"] : [])]);
       identifier(g.templateId); integer(g.templateRevision, 1000000); layout(g.layout, version); preset(g.preset); text(g.heading, 160, true); list(g.entities, 6);
       for (const e of g.entities) {
-        exact(e, ["ref", "entityId", "title", "description", "image", "attributes", "links", "provenance"]);
+        exact(e, ["ref", "entityId", "title", "description", "image", "attributes", "links", "provenance", ...(version >= 3 ? ["descriptionMarkdown"] : [])]);
         identifier(e.ref); text(e.entityId, 256); text(e.title, 240); text(e.description, 800, true);
+        if (Object.hasOwn(e, "descriptionMarkdown") && (!validMarkdown(e.descriptionMarkdown, 4000) || e.description === undefined)) return undefined;
         if (refs.has(e.ref)) return undefined;
         refs.add(e.ref);
         if (e.image !== undefined) {
@@ -368,13 +431,14 @@ export function parseAnswerPresentation(value: unknown): AnswerPresentation | un
         }
         list(e.attributes, 8);
         for (const a of e.attributes) {
-          exact(a, ["id", "label", "type", "value", ...(version === 2 ? ["role"] : [])]); identifier(a.id); text(a.label, 80); attributeType(a.type, version); role(a.role);
+          exact(a, ["id", "label", "type", "value", ...(version >= 2 ? ["role"] : []), ...(version >= 3 ? ["markdown"] : [])]); identifier(a.id); text(a.label, 80); attributeType(a.type, version); role(a.role);
           if (!validAttribute(a.value, a.type)) return undefined;
+          if (Object.hasOwn(a, "markdown") && !markdownAttribute(a.markdown, a as unknown as AnswerEntity["attributes"][number])) return undefined;
         }
         uniqueIds(e.attributes as AnswerEntity["attributes"]);
         list(e.links, 3);
         for (const l of e.links) {
-          exact(l, ["id", "label", "url", ...(version === 2 ? ["appearance"] : [])]); identifier(l.id); text(l.label, 80); appearance(l.appearance); if (!isAnswerHttpsUrl(l.url)) return undefined;
+          exact(l, ["id", "label", "url", ...(version >= 2 ? ["appearance"] : [])]); identifier(l.id); text(l.label, 80); appearance(l.appearance); if (!isAnswerHttpsUrl(l.url)) return undefined;
         }
         uniqueIds(e.links as AnswerEntity["links"]);
         exact(e.provenance, ["kind", "sourceId", "evidenceId", "checkedAt"]);
@@ -389,9 +453,23 @@ export function parseAnswerPresentation(value: unknown): AnswerPresentation | un
 }
 
 /** Old clients receive only their negotiated schema; no new model invocation. */
-export function answerPresentationForVersion(value: unknown, version: 1 | 2, locale?: string): AnswerPresentation | undefined {
-  const parsed = parseAnswerPresentation(value);
-  if (!parsed || parsed.schemaVersion === 1 || version === 2) return parsed;
+export function answerPresentationForVersion(value: unknown, version: 1 | 2 | 3, locale?: string): AnswerPresentation | undefined {
+  let parsed = parseAnswerPresentation(value);
+  if (!parsed || parsed.schemaVersion === 1 || version >= parsed.schemaVersion) return parsed;
+  if (parsed.schemaVersion === 3) {
+    parsed = parseAnswerPresentation({ ...parsed, schemaVersion: 2, groups: parsed.groups.map(group => ({ ...group,
+      entities: group.entities.map(entity => {
+        const plain = { ...entity };
+        delete plain.descriptionMarkdown;
+        return { ...plain, attributes: entity.attributes.map(attribute => {
+          const fallback = { ...attribute };
+          delete fallback.markdown;
+          return fallback;
+        }) };
+      }),
+    })) });
+    if (!parsed || version === 2) return parsed;
+  }
   return parseAnswerPresentation({ schemaVersion: 1, groups: parsed.groups.map(group => ({
     templateId: group.templateId, templateRevision: group.templateRevision,
     layout: group.layout === "comparison" ? "cards" : group.layout,

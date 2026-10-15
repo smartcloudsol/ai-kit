@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { safeCitationUrl, validateSettings } from "../src/answers/client.ts";
+import { safeAdvancedSettingsUrl, safeCitationUrl, validateSettings } from "../src/answers/client.ts";
 test("Answers settings require a bounded typed presentation and independent backend/plan state", () => {
   const fixture = {
     connected: true,
@@ -12,14 +12,26 @@ test("Answers settings require a bounded typed presentation and independent back
     values: { enableChatbot: true, title: "", greeting: "", placeholder: "" },
   };
   assert.deepEqual(validateSettings(fixture), fixture);
+  const withAdvanced = { ...fixture, advanced_tools_url: "https://example.test/wp/wp-admin/admin.php?page=smartcloud-ai-kit&section=conversation-profile&profile-section=tools#conversation-profile-tools-settings" };
+  assert.deepEqual(validateSettings(withAdvanced), withAdvanced);
   for (const invalid of [
     null,
     {},
     { ...fixture, values: { ...fixture.values, enableChatbot: 1 } },
     { ...fixture, connected: "yes" },
     { ...fixture, revision: null },
+    { ...fixture, advanced_tools_url: 123 },
   ])
     assert.throws(() => validateSettings(invalid));
+});
+test("advanced Shopify settings links require an absolute credential-free same-origin tools destination", () => {
+  const current = "https://example.test/wp/wp-admin/admin.php?page=smartcloud-ai-kit";
+  const destination = "https://example.test/wp/wp-admin/admin.php?page=smartcloud-ai-kit&section=conversation-profile&profile-section=tools#conversation-profile-tools-settings";
+  assert.equal(safeAdvancedSettingsUrl(destination, current), destination);
+  assert.equal(safeAdvancedSettingsUrl(destination.replace("https:", "http:"), current.replace("https:", "http:")), destination.replace("https:", "http:"));
+  for (const invalid of [undefined, "", "/wp/wp-admin/admin.php?section=conversation-profile&profile-section=tools", "//example.test/admin.php?section=conversation-profile&profile-section=tools", destination.replace("example.test", "evil.test"), destination.replace("https:", "javascript:"), destination.replace("example.test", "user:password@example.test"), destination.replace("section=conversation-profile", "section=general"), destination.replace("profile-section=tools", "profile-section=identity"), destination.replace("profile-section=tools", "profile-section[]=tools")]) {
+    assert.equal(safeAdvancedSettingsUrl(invalid, current), undefined, String(invalid));
+  }
 });
 test("Answer citations permit web links and reject script/data/relative URLs", () => {
   assert.equal(

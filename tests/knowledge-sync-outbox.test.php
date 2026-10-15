@@ -721,6 +721,11 @@ final class CategoryPathTestTransport {
         $capability = $GLOBALS['structured_test_capability'] ?? [];
         return $this->supportsStructuredContent() && is_int($capability['documentVersion'] ?? null) && $capability['documentVersion'] >= 1;
     }
+    public function supportsStructuredContentTextFormats(): bool
+    {
+        $capability = $GLOBALS['structured_test_capability'] ?? [];
+        return $this->supportsStructuredContent() && is_int($capability['textFormatVersion'] ?? null) && $capability['textFormatVersion'] >= 1;
+    }
 }
 class_alias(CategoryPathTestTransport::class, 'SmartCloud\\WPSuite\\AiKit\\KnowledgeBase\\KnowledgeSyncTransport');
 final class CategoryPathTestRenderer { public function render(WP_Post $post): string { return 'Body'; } }

@@ -1,6 +1,7 @@
 /** Transport-free, opt-in own-field contracts. Identity and release data are not own fields. */
 export declare const STRUCTURED_CONTENT_SCHEMA_VERSION: 1;
 export declare const STRUCTURED_CONTENT_DOCUMENT_SCHEMA_VERSION: 2;
+export declare const STRUCTURED_CONTENT_TEXT_FORMAT_SCHEMA_VERSION: 3;
 export declare const STRUCTURED_CONTENT_LIMITS: {
     readonly fields: 32;
     readonly stringBytes: 4096;
@@ -14,11 +15,16 @@ export declare const STRUCTURED_CONTENT_LIMITS: {
 };
 export type StructuredContentScalarFieldType = "string" | "url" | "number" | "boolean" | "string-list";
 export type StructuredContentFieldType = StructuredContentScalarFieldType | "object" | "array";
+export type StructuredContentTextFormat = "plain-text" | "html" | "markdown";
 export type StructuredContentValue = string | number | boolean | StructuredContentValue[] | {
     [key: string]: StructuredContentValue;
 };
 export type StructuredContentFieldSchema = {
-    type: StructuredContentScalarFieldType;
+    type: "string" | "string-list";
+    description: string;
+    contentFormat?: StructuredContentTextFormat;
+} | {
+    type: Exclude<StructuredContentScalarFieldType, "string" | "string-list">;
     description: string;
 } | {
     type: "object";
@@ -45,7 +51,7 @@ export interface StructuredContentPolicy {
     fields: StructuredContentFieldMapping[];
 }
 export interface StructuredContentProjection {
-    schemaVersion: 1 | 2;
+    schemaVersion: 1 | 2 | 3;
     enabled: boolean;
     fields: Record<string, StructuredContentValue>;
     fieldSchema: Record<string, StructuredContentFieldSchema>;

@@ -13,6 +13,13 @@ const AI_KIT_ADMIN_PAGES: ReadonlySet<string> = new Set([
   "kb-admin",
 ]);
 
+/** A fixed deep link opens Tools without interpreting arbitrary accordion names. */
+export function initialConversationProfileSections(search: string): string[] {
+  return new URLSearchParams(search).get("profile-section") === "tools"
+    ? ["tools"]
+    : ["identity", "context", "response", "actions"];
+}
+
 export function resolveAiKitAdminPage(search: string): AiKitAdminPage {
   const query = new URLSearchParams(search);
   const requestedPage = query.get("section") ?? query.get("aikit-page");

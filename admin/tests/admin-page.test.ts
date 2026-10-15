@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { guardAiKitAdminPage, resolveAiKitAdminPage } from "../src/admin-page.ts";
+import { guardAiKitAdminPage, initialConversationProfileSections, resolveAiKitAdminPage } from "../src/admin-page.ts";
 
 test("opens the Knowledge Base page requested by an admin notice", () => {
   assert.equal(
@@ -42,4 +42,11 @@ test("hydration preserves Pro deep links until configuration resolves", () => {
     assert.equal(guardAiKitAdminPage(page, true, false), "general");
   }
   assert.equal(guardAiKitAdminPage("general", true, false), "general");
+});
+
+test("only an exact tools section deep link changes the initial conversation profile panels", () => {
+  assert.deepEqual(initialConversationProfileSections("?section=conversation-profile&profile-section=tools"), ["tools"]);
+  for (const search of ["", "?profile-section=Tools", "?profile-section[]=tools", "?profile-section=tool", "?profile-section=identity"]) {
+    assert.deepEqual(initialConversationProfileSections(search), ["identity", "context", "response", "actions"]);
+  }
 });

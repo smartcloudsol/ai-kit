@@ -288,6 +288,20 @@ export type OpenButtonPosition =
   | "top-left";
 
 export type AiChatbotLabels = Partial<{
+  catalogPreviousLabel: string;
+  catalogNextLabel: string;
+  catalogResultsLabel: string;
+  catalogOfLabel: string;
+  catalogMoreAvailableLabel: string;
+  catalogExpiredLabel: string;
+  carouselPreviousLabel: string;
+  carouselNextLabel: string;
+  carouselPositionLabel: string;
+  carouselRegionLabel: string;
+  imageEnlargeLabel: string;
+  imageCloseLabel: string;
+  imagePreviewLabel: string;
+  imageUnavailableLabel: string;
   modalTitle: string;
 
   aiDisclosureLabel: string;
@@ -536,8 +550,11 @@ export type PromptAudioInput = {
 
 export interface PromptArgs {
   messages: PromptMessages;
+  /** Explicit visitor consent is independent of model planning. */
+  visitorActionVersion?: 1;
+  visitorAction?: import("./visitor-action").ConfirmedVisitorAction;
   /** Explicit opt-in to the compatible backend display contract. */
-  presentationVersion?: 1 | 2;
+  presentationVersion?: 1 | 2 | 3;
   sharedContext?: string;
 
   outputLanguage?: AiKitLanguageCode;
@@ -577,12 +594,16 @@ export interface PromptArgs {
 
 export interface PromptResult {
   result: string;
+  visitorActions?: import("./visitor-action").VisitorActionProposal[];
+  visitorActionResult?: import("./visitor-action").VisitorActionResult;
   /** Backend-materialized, source-grounded display snapshot; never model HTML. */
   presentation?: import("./answer-presentation").AnswerPresentation;
   sessionId?: string;
   /** Structured Knowledge Base citations returned by grounded chat requests. */
   citations?: ProcessedCitations;
   metadata?: {
+    catalogPage?: import("./catalog-page").CatalogPage;
+    timings?: { totalMs: number; stages: Record<string, { durationMs: number; calls: number }> };
     messageId?: string;
     requestId?: string;
     modelId?: string;
@@ -686,8 +707,13 @@ export interface SearchMessageArgs {
 }
 
 export interface ChatMessageArgs {
+  visitorActionVersion?: 1;
+  visitorAction?: import("./visitor-action").ConfirmedVisitorAction;
+  /** Opt into server-owned, expiring catalog page continuations. */
+  catalogPageVersion?: 1;
+  catalogContinuation?: string;
   /** Negotiated display envelope version; omit for legacy v1 delivery. */
-  presentationVersion?: 1 | 2;
+  presentationVersion?: 1 | 2 | 3;
   sessionId?: string;
   message?: string;
   audio?: Blob;

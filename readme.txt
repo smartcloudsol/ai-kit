@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.8
+Stable tag: 1.6.9
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -19,7 +19,7 @@ Help visitors get answers from your WordPress content, documentation and connect
 * **Site-wide chatbot (Pro):** Add an assistant that visitors can open from any page. Configure its appearance, role, tone, topics and response guidance.
 * **DocSearch (Pro):** Place semantic search in a page or other Gutenberg block area. Show a concise AI summary above a broad set of relevant knowledge sources. DocSearch applies category and tag filters only when the visitor explicitly selects them; it does not silently narrow the search with model-inferred taxonomy filters.
 * **Knowledge content:** Select public posts, pages and supported public custom post types. Configure approval policies and inspect synchronization and backend ingestion separately.
-* **Connected information (Pro):** Extend chatbot answers with shop or service data through administrator-approved, read-only REST and MCP tools. Enable web grounding for selected, allowed HTTPS sources when current information is needed. These integrations require compatible endpoints and backend configuration; installing the plugin does not connect them automatically.
+* **Connected information (Pro):** Extend chatbot answers with shop or service data through administrator-approved, read-only REST and MCP tools. Optional Shopify shipping quotes use a separate, visibly confirmed step that may create a cart but cannot order or pay. Enable web grounding for selected, allowed HTTPS sources when current information is needed. These integrations require compatible endpoints and backend configuration; installing the plugin does not connect them automatically.
 * **Response controls (Pro):** Set evidence and citation requirements, topic boundaries and behavior when evidence is missing. Review answers against your actual content and use cases.
 * **Page summaries (Pro):** Give visitors a convenient way to summarize longer content with the AI-Kit Feature block or shortcode.
 
@@ -73,7 +73,7 @@ Visitor chat and DocSearch need Pro and a compatible backend. Free tools cover s
 The chatbot works towards answering the question, using configured behavior, appropriate knowledge-category filters and approved tools to reduce irrelevant context. DocSearch explores relevant sources broadly and presents them below an AI summary; taxonomy filters apply only when the visitor selects them. Both can use the same indexed site content; external REST/MCP tools and web grounding extend the chatbot's conversations.
 
 = Can it answer questions about my shop or other services? =
-Yes, when you provide suitable content or configure approved read-only REST/MCP integrations on a compatible backend. Shop and service connections are not automatic. External action tools that change data are not enabled by this integration.
+Yes, when you provide suitable content or configure approved read-only REST/MCP integrations on a compatible backend. Shop and service connections are not automatic. Optional Shopify shipping quotes use a separate visitor-confirmed action that may create a cart; ordinary product search never does. This action does not place an order or make a payment, and it does not enable arbitrary external write tools.
 
 = Does a connected WP Suite site mean my backend is ready? =
 No. The backend must be deployed, configured and reachable, with the required authentication. The backend-access check verifies a protected administration request; it does not verify visitor replies, answer quality or completed knowledge ingestion.
@@ -159,6 +159,19 @@ This plugin may integrate with the following external services, depending on con
      - Terms: https://stripe.com/legal/consumer
      - Privacy: https://stripe.com/privacy
 
+6. **Shopify (optional; administrator-configured catalog and shipping quotes, Pro only)**
+   - **What it is & what it is used for:**
+     Read products, supported options, prices and available inventory from the configured merchant. Shipping quotes are separately enabled and require visible visitor confirmation; that action may create a Shopify cart solely to read shipping estimates. It does not order or pay.
+   - **What data is sent & when:**
+     Catalog queries, filters and market context are sent during product searches. Only after the visitor submits the shipping-quote form are the displayed product variants, quantities and supplied delivery address sent through the configured backend to the configured Shopify store. Private Storefront authentication can also require forwarding the trusted visitor IP address. Do not put an address in the ordinary chat message.
+   - **Storage and limitations:**
+     Structured address inputs are not added to model prompts, visible chat history or browser conversation storage. The backend processes confirmed inputs privately and retains a private cart reference for bounded quote retries; Shopify may retain the resulting cart and address according to the merchant's configuration and applicable policies. General card brands or wallets do not prove checkout eligibility; missing delivery dates or payment options remain unknown.
+   - **Configuration and links:**
+     Review the exact merchant domain, Shopify app permissions, runtime credential reference and quote setting in advanced conversation-profile Tools. Installing the plugin does not install an app, grant Shopify permissions or activate a connection.
+     - Terms: https://www.shopify.com/legal/terms
+     - Privacy: https://www.shopify.com/legal/privacy
+     - Also review the configured merchant's terms and privacy policy.
+
 == Trademark Notice ==
 
 Google Chrome and reCAPTCHA are trademarks of Google LLC.  
@@ -183,6 +196,20 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 == Changelog ==
 
 Full release history and detailed upgrade guidance: https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md
+
+= 1.6.9 =
+* Structured sources: Review explicit plain-text, HTML or Markdown formats with a compatible backend. Preserve original values; declared HTML defaults to readable plain text. Separately opt a structured display template into restricted rich-text formatting without enabling links, images or raw HTML.
+* Configure authenticated Shopify Storefront reads for supported product, option, price and inventory filters; report incomplete or unsupported coverage honestly.
+* Request shipping estimates through a separate visible visitor-confirmed form. It may create a cart but never orders or pays; normal catalog searches stay read-only.
+* Browse verified catalog pages with previous/next controls on compatible backends; show a total only when supplied by the source.
+* Keep larger result groups in an accessible carousel and bound Markdown images with a keyboard-accessible enlarged preview.
+* Keep saved Markdown text, images and links in reading order, and align card buttons at the bottom with or without images.
+* Style catalog page navigation, show references below it and hide redundant internal display markers beside verified cards in saved replies.
+* Explain Shopify UCP capabilities in Answers setup and open reviewed advanced connection settings without discarding the setup draft.
+* Configure catalog, carousel and image labels in chatbot settings. Preserve compatibility with backends without pagination support.
+* Resolve card headings, field and action labels, and catalog/carousel navigation through the shared translation catalog in the chatbot UI language. Preserve source values and the answer language.
+* Support JSON-encoded OAuth client-credentials token requests alongside the existing form encoding.
+* Update AI Kit Core to 1.5.24 and UI to 1.5.42; retain Hub 2.6.1.
 
 = 1.6.8 =
 * Review approved structured fields in a searchable, bounded list with one editable details panel.
@@ -230,6 +257,9 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Dependencies: Update AI Kit Core to 1.5.18 and AI Kit UI to 1.5.32.
 
 == Upgrade Notice ==
+
+= 1.6.9 =
+New Storefront, confirmed shipping quotes and text formats need orchestration v1.0.129 or equivalent verified capabilities. Rich text additionally needs an explicit template opt-in. Review Shopify grants, credentials, address privacy, page size and translations; resync changed format mappings. Backend updates and static republishing remain separate.
 
 = 1.6.8 =
 Existing field approvals and mappings are preserved; no new fields are automatically enabled. The separate omitted-search recovery and accurate source-validation activity need orchestration v1.0.125 or equivalent. Backend deployment is not automatic.

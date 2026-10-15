@@ -14,6 +14,7 @@ export interface AnswersSettings {
   backend_configured: boolean;
   can_edit_pages: boolean;
   preview_url: string;
+  advanced_tools_url?: string;
   runtime_refresh_requested?: boolean;
 }
 
@@ -36,6 +37,7 @@ export function validateSettings(value: unknown): AnswersSettings {
     typeof data.backend_configured !== "boolean" ||
     typeof data.can_edit_pages !== "boolean" ||
     typeof data.preview_url !== "string" ||
+    (data.advanced_tools_url !== undefined && typeof data.advanced_tools_url !== "string") ||
     !data.values ||
     typeof data.values.enableChatbot !== "boolean" ||
     [data.values.title, data.values.greeting, data.values.placeholder].some(
@@ -89,6 +91,18 @@ export function safeCitationUrl(url?: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** WordPress supplies the install-aware URL; never infer wp-admin or leave this origin. */
+export function safeAdvancedSettingsUrl(value: string | undefined, currentUrl: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const target = new URL(value);
+    if (!["https:", "http:"].includes(target.protocol) || target.origin !== new URL(currentUrl).origin ||
+      target.username || target.password || target.searchParams.get("section") !== "conversation-profile" ||
+      target.searchParams.get("profile-section") !== "tools") return undefined;
+    return target.href;
+  } catch { return undefined; }
 }
 
 /** Local completion, deliberately independent of remote appearance/backend settings. */

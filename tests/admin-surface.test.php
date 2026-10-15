@@ -77,6 +77,12 @@ check(count($placement['items'][0]['links']) === 2 && !$placement['items'][1]['l
 check(str_contains($placement['items'][2]['description'], 'write, rewrite, proofread, summarize or translate') && str_contains($placement['items'][2]['description'], 'requires Pro and a configured backend'), 'Frontend card states exact supported operations and prerequisites.');
 $permissions = [];
 $answers = AdminSurface::answers();
+$shopifyHelp = array_values(array_filter($answers['help'], static fn(array $topic): bool => $topic['id'] === 'answers-shopify-storefront'));
+check(count($shopifyHelp) === 1, 'Answers exposes one focused Shopify help topic.');
+$shopifyCopy = implode(' ', $shopifyHelp[0]['paragraphs']);
+check(str_contains($shopifyCopy, 'UCP catalog') && str_contains($shopifyCopy, 'Storefront GraphQL'), 'Shopify help distinguishes the existing catalog preset from a complementary Storefront integration.');
+check(str_contains($shopifyCopy, 'secure backend credential references') && str_contains($shopifyCopy, 'Authentication alone does not add'), 'Shopify help explains secure references and does not promise unsupported filters from authentication alone.');
+check(str_contains($shopifyCopy, 'does not install an app') && str_contains($shopifyCopy, 'explicit visitor action') && !isset($shopifyHelp[0]['links']), 'Help is informational, warns against implicit mutations and contains no premature documentation link.');
 check(!$answers['can_edit'] && !$answers['steps'], 'Answers has no invented local chatbot wizard.');
 check(array_column($answers['metrics'], 'value') === [7, 3, 2, 1], 'Counts come from canonical local API responses.');
 check(count($requests) === 2 && $requests[0]->method === 'GET' && $requests[1]->method === 'GET', 'Provider performs only read-only local dispatches.');

@@ -16,6 +16,7 @@ final class KnowledgeSyncStructuredContent
     public const MAX_SCHEMA_NODES = 128;
     public const MAX_VALUE_NODES = 2048;
     private const TYPES = array('string', 'url', 'number', 'boolean', 'string-list', 'object', 'array');
+    private const TEXT_FORMATS = array('plain-text', 'html', 'markdown');
     private const POST_FIELDS = array('featuredImageUrl' => 'url', 'featuredImageAlt' => 'string', 'excerpt' => 'string');
 
     private static function sourceIdentity(array $field): string
@@ -96,6 +97,18 @@ final class KnowledgeSyncStructuredContent
         };
         if ($type === null) { throw new \InvalidArgumentException('Untyped registered structured-content schema.'); }
         $result = array('type' => $type, 'description' => $description);
+        $media_format = match ($schema['contentMediaType'] ?? null) {
+            'text/plain' => 'plain-text', 'text/html' => 'html', 'text/markdown' => 'markdown', default => null,
+        };
+        if (array_key_exists('contentFormat', $schema) && (!in_array($schema['contentFormat'], self::TEXT_FORMATS, true) ||
+            ($media_format !== null && $media_format !== $schema['contentFormat']))) {
+            throw new \InvalidArgumentException('Invalid registered text content format.');
+        }
+        $format = $schema['contentFormat'] ?? $media_format;
+        if ($format !== null) {
+            if ($type !== 'string') { throw new \InvalidArgumentException('Text content format requires a text field.'); }
+            $result['contentFormat'] = $format;
+        }
         if ($type === 'object') {
             if (($schema['additionalProperties'] ?? null) !== false || !is_array($schema['properties'] ?? null) ||
                 count($schema['properties']) > self::MAX_FIELDS) {
@@ -118,7 +131,10 @@ final class KnowledgeSyncStructuredContent
             }
             // Keep existing string arrays on the legacy scalar/string-list contract.
             $child = self::registeredSchema($schema['items'], $name . ' item', $nodes, $depth + 1);
-            if ($child['type'] === 'string') { $result['type'] = 'string-list'; }
+            if ($child['type'] === 'string') {
+                $result['type'] = 'string-list';
+                if (isset($child['contentFormat'])) { $result['contentFormat'] = $child['contentFormat']; }
+            }
             else { $result['items'] = $child; }
         }
         return $result;
@@ -144,12 +160,19 @@ final class KnowledgeSyncStructuredContent
             throw new \InvalidArgumentException('Invalid structured-content field schema.');
         }
         $allowed = array('type', 'description');
+        if (array_key_exists('contentFormat', $schema)) {
+            if (!in_array($schema['type'], array('string', 'string-list'), true) || !in_array($schema['contentFormat'], self::TEXT_FORMATS, true)) {
+                throw new \InvalidArgumentException('Invalid structured-content text format.');
+            }
+            $allowed[] = 'contentFormat';
+        }
         if ($schema['type'] === 'object') { $allowed[] = 'properties'; }
         if ($schema['type'] === 'array') { $allowed[] = 'items'; }
         if (array_diff(array_keys($schema), $allowed) !== array() || array_diff($allowed, array_keys($schema)) !== array()) {
             throw new \InvalidArgumentException('Unexpected structured-content schema properties.');
         }
         $result = array('type' => $schema['type'], 'description' => $schema['description']);
+        if (isset($schema['contentFormat'])) { $result['contentFormat'] = $schema['contentFormat']; }
         if ($schema['type'] === 'object') {
             $properties = array();
             foreach (self::propertyMap($schema['properties']) as $key => $child) {
@@ -193,6 +216,17 @@ final class KnowledgeSyncStructuredContent
         return false;
     }
 
+    public static function requiresTextFormats(array $policy): bool
+    {
+        $visit = static function (array $schema) use (&$visit): bool {
+            if (array_key_exists('contentFormat', $schema)) { return true; }
+            foreach ((array) ($schema['properties'] ?? array()) as $child) { if ($visit($child)) { return true; } }
+            return isset($schema['items']) && $visit($schema['items']);
+        };
+        foreach ($policy['fields'] ?? array() as $field) { if ($visit($field)) { return true; } }
+        return false;
+    }
+
     public static function normalizePolicy(string $post_type, mixed $input, bool $check_registration = false): array
     {
         if (!is_array($input) || array_diff(array_keys($input), array('enabled', 'fields')) !== array() ||
@@ -208,17 +242,20 @@ final class KnowledgeSyncStructuredContent
         $sources = array();
         $schema_nodes = 0;
         foreach ($input['fields'] as $field) {
-            if (!is_array($field) || array_diff(array_keys($field), array('sourceMetaKey', 'sourcePostField', 'targetKey', 'type', 'description', 'properties', 'items')) !== array() ||
+            if (!is_array($field) || array_diff(array_keys($field), array('sourceMetaKey', 'sourcePostField', 'targetKey', 'type', 'description', 'properties', 'items', 'contentFormat')) !== array() ||
                 array_key_exists('sourcePostField', $field) === array_key_exists('sourceMetaKey', $field) || !is_string($field['targetKey'] ?? null) ||
                 !self::targetKeyAllowed($field['targetKey']) || !in_array($field['type'] ?? null, self::TYPES, true) ||
                 !is_string($field['description'] ?? null) || trim($field['description']) === '' || strlen($field['description']) > self::MAX_DESCRIPTION_BYTES ||
                 preg_match('//u', $field['description']) !== 1 || isset($fields[$field['targetKey']])) {
                 throw new \InvalidArgumentException('Invalid or duplicate structured-content field mapping.');
             }
-            $schema = self::normalizeSchema(array_intersect_key($field, array_flip(array('type', 'description', 'properties', 'items'))), $schema_nodes);
+            $schema = self::normalizeSchema(array_intersect_key($field, array_flip(array('type', 'description', 'properties', 'items', 'contentFormat'))), $schema_nodes);
             if (array_key_exists('sourcePostField', $field)) {
                 if (!is_string($field['sourcePostField']) || !isset(self::POST_FIELDS[$field['sourcePostField']]) || self::POST_FIELDS[$field['sourcePostField']] !== $field['type']) {
                     throw new \InvalidArgumentException('Invalid native post-field mapping.');
+                }
+                if (isset($schema['contentFormat']) && $schema['contentFormat'] !== 'plain-text') {
+                    throw new \InvalidArgumentException('Native text fields are plain text.');
                 }
             } elseif (!is_string($field['sourceMetaKey']) || preg_match('/^[A-Za-z0-9_-]{1,191}$/D', $field['sourceMetaKey']) !== 1 || in_array($field['sourceMetaKey'], array('__proto__', 'constructor', 'prototype'), true)) {
                 throw new \InvalidArgumentException('Invalid source metadata key.');
@@ -248,7 +285,7 @@ final class KnowledgeSyncStructuredContent
         foreach ($next['fields'] as $field) {
             $old = $existing[$field['targetKey']] ?? null;
             if ($old === null) { return false; }
-            foreach (array('sourceMetaKey', 'sourcePostField', 'targetKey', 'type', 'description', 'properties', 'items') as $key) {
+            foreach (array('sourceMetaKey', 'sourcePostField', 'targetKey', 'type', 'description', 'properties', 'items', 'contentFormat') as $key) {
                 if (($old[$key] ?? null) !== ($field[$key] ?? null)) { return false; }
             }
         }
@@ -263,11 +300,12 @@ final class KnowledgeSyncStructuredContent
         }
         $fields = array();
         $schema = array();
-        $nested = $policy['enabled'] && self::requiresDocumentV2($policy);
+        $formatted = $policy['enabled'] && self::requiresTextFormats($policy);
+        $nested = $policy['enabled'] && (self::requiresDocumentV2($policy) || $formatted);
         $value_nodes = 0;
         if ($policy['enabled']) {
             foreach ($policy['fields'] as $field) {
-                $selected_schema = array_intersect_key($field, array_flip(array('type', 'description', 'properties', 'items')));
+                $selected_schema = array_intersect_key($field, array_flip(array('type', 'description', 'properties', 'items', 'contentFormat')));
                 $schema[$field['targetKey']] = self::wireSchema($selected_schema);
                 if (isset($field['sourcePostField'])) {
                     $value = self::nativeValue($post_id, $field['sourcePostField']);
@@ -286,7 +324,7 @@ final class KnowledgeSyncStructuredContent
         if ($nested && $value_nodes > self::MAX_VALUE_NODES) {
             throw new KnowledgeSyncProjectionException('structured_content_value_invalid', 'Structured-content values exceed their structural bounds.');
         }
-        $payload = array('schemaVersion' => $nested ? 2 : 1, 'enabled' => $policy['enabled'], 'fields' => (object) $fields, 'fieldSchema' => (object) $schema);
+        $payload = array('schemaVersion' => $formatted ? 3 : ($nested ? 2 : 1), 'enabled' => $policy['enabled'], 'fields' => (object) $fields, 'fieldSchema' => (object) $schema);
         $encoded = wp_json_encode(array('fields' => $payload['fields'], 'fieldSchema' => $payload['fieldSchema']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if (!is_string($encoded) || strlen($encoded) > ($nested ? self::MAX_DOCUMENT_BYTES : self::MAX_PAYLOAD_BYTES)) {
             throw new KnowledgeSyncProjectionException('structured_content_too_large', 'Structured-content field payload exceeds its byte budget.');

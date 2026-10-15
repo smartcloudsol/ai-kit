@@ -9,6 +9,8 @@ export * from "./ai-disclosures";
 export * from "./knowledge-sync";
 export * from "./structured-content";
 export * from "./answer-presentation";
+export * from "./catalog-page";
+export * from "./visitor-action";
 export * from "./backend-compatibility";
 export * from "./chat-stream-types";
 export declare const LANGUAGE_OPTIONS: {

@@ -1,12 +1,15 @@
 /** Transport-free, opt-in own-field contracts. Identity and release data are not own fields. */
 export const STRUCTURED_CONTENT_SCHEMA_VERSION = 1 as const;
 export const STRUCTURED_CONTENT_DOCUMENT_SCHEMA_VERSION = 2 as const;
+export const STRUCTURED_CONTENT_TEXT_FORMAT_SCHEMA_VERSION = 3 as const;
 export const STRUCTURED_CONTENT_LIMITS = { fields: 32, stringBytes: 4096, listItems: 64, payloadBytes: 8192, descriptionBytes: 512, documentBytes: 65536, depth: 8, schemaNodes: 128, valueNodes: 2048 } as const;
 export type StructuredContentScalarFieldType = "string" | "url" | "number" | "boolean" | "string-list";
 export type StructuredContentFieldType = StructuredContentScalarFieldType | "object" | "array";
+export type StructuredContentTextFormat = "plain-text" | "html" | "markdown";
 export type StructuredContentValue = string | number | boolean | StructuredContentValue[] | { [key: string]: StructuredContentValue };
 export type StructuredContentFieldSchema =
-  | { type: StructuredContentScalarFieldType; description: string }
+  | { type: "string" | "string-list"; description: string; contentFormat?: StructuredContentTextFormat }
+  | { type: Exclude<StructuredContentScalarFieldType, "string" | "string-list">; description: string }
   | { type: "object"; description: string; properties: Record<string, StructuredContentFieldSchema> }
   | { type: "array"; description: string; items: StructuredContentFieldSchema };
 export type StructuredContentPostField = "featuredImageUrl" | "featuredImageAlt" | "excerpt";
@@ -16,7 +19,7 @@ export type StructuredContentFieldSource =
 export type StructuredContentFieldMapping = StructuredContentFieldSchema & StructuredContentFieldSource & { targetKey: string };
 export interface StructuredContentPolicy { enabled: boolean; fields: StructuredContentFieldMapping[] }
 export interface StructuredContentProjection {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   enabled: boolean;
   fields: Record<string, StructuredContentValue>;
   fieldSchema: Record<string, StructuredContentFieldSchema>;
@@ -54,7 +57,7 @@ function fieldType(value: unknown, field: string): StructuredContentFieldType {
 function targetKey(key: string, field: string): void {
   if (!isStructuredContentTargetKey(key)) reject(field, "Invalid or reserved target key.");
 }
-type ParseBudget = { schemaNodes: number; valueNodes: number; nested: boolean };
+type ParseBudget = { schemaNodes: number; valueNodes: number; nested: boolean; textFormats: boolean };
 function nestedKey(key: string, path: string): void {
   if (!/^[a-z][a-z0-9_]{0,63}$/.test(key) || ["constructor", "prototype", "__proto__"].includes(key)) reject(path, "Invalid nested property name.");
 }
@@ -86,12 +89,16 @@ function parseSchema(value: unknown, path: string, budget: ParseBudget, depth = 
     keys(schema, ["type", "description", "items"], path);
     return { type, description: text, items: parseSchema(schema.items, `${path}[]`, budget, depth + 1) };
   }
-  keys(schema, ["type", "description"], path);
+  keys(schema, ["type", "description", ...(budget.textFormats && ["string", "string-list"].includes(type) ? ["contentFormat"] : [])], path);
+  if (Object.hasOwn(schema, "contentFormat")) {
+    if (!["plain-text", "html", "markdown"].includes(schema.contentFormat as string)) reject(path, "Unsupported text content format.");
+    return { type: type as "string" | "string-list", description: text, contentFormat: schema.contentFormat as StructuredContentTextFormat };
+  }
   return { type, description: text };
 }
 /** Schema-only helper for editors; never reads or authorizes source values. */
 export function parseStructuredContentFieldSchema(value: unknown): StructuredContentFieldSchema {
-  return parseSchema(value, "fieldSchema", { schemaNodes: 0, valueNodes: 0, nested: true });
+  return parseSchema(value, "fieldSchema", { schemaNodes: 0, valueNodes: 0, nested: true, textFormats: true });
 }
 export function parseStructuredContentPolicy(value: unknown): StructuredContentPolicy {
   const policy = object(value, "structuredContent");
@@ -101,11 +108,11 @@ export function parseStructuredContentPolicy(value: unknown): StructuredContentP
   if (rawFields.length > STRUCTURED_CONTENT_LIMITS.fields) reject("structuredContent.fields", "Too many fields.");
   const targets = new Set<string>();
   const sources = new Set<string>();
-  const budget: ParseBudget = { schemaNodes: 0, valueNodes: 0, nested: true };
+  const budget: ParseBudget = { schemaNodes: 0, valueNodes: 0, nested: true, textFormats: true };
   const fields: StructuredContentFieldMapping[] = rawFields.map((raw, index) => {
     const path = `structuredContent.fields[${index}]`;
     const field = object(raw, path);
-    keys(field, ["sourceMetaKey", "sourcePostField", "targetKey", "type", "description", "properties", "items"], path);
+    keys(field, ["sourceMetaKey", "sourcePostField", "targetKey", "type", "description", "properties", "items", "contentFormat"], path);
     const native = Object.hasOwn(field, "sourcePostField");
     if (native === Object.hasOwn(field, "sourceMetaKey")) reject(path, "Select exactly one field source.");
     const type = fieldType(field.type, path);
@@ -115,6 +122,7 @@ export function parseStructuredContentPolicy(value: unknown): StructuredContentP
       if (!["featuredImageUrl", "featuredImageAlt", "excerpt"].includes(field.sourcePostField as string)) reject(`${path}.sourcePostField`, "Unsupported native post field.");
       const sourcePostField = field.sourcePostField as StructuredContentPostField;
       if (type !== (sourcePostField === "featuredImageUrl" ? "url" : "string")) reject(`${path}.type`, "Native field type cannot be changed.");
+      if (Object.hasOwn(field, "contentFormat") && (type !== "string" || field.contentFormat !== "plain-text")) reject(`${path}.contentFormat`, "Native text fields are plain text.");
       source = { sourcePostField };
       sourceIdentity = `post:${sourcePostField}`;
     } else {
@@ -126,7 +134,7 @@ export function parseStructuredContentPolicy(value: unknown): StructuredContentP
     targetKey(field.targetKey, path);
     if (targets.has(field.targetKey) || sources.has(sourceIdentity)) reject(path, "Duplicate field mapping.");
     targets.add(field.targetKey); sources.add(sourceIdentity);
-    const schema = parseSchema(Object.fromEntries(Object.entries(field).filter(([key]) => ["type", "description", "properties", "items"].includes(key))), path, budget);
+    const schema = parseSchema(Object.fromEntries(Object.entries(field).filter(([key]) => ["type", "description", "properties", "items", "contentFormat"].includes(key))), path, budget);
     return { ...source, targetKey: field.targetKey, ...schema } as StructuredContentFieldMapping;
   }).sort((a, b) => a.targetKey < b.targetKey ? -1 : a.targetKey > b.targetKey ? 1 : 0);
   return { enabled: policy.enabled, fields };
@@ -170,13 +178,13 @@ function parseValue(value: unknown, schema: StructuredContentFieldSchema, path: 
 export function parseStructuredContentProjection(value: unknown): StructuredContentProjection {
   const projection = object(value, "structuredContent");
   keys(projection, ["schemaVersion", "enabled", "fields", "fieldSchema"], "structuredContent");
-  if (![1, 2].includes(projection.schemaVersion as number) || typeof projection.enabled !== "boolean") reject("structuredContent", "Unsupported schema or invalid enabled flag.");
+  if (![1, 2, 3].includes(projection.schemaVersion as number) || typeof projection.enabled !== "boolean") reject("structuredContent", "Unsupported schema or invalid enabled flag.");
   const rawFields = object(projection.fields, "structuredContent.fields");
   const rawSchema = object(projection.fieldSchema, "structuredContent.fieldSchema");
   if (Object.keys(rawSchema).length > STRUCTURED_CONTENT_LIMITS.fields || (!projection.enabled && (Object.keys(rawFields).length || Object.keys(rawSchema).length))) reject("structuredContent", "Disabled projections must revoke every field and schema.");
   const fieldSchema: Record<string, StructuredContentFieldSchema> = {};
   const fields: Record<string, StructuredContentValue> = {};
-  const budget: ParseBudget = { schemaNodes: 0, valueNodes: 0, nested: projection.schemaVersion === 2 };
+  const budget: ParseBudget = { schemaNodes: 0, valueNodes: 0, nested: projection.schemaVersion !== 1, textFormats: projection.schemaVersion === 3 };
   for (const key of Object.keys(rawSchema).sort()) {
     targetKey(key, `structuredContent.fieldSchema.${key}`);
     fieldSchema[key] = parseSchema(rawSchema[key], `structuredContent.fieldSchema.${key}`, budget);
@@ -188,5 +196,5 @@ export function parseStructuredContentProjection(value: unknown): StructuredCont
   }
   const maximum = projection.schemaVersion === 1 ? STRUCTURED_CONTENT_LIMITS.payloadBytes : STRUCTURED_CONTENT_LIMITS.documentBytes;
   if (encoder.encode(JSON.stringify({ fields, fieldSchema })).length > maximum) reject("structuredContent", "Structured fields and schema exceed the byte budget.");
-  return { schemaVersion: projection.schemaVersion as 1 | 2, enabled: projection.enabled, fields, fieldSchema };
+  return { schemaVersion: projection.schemaVersion as 1 | 2 | 3, enabled: projection.enabled, fields, fieldSchema };
 }

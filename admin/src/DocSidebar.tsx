@@ -1,4 +1,4 @@
-import { Code, Drawer, List, Stack, Text, Title } from "@mantine/core";
+import { Anchor, Code, Drawer, List, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useRef, type ReactNode } from "react";
 import type { AiKitAdminPage } from "./admin-page";
 import classes from "./main.module.css";
@@ -659,6 +659,43 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         item, and the intended visitor language against the source service.
       </Text>
 
+      <Title order={3} mt="md" id="conversation-profile-shopify-storefront">
+        <span className="highlightable">Shopify catalog and advanced data</span>
+      </Title>
+      <Text>
+        Guided setup connects the Shopify UCP catalog. For complementary
+        product search, details and shop capabilities, choose the separate
+        <Code> shopify-storefront </Code> REST adapter in detailed Tools settings.
+        It is not an MCP server. A compatible backend and installed Shopify app
+        with approved Storefront access are required.
+      </Text>
+      <Text mt="xs">
+        Expand a tool, enter its original <Code>myshopify.com</Code> domain,
+        choose one fixed read operation and provide an app-owned SSM parameter
+        reference, never a token. Market, language and shipping consent are
+        separate optional sections. The backend owns the GraphQL request.
+        Changes remain in the draft until <strong>Save profile</strong>.
+      </Text>
+      <Text mt="xs">
+        Availability does not prove an exact stock count; missing quantity and
+        ratings remain unknown. Combined conditions must match the same variant.
+        Native filters require Shopify filter configuration. Check published
+        products, markets and translations in the shop; a connection does not
+        guarantee fulfillment, shipping dates or payment methods.
+      </Text>
+      <Text mt="xs">
+        Shipping quotes are off by default and require approved Storefront scopes
+        <Code> unauthenticated_read_checkouts </Code> and
+        <Code> unauthenticated_write_checkouts</Code>. The visitor reviews the
+        selected items and delivery details before explicitly confirming a
+        temporary quote cart. No order or payment is made. Missing rates and
+        pending calculations remain explicit, not delivery promises.
+      </Text>
+      <Text mt="xs">
+        Opening settings does not install an app, grant scopes or save changes.
+        See the <Anchor href="https://wpsuite.io/docs/ai-kit/answers-setup" target="_blank" rel="noopener noreferrer">general Answers setup guide</Anchor> for the existing onboarding overview.
+      </Text>
+
       <Title order={3} mt="md" id="conversation-profile-product-pages">
         <span className="highlightable">Product pages on your website</span>
       </Title>
@@ -748,9 +785,10 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         <span className="highlightable">Catalog answers and future cart actions</span>
       </Title>
       <Text>
-        The catalog connection currently supplies read-only evidence for
-        replies and references. It does not install product cards, a carousel,
-        a shopping cart, or checkout actions. A site&apos;s commerce plugin and
+        The catalog connection supplies read-only evidence for replies and
+        references. Approved display templates can render verified products as
+        cards or a carousel; they do not enable a shopping cart or checkout
+        actions. A site&apos;s commerce plugin and
         an MCP or UCP cart do not automatically share a cart or visitor session.
         Any future cart integration needs a supported driver and an explicit
         visitor action; the assistant must not claim a cart change succeeded

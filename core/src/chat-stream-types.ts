@@ -37,8 +37,12 @@ export type ChatStreamClientCommand =
   | {
       version: typeof CHAT_STREAM_PROTOCOL_VERSION;
       type: "turn.start";
+      visitorActionVersion?: 1;
+      visitorAction?: import("./visitor-action").ConfirmedVisitorAction;
+      catalogPageVersion?: 1;
+      catalogContinuation?: string;
       /** Opt in to sequenced presentation events; old clients omit this. */
-      presentationVersion?: 1 | 2;
+      presentationVersion?: 1 | 2 | 3;
       requestId: string;
       conversationId?: string;
       locale?: string;
@@ -54,8 +58,10 @@ export type ChatStreamClientCommand =
   | {
       version: typeof CHAT_STREAM_PROTOCOL_VERSION;
       type: "turn.resume";
+      /** Re-negotiate display support only; confirmations are new turns, never replayed. */
+      visitorActionVersion?: 1;
       /** Declare support independently on reconnect, including another client. */
-      presentationVersion?: 1 | 2;
+      presentationVersion?: 1 | 2 | 3;
       requestId: string;
       conversationId: string;
       turnId: string;
@@ -115,6 +121,8 @@ export type ChatStreamServerEvent =
         messageId: string;
         result: string;
         presentation?: PromptResult["presentation"];
+        visitorActions?: PromptResult["visitorActions"];
+        visitorActionResult?: PromptResult["visitorActionResult"];
         citations?: ProcessedCitations;
         activities?: ChatStreamActivity[];
         completion: "complete" | "partial" | "truncated";
@@ -140,6 +148,8 @@ export type ChatStreamServerEvent =
         active: boolean;
         result?: string;
         presentation?: PromptResult["presentation"];
+        visitorActions?: PromptResult["visitorActions"];
+        visitorActionResult?: PromptResult["visitorActionResult"];
         citations?: ProcessedCitations;
         activities: ChatStreamActivity[];
       }

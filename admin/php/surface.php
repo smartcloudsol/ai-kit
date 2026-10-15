@@ -100,6 +100,11 @@ final class AdminSurface
             'answers-test' => array(__('Test Answers privately', 'smartcloud-ai-kit'), __('An explicit admin question tests the saved configuration.', 'smartcloud-ai-kit'), __('Testing does not enable the public assistant. It invokes the current production backend with admin authentication, can incur usage costs and stores a backend chat session. A result without citations is not evidence of a grounded knowledge answer.', 'smartcloud-ai-kit')),
             'answers-docsearch' => array(__('Answers on a page', 'smartcloud-ai-kit'), __('DocSearch is separate from the floating assistant.', 'smartcloud-ai-kit'), __('Add AI-Kit Doc Search in the page editor. The block searches the same knowledge base and requires the existing Pro runtime and backend. No content is created or published automatically.', 'smartcloud-ai-kit')),
         );
+        $topics['answers-shopify-storefront'] = array(
+            __('Shopify catalog and advanced data', 'smartcloud-ai-kit'),
+            __('Keep guided catalog setup separate from advanced Shopify integrations.', 'smartcloud-ai-kit'),
+            __('The shopify-storefront-catalog preset connects the Shopify UCP catalog, not a complementary Storefront GraphQL inventory or fulfillment integration. Use the original myshopify.com shop domain and check product visibility, selling markets and published translations in Shopify. Finish and save setup before opening detailed Tools settings in a new tab. Review schemas, provider presets and supported authentication there; use secure backend credential references, never secret values in the wizard. Authentication alone does not add exact stock quantities, ratings, delivery deadlines, shipping methods or payment-method filters. These require a separately supported integration, appropriate Shopify permissions and applicable visitor or order context; missing data remains unknown. Opening help or settings does not install an app, grant scopes, save settings or change the shop. Cart and checkout mutations require a separately supported integration and an explicit visitor action.', 'smartcloud-ai-kit')
+        );
         $help = array();
         foreach ($topics as $id => $topic) { $help[] = array('id' => $id, 'title' => $topic[0], 'summary' => $topic[1], 'paragraphs' => array($topic[2])); }
         return $help;

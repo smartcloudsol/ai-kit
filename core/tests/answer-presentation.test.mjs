@@ -17,6 +17,22 @@ function template(overrides = {}) {
 function envelope(entity) { return { schemaVersion: 1, groups: [{ templateId: "product", templateRevision: 1, layout: "cards", entities: [entity] }] }; }
 function entity() { return contract.materializeAnswerEntity(template(), { id: "42", title: "Source title", price: 0, available: false, publicUrl: "https://example.org/products/42?variant=1", media: [{ url: "https://images.example.org/42.webp" }] }, provenance, "entity-42"); }
 
+test("display text projection cannot rewrite identities, money, statuses, media or navigation", () => {
+  const t = template();
+  t.bindings.description = "/description";
+  t.attributes.push({ id: "text", label: "Text", type: "string", pointer: "/text" }, { id: "list", label: "List", type: "string-list", pointer: "/list" });
+  const input = { id: "42", title: "Source title", description: "<p>Source description</p>", text: "<b>Text</b>", list: ["<i>One</i>"], price: 0, available: false, publicUrl: "https://example.org/products/42?variant=1", media: [{ url: "https://images.example.org/42.webp" }] };
+  const before = structuredClone(input);
+  const calls = [];
+  const actual = contract.materializeAnswerEntity(t, input, provenance, "entity-42", (value, pointer) => { calls.push([value, pointer]); return "Projected text"; });
+  const ordinary = contract.materializeAnswerEntity(t, input, provenance, "entity-42");
+  assert.deepEqual(input, before);
+  assert.deepEqual(calls.map(([, pointer]) => pointer), ["/description", "/text", "/list"]);
+  assert.equal(actual.description, "Projected text");
+  assert.deepEqual(actual.attributes.filter(a => a.type !== "string" && a.type !== "string-list"), ordinary.attributes.filter(a => a.type !== "string" && a.type !== "string-list"));
+  for (const key of ["title", "entityId", "image", "links", "provenance"]) assert.deepEqual(actual[key], ordinary[key]);
+});
+
 test("one declarative contract accepts own content, REST and MCP, but no code/action", () => {
   for (const source of [{ kind: "structured_content", postTypes: ["service"] }, { kind: "external_rest", toolId: "catalog" }, { kind: "external_mcp", serverId: "catalog", toolName: "search_catalog" }]) {
     const policy = { schemaVersion: 1, enabled: true, templates: [template({ source })] };
@@ -54,7 +70,7 @@ test("URL allowlists enforce host/path boundaries and deny unsafe schemes/creden
 });
 test("untrusted/future/history envelopes fail closed independently of text", () => {
   const good = envelope(entity());
-  for (const bad of [{ ...good, schemaVersion: 3 }, { ...good, html: "<div>" }, { ...good, groups: Array(3).fill(good.groups[0]) }, envelope({ ...entity(), links: [{ id: "x", label: "x", url: "javascript:alert(1)" }] }), envelope({ ...entity(), provenance: { ...provenance, checkedAt: "yesterday" } }), envelope({ ...entity(), attributes: [{ id: "x", label: "x", type: "number", value: "1" }] }), envelope({ ...entity(), description: "x".repeat(801) })]) assert.equal(contract.parseAnswerPresentation(bad), undefined);
+  for (const bad of [{ ...good, schemaVersion: 4 }, { ...good, html: "<div>" }, { ...good, groups: Array(3).fill(good.groups[0]) }, envelope({ ...entity(), links: [{ id: "x", label: "x", url: "javascript:alert(1)" }] }), envelope({ ...entity(), provenance: { ...provenance, checkedAt: "yesterday" } }), envelope({ ...entity(), attributes: [{ id: "x", label: "x", type: "number", value: "1" }] }), envelope({ ...entity(), description: "x".repeat(801) })]) assert.equal(contract.parseAnswerPresentation(bad), undefined);
   const duplicate = { ...good, groups: [{ ...good.groups[0], entities: [entity(), entity()] }] };
   assert.equal(contract.parseAnswerPresentation(duplicate), undefined);
   assert.equal(contract.parseAnswerPresentation(undefined), undefined);
@@ -80,6 +96,123 @@ function typedEntity(input = {}, t = typedTemplate()) {
   return contract.materializeAnswerEntity(t, { id: "42", title: "Verified catalog item", amount: 94995, currency: "HUF", scale: 2, available: true, publicUrl: "https://example.org/products/42", ...input }, provenance, "entity-42");
 }
 function typedEnvelope(e = typedEntity()) { return { schemaVersion: 2, locale: "hu-HU", groups: [{ templateId: "product", templateRevision: 1, layout: "comparison", preset: "comparison", entities: [e] }] }; }
+
+function markdownTemplate(overrides = {}) {
+  return template({ source: { kind: "structured_content", postTypes: ["service"] }, textDisplay: "markdown",
+    attributes: [{ id: "text", label: "Text", type: "string", pointer: "/text" },
+      { id: "notes", label: "Notes", type: "string-list", pointer: "/notes" }], ...overrides });
+}
+function markdownEnvelope() {
+  const original = { id: "42", title: "Exact title", description: "Description", text: "Source", notes: ["First", "Second"] };
+  const value = contract.materializeAnswerEntity(markdownTemplate(), original, provenance, "entity-42", value => value,
+    value => `**${value}**`);
+  return { schemaVersion: 3, locale: "en-US", groups: [{ templateId: "product", templateRevision: 1, layout: "cards", entities: [value] }] };
+}
+
+test("policy4 explicitly opts structured templates into Markdown, never older policies or external sources", () => {
+  for (const textDisplay of ["plain-text", "markdown"]) {
+    const policy = { schemaVersion: 4, enabled: true, templates: [markdownTemplate({ textDisplay })] };
+    assert.deepEqual(contract.parseAnswerPresentationPolicy(policy), policy);
+    for (const schemaVersion of [1, 2, 3]) assert.throws(() => contract.parseAnswerPresentationPolicy({ ...policy, schemaVersion }));
+  }
+  for (const textDisplay of [undefined, "html", "Markdown", null, true]) {
+    assert.throws(() => contract.parseAnswerPresentationPolicy({ schemaVersion: 4, enabled: true, templates: [markdownTemplate({ textDisplay })] }));
+  }
+  for (const source of [{ kind: "external_rest", toolId: "catalog" }, { kind: "external_mcp", serverId: "shop", toolName: "search" }]) {
+    assert.throws(() => contract.parseAnswerPresentationPolicy({ schemaVersion: 4, enabled: true, templates: [markdownTemplate({ source })] }));
+  }
+});
+
+test("Markdown callback augments approved text only and retains unchanged plain fallbacks", () => {
+  const t = markdownTemplate();
+  t.attributes.push({ id: "price", label: "Price", pointer: "/amount", type: "string", role: "price" },
+    { id: "order", label: "Order", pointer: "/available", type: "boolean" });
+  const item = { id: "42", title: "Exact title", description: "Description", text: "Source", notes: ["First", "Second"], amount: "10.00 EUR", available: false,
+    publicUrl: "https://example.org/products/42", media: [{ url: "https://images.example.org/42.webp" }] };
+  const before = structuredClone(item), calls = [];
+  const result = contract.materializeAnswerEntity(t, item, provenance, "entity-42", value => value,
+    (value, pointer) => { calls.push(pointer); return `**${value}**`; });
+  assert.deepEqual(calls, ["/description", "/text", "/notes", "/notes"]);
+  assert.deepEqual(item, before);
+  assert.equal(result.description, "Description"); assert.equal(result.descriptionMarkdown, "**Description**");
+  assert.deepEqual(result.attributes.map(a => a.value), ["Source", ["First", "Second"], "10.00 EUR", false]);
+  assert.deepEqual(result.attributes.map(a => a.markdown), ["**Source**", ["**First**", "**Second**"], undefined, undefined]);
+  for (const key of ["title", "entityId", "image", "links", "provenance"]) {
+    assert.deepEqual(result[key], contract.materializeAnswerEntity(t, item, provenance, "entity-42")[key]);
+  }
+});
+
+test("Markdown metadata is absent without opt-in, a trusted callback, or a bounded conversion", () => {
+  const item = { id: "42", title: "Exact title", description: "**Literal**", text: "<p>Literal</p>", notes: ["**Literal**"] };
+  for (const t of [markdownTemplate({ textDisplay: undefined }), markdownTemplate({ textDisplay: "plain-text" }),
+    markdownTemplate({ source: { kind: "external_rest", toolId: "catalog" } })]) {
+    let calls = 0;
+    const result = contract.materializeAnswerEntity(t, item, provenance, "entity-42", value => value, () => { calls++; return "**Unexpected**"; });
+    assert.equal(calls, 0); assert.equal(result.descriptionMarkdown, undefined);
+    assert.ok(result.attributes.every(a => a.markdown === undefined));
+  }
+  for (const callback of [undefined, () => undefined, () => { throw new Error("Conversion failed"); }, () => "x".repeat(4001)]) {
+    const result = contract.materializeAnswerEntity(markdownTemplate(), item, provenance, "entity-42", value => value, callback);
+    assert.equal(result.description, item.description); assert.equal(result.descriptionMarkdown, undefined);
+    assert.ok(result.attributes.every(a => a.markdown === undefined));
+  }
+  const empty = contract.materializeAnswerEntity(markdownTemplate(), { ...item, notes: [] }, provenance, "entity-42");
+  assert.ok(empty.attributes.every(a => a.markdown === undefined));
+});
+
+test("wire3 validates Markdown shapes and bounds and earlier wire versions reject metadata", () => {
+  const good = markdownEnvelope();
+  assert.deepEqual(contract.parseAnswerPresentation(good), good);
+  for (const schemaVersion of [1, 2]) assert.equal(contract.parseAnswerPresentation({ ...good, schemaVersion }), undefined);
+  for (const patch of [{ type: "string", value: "Plain", markdown: ["**Wrong shape**"] },
+    { type: "string-list", value: ["Plain"], markdown: "**Wrong shape**" },
+    { type: "string-list", value: ["First", "Second"], markdown: ["**First**"] },
+    { type: "number", value: 12, markdown: "**12**" }, { type: "boolean", value: false, markdown: "**false**" },
+    { type: "string", value: "Plain", role: "price", markdown: "**Price**" },
+    { type: "string", value: "Plain", markdown: undefined }, { type: "string", value: "Plain", markdown: "x".repeat(2001) }]) {
+    const bad = structuredClone(good);
+    bad.groups[0].entities[0].attributes = [{ id: "detail", label: "Detail", ...patch }];
+    assert.equal(contract.parseAnswerPresentation(bad), undefined);
+  }
+  for (const patch of [{ description: undefined }, { descriptionMarkdown: undefined }, { descriptionMarkdown: "x".repeat(4001) }]) {
+    const bad = structuredClone(good); Object.assign(bad.groups[0].entities[0], patch);
+    assert.equal(contract.parseAnswerPresentation(bad), undefined);
+  }
+});
+
+test("wire3 downgrades strip only Markdown metadata before the existing typed legacy adaptation", () => {
+  const canonical = markdownEnvelope();
+  const before = structuredClone(canonical);
+  assert.deepEqual(contract.answerPresentationForVersion(canonical, 3), canonical);
+  for (const version of [1, 2]) {
+    const result = contract.answerPresentationForVersion(canonical, version);
+    assert.equal(result.schemaVersion, version);
+    assert.equal(result.groups[0].entities[0].description, "Description");
+    assert.equal(result.groups[0].entities[0].descriptionMarkdown, undefined);
+    assert.deepEqual(result.groups[0].entities[0].attributes.map(a => a.value), ["Source", ["First", "Second"]]);
+    assert.ok(result.groups[0].entities[0].attributes.every(a => a.markdown === undefined));
+  }
+  assert.deepEqual(canonical, before);
+  const typed = { ...typedEnvelope(), schemaVersion: 3 };
+  assert.deepEqual(contract.answerPresentationForVersion(typed, 1), contract.answerPresentationForVersion(typedEnvelope(), 1));
+});
+
+test("wire and policy parsers reject accessor, hidden, symbolic, inherited, sparse and cyclic metadata without hooks", () => {
+  let calls = 0;
+  const good = markdownEnvelope();
+  const accessor = structuredClone(good);
+  Object.defineProperty(accessor.groups[0].entities[0], "descriptionMarkdown", { enumerable: true, get() { calls++; return "**Hidden**"; } });
+  const hidden = structuredClone(good);
+  Object.defineProperty(hidden.groups[0].entities[0], "descriptionMarkdown", { value: "**Hidden**", enumerable: false });
+  const inherited = structuredClone(good); Object.setPrototypeOf(inherited.groups[0].entities[0], { dangerous: true });
+  const symbolic = structuredClone(good); symbolic[Symbol("hidden")] = "Hidden";
+  const sparse = structuredClone(good); delete sparse.groups[0].entities[0].attributes[0];
+  const cyclic = structuredClone(good); cyclic.groups.push(cyclic);
+  for (const value of [accessor, hidden, inherited, symbolic, sparse, cyclic]) assert.equal(contract.parseAnswerPresentation(value), undefined);
+  const policy = { schemaVersion: 4, enabled: true, templates: [markdownTemplate()] };
+  Object.defineProperty(policy.templates[0], "textDisplay", { enumerable: true, get() { calls++; return "markdown"; } });
+  assert.throws(() => contract.parseAnswerPresentationPolicy(policy)); assert.equal(calls, 0);
+});
 
 test("v3 navigation uses fixed approved destinations and exact opaque source identifiers", () => {
   const link = { id: "continue", label: "Continue", appearance: "primary", allowedUrlPrefixes: ["https://booking.example.org/clinic"],
@@ -149,7 +282,7 @@ test("v2 presets and typed mapping remain provider independent and v1 remains st
   }
   assert.deepEqual(contract.parseAnswerPresentation(typedEnvelope()), typedEnvelope());
   assert.equal(contract.parseAnswerPresentation({ ...typedEnvelope(), schemaVersion: 1 }), undefined);
-  assert.equal(contract.parseAnswerPresentation({ ...typedEnvelope(), schemaVersion: 3 }), undefined);
+  assert.equal(contract.parseAnswerPresentation({ ...typedEnvelope(), schemaVersion: 4 }), undefined);
 });
 
 test("typed money preserves declared units, currency and exact decimals through localization", () => {

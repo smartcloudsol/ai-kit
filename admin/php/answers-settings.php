@@ -78,14 +78,20 @@ final class AnswersSettings
         $values['brandColor'] = is_string($colors[$chatbot['primaryColor'] ?? ''] ?? null) ? $colors[$chatbot['primaryColor']] : '';
         return array('connected' => true, 'revision' => self::revision($data, $connection), 'values' => $values,
             'plan' => is_string($data['subscriptionType'] ?? null) ? $data['subscriptionType'] : '',
-            'backend_configured' => !empty($config['backendApiName']) || !empty($config['backendBaseUrl']), 'can_edit_pages' => current_user_can('edit_pages'), 'preview_url' => home_url('/'));  
+            'backend_configured' => !empty($config['backendApiName']) || !empty($config['backendBaseUrl']), 'can_edit_pages' => current_user_can('edit_pages'), 'preview_url' => home_url('/'),
+            'advanced_tools_url' => self::advancedToolsUrl());
+    }
+
+    private static function advancedToolsUrl(): string
+    {
+        return admin_url('admin.php?page=' . SMARTCLOUD_AI_KIT_SLUG . '&section=conversation-profile&profile-section=tools#conversation-profile-tools-settings');
     }
 
     public static function read(): array|\WP_Error
     {
         $permission = self::permission(); if (is_wp_error($permission)) { return $permission; }
         $connection = self::connection();
-        if (is_wp_error($connection)) { return array('connected' => false, 'revision' => '', 'plan' => '', 'backend_configured' => false, 'can_edit_pages' => current_user_can('edit_pages'), 'preview_url' => home_url('/'), 'values' => array('enableChatbot' => false, 'title' => '', 'greeting' => '', 'placeholder' => '')); }
+        if (is_wp_error($connection)) { return array('connected' => false, 'revision' => '', 'plan' => '', 'backend_configured' => false, 'can_edit_pages' => current_user_can('edit_pages'), 'preview_url' => home_url('/'), 'advanced_tools_url' => self::advancedToolsUrl(), 'values' => array('enableChatbot' => false, 'title' => '', 'greeting' => '', 'placeholder' => '')); }
         $data = self::remote($connection);
         return is_wp_error($data) ? $data : self::projection($data, $connection);
     }

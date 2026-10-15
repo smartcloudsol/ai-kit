@@ -82,6 +82,9 @@ final class KnowledgeSyncPolicyStore
                     'Update and verify the AI Kit backend with knowledge.structured-content.document-v2 before approving nested field mappings.'
                 );
             }
+            if (KnowledgeSyncStructuredContent::requiresTextFormats($structured) && !KnowledgeSyncTransport::create()->supportsStructuredContentTextFormats()) {
+                throw new \InvalidArgumentException('Update and verify the AI Kit backend with knowledge.structured-content.text-formats before approving text-format mappings.');
+            }
         }
         $policies[$post_type] = $normalized;
         update_option(self::OPTION_NAME, $policies, false);

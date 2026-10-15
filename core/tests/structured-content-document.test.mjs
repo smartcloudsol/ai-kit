@@ -84,3 +84,33 @@ test("deep and cyclic schemas fail within bounded traversal", () => {
   const cyclic = { type: "array", description: "Cycle" }; cyclic.items = cyclic;
   assert.throws(() => contract.parseStructuredContentFieldSchema(cyclic));
 });
+
+test("document v3 preserves explicit text formats and exact original data", () => {
+  for (const contentFormat of ["plain-text", "html", "markdown"]) {
+    const value = { schemaVersion: 3, enabled: true, fields: { text: "<p>É &amp; **source**</p>", list: ["<b>One</b>"] },
+      fieldSchema: { text: { ...leaf("string"), contentFormat }, list: { ...leaf("string-list"), contentFormat } } };
+    const before = structuredClone(value);
+    assert.deepEqual(contract.parseStructuredContentProjection(value), before);
+    assert.deepEqual(value, before);
+    for (const schemaVersion of [1, 2]) assert.throws(() => contract.parseStructuredContentProjection({ ...value, schemaVersion }));
+    assert.deepEqual(contract.parseStructuredContentPolicy({ enabled: true, fields: [{ sourceMetaKey: "text", targetKey: "text", ...value.fieldSchema.text }] }).fields[0].contentFormat, contentFormat);
+  }
+  const nested = projection(); nested.schemaVersion = 3;
+  nested.fieldSchema.grouped_entries.properties.label.contentFormat = "html";
+  assert.deepEqual(contract.parseStructuredContentProjection(nested), nested);
+});
+
+test("text formats are explicit bounded annotations, never guesses or coercions", () => {
+  for (const contentFormat of [null, undefined, false, "HTML", "rich-text", {}, ["html"]]) {
+    assert.throws(() => contract.parseStructuredContentFieldSchema({ ...leaf("string"), contentFormat }));
+  }
+  for (const type of ["url", "number", "boolean", "object", "array"]) {
+    assert.throws(() => contract.parseStructuredContentFieldSchema({ ...leaf(type), contentFormat: "html" }));
+  }
+  assert.deepEqual(contract.parseStructuredContentProjection({ schemaVersion: 1, enabled: true,
+    fields: { text: "<p>Literal source</p>" }, fieldSchema: { text: leaf("string") } }).fieldSchema.text, leaf("string"));
+  for (const sourcePostField of ["excerpt", "featuredImageAlt"]) {
+    for (const contentFormat of ["html", "markdown"]) assert.throws(() => contract.parseStructuredContentPolicy({ enabled: true,
+      fields: [{ sourcePostField, targetKey: "native", ...leaf("string"), contentFormat }] }));
+  }
+});

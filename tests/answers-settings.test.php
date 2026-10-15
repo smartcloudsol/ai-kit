@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 define('ABSPATH', __DIR__ . '/');
+define('SMARTCLOUD_AI_KIT_SLUG', 'smartcloud-ai-kit');
 $allowed = true; $checks = 0; $requests = []; $refresh = 200; $http = 200; $wrongIdentity = false; $duringRead = false;
 $connection = ['accountId'=>'workspace-1', 'siteId'=>'site-1', 'siteKey'=>'fixture-only-placeholder', 'subscriber'=>true];
 $remote = ['accountId'=>'workspace-1', 'siteId'=>'site-1', 'subscriptionType'=>'pro', 'settings'=>['enableChatbot'=>false, 'chatbot'=>['title'=>'Original', 'language'=>'fr', 'starterQuestions'=>['Keep this?'], 'futureField'=>['retain'=>true]], 'futureConfig'=>['retain'=>true], 'backendBaseUrl'=>'']];
@@ -8,6 +9,7 @@ function __(string $text, string $domain): string { return $text; }
 function current_user_can(string $cap): bool { return $GLOBALS['allowed']; }
 function get_option(string $key, mixed $default = false): mixed { return $key === 'smartcloud-wpsuite/site-settings' ? $GLOBALS['connection'] : $default; }
 function home_url(string $path): string { return 'https://dev.example.test/site-home' . $path; }
+function admin_url(string $path): string { return 'https://dev.example.test/wordpress/wp-admin/' . $path; }
 function get_site_url(): string { return 'https://dev.wpsuite.io'; }
 function wp_parse_url(string $url, int $component): mixed { return parse_url($url, $component); }
 function wp_json_encode(mixed $value): string { return json_encode($value, JSON_THROW_ON_ERROR); }
@@ -42,6 +44,7 @@ require __DIR__ . '/../admin/php/answers-settings.php';
 use SmartCloud\WPSuite\AiKit\AnswersSettings;
 $state = AnswersSettings::read();
 check($state['preview_url'] === 'https://dev.example.test/site-home/', 'Preview follows the WordPress home URL rather than the install directory.');
+check($state['advanced_tools_url'] === 'https://dev.example.test/wordpress/wp-admin/admin.php?page=smartcloud-ai-kit&section=conversation-profile&profile-section=tools#conversation-profile-tools-settings', 'Advanced tools destination follows the WordPress admin URL including a subdirectory install.');
 check($state['connected'] && !$state['backend_configured'], 'Connected settings load without an AI backend.');
 check(!str_contains(json_encode($state), 'fixture-only-placeholder') && !str_contains(json_encode($state), 'futureConfig'), 'Projection never returns credentials or unknown advanced settings.');
 check($requests[0][1] === 'https://api.wpsuite.io/dev/account/workspace-1/site/site-1/settings', 'Existing cloud dev endpoint is authoritative.');
@@ -79,6 +82,7 @@ $remote['subscriptionType'] = ''; $state = AnswersSettings::read();
 check(is_array(AnswersSettings::save(request($state['revision'], ['enableChatbot'=>false]))), 'Free plan presentation/flag settings remain configurable independently of backend.');
 $connection = []; $count = count($requests); $state = AnswersSettings::read();
 check(!$state['connected'] && count($requests) === $count, 'Unconnected state requires no cloud request.');
+check($state['advanced_tools_url'] === admin_url('admin.php?page=smartcloud-ai-kit&section=conversation-profile&profile-section=tools#conversation-profile-tools-settings'), 'Unconnected projection retains the same permission-protected admin destination.');
 check(AnswersSettings::save(request('', ['enableChatbot'=>true])) instanceof WP_Error && count($requests) === $count, 'Unconnected save returns an actionable connection error.');
 $connection = ['accountId'=>'workspace-1', 'siteId'=>'site-1', 'siteKey'=>'fixture-only-placeholder'];
 $state = AnswersSettings::read();

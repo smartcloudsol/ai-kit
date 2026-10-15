@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import vm from "node:vm";
 import test from "node:test";
 import type { AnswerPresentation } from "@smart-cloud/ai-kit-core";
-import { answerAttributeText, answerComparisonRows, normalizeAnswerPresentation, withSafeAnswerPresentation } from "../src/ai-chatbot/answer-presentation-state.ts";
+import { answerAttributeMarkdown, answerAttributeText, answerComparisonRows, normalizeAnswerPresentation, withSafeAnswerPresentation } from "../src/ai-chatbot/answer-presentation-state.ts";
 
 export function fixture(layout: "compact-list" | "cards" | "carousel" = "cards"): AnswerPresentation {
   return { schemaVersion: 1, groups: [{ templateId: "approved", templateRevision: 1, layout, heading: "Authored heading", entities: [{
@@ -47,7 +47,7 @@ test("typed money formats exact source units and locale without parsing legacy d
 test("v2 history preserves exact money and distinct status semantics; invalid future schemas retain only text", () => {
   const value = typedFixture();
   assert.deepEqual(withSafeAnswerPresentation(JSON.parse(JSON.stringify({ content: "Fallback", presentation: value }))), { content: "Fallback", presentation: value });
-  for (const invalid of [{ ...value, schemaVersion: 3 }, { ...value, locale: "invalid_locale" }]) {
+  for (const invalid of [{ ...value, schemaVersion: 4 }, { ...value, locale: "invalid_locale" }]) {
     assert.deepEqual(withSafeAnswerPresentation({ content: "Fallback", presentation: invalid }), { content: "Fallback" });
   }
   const invalid = typedFixture();
@@ -80,7 +80,7 @@ test("history roundtrip retains approved data including false and zero without i
 test("malformed, future and unsafe history presentation is discarded while text survives", () => {
   const invalid = fixture();
   invalid.groups[0]!.entities[0]!.links[0]!.url = "javascript:alert(1)";
-  for (const presentation of [invalid, { ...fixture(), schemaVersion: 3 }, "raw HTML", null, undefined]) {
+  for (const presentation of [invalid, { ...fixture(), schemaVersion: 4 }, "raw HTML", null, undefined]) {
     assert.equal(normalizeAnswerPresentation(presentation), undefined);
     assert.deepEqual(withSafeAnswerPresentation({ content: "Keep this", presentation }), { content: "Keep this" });
   }
@@ -93,7 +93,8 @@ async function renderer() {
   const transformed = await require("esbuild").transform(source, { loader: "tsx", format: "cjs", jsx: "automatic" });
   const module = { exports: {} as { AnswerPresentationView: (props: { presentation: AnswerPresentation; locale?: string }) => unknown } };
   vm.runInNewContext(transformed.code, { module, exports: module.exports,
-    require: (id: string) => id === "./answer-presentation-state" ? { answerAttributeText, answerComparisonRows, normalizeAnswerPresentation } : require(id),
+    require: (id: string) => id === "./answer-presentation-state" ? { answerAttributeMarkdown, answerAttributeText, answerComparisonRows, normalizeAnswerPresentation }
+      : id === "../locale" ? { useAiKitI18n: () => ({ language: "en", get: (key: string) => key }) } : require(id),
   });
   return { View: module.exports.AnswerPresentationView, React: require("react"), render: require("react-dom/server").renderToStaticMarkup };
 }
@@ -114,7 +115,10 @@ test("public generic layouts render authored labels and links without technical 
     assert.match(html, /min-height:2.75rem/);
     assert.doesNotMatch(html, /approved-source|evidence-1|2026-10-11T12:00:00.000Z|data-source-kind|<time/);
     assert.doesNotMatch(html, /<script|<img|Shopify|MyMedio|aria-live/);
-    if (layout === "carousel") { assert.match(html, /tabindex="0"/); assert.match(html, /overflow-x:auto/); }
+    if (layout === "carousel") {
+      assert.doesNotMatch(html, /ai-answer-carousel-track|ai-answer-carousel-controls/,
+        "four or fewer results remain an ordinary grid even when carousel is requested");
+    }
   }
 });
 
@@ -130,6 +134,171 @@ test("optional image is safe and layout remains useful without it", async () => 
   assert.equal(render(React.createElement(View, { presentation: value })), "");
 });
 
+test("projected plain text keeps line boundaries without enabling HTML or Markdown execution", async () => {
+  const { View, React, render } = await renderer();
+  for (const preset of ["product-cards", "comparison"] as const) {
+    const presentation = typedFixture(preset);
+    const entity = presentation.groups[0]!.entities[0]!;
+    entity.description = "First paragraph\nSecond paragraph & <literal>";
+    entity.attributes.push({ id: "specialty", label: "Specialty", type: "string", value: "Felnőtt gasztroenterológia\n**Literal** <script>not executable</script>" });
+    const html = render(React.createElement(View, { presentation }));
+    assert.match(html, /white-space:pre-line/);
+    assert.match(html, /First paragraph\nSecond paragraph &amp; &lt;literal&gt;/);
+    assert.match(html, /\*\*Literal\*\* &lt;script&gt;not executable&lt;\/script&gt;/);
+    assert.doesNotMatch(html, /<script|<literal>|<strong>Literal<\/strong>/);
+  }
+});
+
+function markdownFixture(preset: "product-cards" | "comparison" = "product-cards"): AnswerPresentation {
+  const value = typedFixture(preset);
+  value.schemaVersion = 3;
+  const entity = value.groups[0]!.entities[0]!;
+  entity.description = "First & second — plain fallback";
+  entity.descriptionMarkdown = "First &amp; **second** — plain fallback";
+  entity.attributes.push(
+    { id: "specialty", label: "Specialty", type: "string", value: "Felnőtt gasztroenterológia\nSource emphasis",
+      markdown: "**Felnőtt gasztroenterológia**\n\n*Source emphasis* and ~~removed~~" },
+    { id: "qualifications", label: "Qualifications", type: "string-list", value: ["Exact first", "Exact second"], markdown: ["Exact **first**", "Exact *second*"] },
+  );
+  return value;
+}
+
+test("explicit wire-v3 Markdown formats descriptions and text attributes without replacing plain fallback values", async () => {
+  const { View, React, render } = await renderer();
+  for (const preset of ["product-cards", "comparison"] as const) {
+    const value = markdownFixture(preset);
+    const before = structuredClone(value);
+    const html = render(React.createElement(View, { presentation: value }));
+    assert.match(html, /First &amp; <strong>second<\/strong>/);
+    assert.match(html, /<strong>Felnőtt gasztroenterológia<\/strong>/);
+    assert.match(html, /<em>Source emphasis<\/em>/);
+    assert.match(html, /<del>removed<\/del>/);
+    assert.match(html, /Exact <strong>first<\/strong>/);
+    assert.match(html, /Exact <em>second<\/em>/);
+    assert.equal(answerAttributeText(value.groups[0]!.entities[0]!.attributes.at(-2)!), "Felnőtt gasztroenterológia\nSource emphasis");
+    assert.deepEqual(value, before);
+    assert.deepEqual(withSafeAnswerPresentation(JSON.parse(JSON.stringify({ content: "Saved reply", presentation: value }))).presentation, before);
+  }
+});
+
+test("source Markdown cannot introduce raw HTML, images, embeds, navigation, headings or tables", async () => {
+  const { View, React, render } = await renderer();
+  const value = markdownFixture();
+  delete value.groups[0]!.heading;
+  const entity = value.groups[0]!.entities[0]!;
+  entity.links = [];
+  entity.descriptionMarkdown = "# Modest title\n\n[Keep link label](https://external.invalid/path) ![Drop image](https://external.invalid/pixel.png)\n\n<script>window.pwned=true</script>\n\n<iframe src=\"https://external.invalid/frame\"></iframe>\n\n<img src=\"x\" onerror=\"alert(1)\">\n\n| Big | Table |\n| --- | --- |\n| Cell | Value |\n\n`<script>literal code</script>`\n\n> Quote";
+  const html = render(React.createElement(View, { presentation: value }));
+  assert.match(html, /Keep link label/);
+  assert.match(html, /&lt;script&gt;literal code&lt;\/script&gt;/);
+  assert.match(html, /<blockquote/);
+  assert.doesNotMatch(html, /<a\b|<img\b|<iframe\b|<script\b|<h[1-6]\b|<table\b|href=|external\.invalid|window\.pwned|onerror|Drop image/);
+});
+
+test("unannotated wire-v3 values remain literal and invalid or legacy Markdown metadata fails closed", async () => {
+  const { View, React, render } = await renderer();
+  const value = markdownFixture();
+  const entity = value.groups[0]!.entities[0]!;
+  delete entity.descriptionMarkdown;
+  entity.description = "**Literal description** <b>not HTML</b>";
+  for (const attribute of entity.attributes) delete attribute.markdown;
+  entity.attributes.shift();
+  entity.attributes.push({ id: "literal", label: "Literal", type: "string", value: "**Unformatted** <p>source</p>" });
+  const html = render(React.createElement(View, { presentation: value }));
+  assert.match(html, /\*\*Literal description\*\* &lt;b&gt;not HTML&lt;\/b&gt;/);
+  assert.match(html, /\*\*Unformatted\*\* &lt;p&gt;source&lt;\/p&gt;/);
+  assert.doesNotMatch(html, /ai-answer-source-markdown|<strong>Unformatted|<b>/);
+  for (const schemaVersion of [1, 2]) assert.equal(normalizeAnswerPresentation({ ...markdownFixture(), schemaVersion }), undefined);
+  const invalid = markdownFixture();
+  invalid.groups[0]!.entities[0]!.attributes.at(-1)!.markdown = ["Only one item"];
+  assert.equal(normalizeAnswerPresentation(invalid), undefined);
+});
+
+test("real browser renders bounded source Markdown and literal opt-outs without executing HTML or creating navigation", {
+  skip: !process.env.WPSUITE_BROWSER_EXECUTABLE || !process.env.WPSUITE_BROWSER_DRIVER_PATH,
+}, async () => {
+  const require = createRequire(import.meta.url);
+  const driver = require(process.env.WPSUITE_BROWSER_DRIVER_PATH!);
+  const playwright = !!driver.chromium;
+  const browser = await (driver.chromium ?? driver).launch({ executablePath: process.env.WPSUITE_BROWSER_EXECUTABLE!, headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+  try {
+    const page = await browser.newPage();
+    const requests: string[] = [];
+    if (playwright) await page.route("**/*", (route: { request: () => { url: () => string }; abort: () => void }) => {
+      requests.push(route.request().url()); route.abort();
+    });
+    else {
+      await page.setRequestInterception(true);
+      page.on("request", (request: { url: () => string; abort: () => void }) => { requests.push(request.url()); request.abort(); });
+    }
+    for (const preset of ["product-cards", "comparison"] as const) for (const width of [320, 960]) {
+      const value = markdownFixture(preset);
+      delete value.groups[0]!.heading;
+      const entity = value.groups[0]!.entities[0]!;
+      entity.links = [];
+      entity.descriptionMarkdown = "First &amp; **second**\n\n- One\n- Two\n\n[Keep link label](https://external.invalid/path)\n\n![Drop image](https://external.invalid/pixel.png)\n\n<script>window.pwned=true</script>\n\n<iframe src=\"https://external.invalid/frame\"></iframe>\n\n<img src=\"https://external.invalid/x\" onerror=\"window.pwned=true\">\n\n```\n" + "wide".repeat(180) + "\n```";
+      entity.attributes.shift();
+      entity.attributes.push({ id: "literal", label: "Literal", type: "string", value: "**Unformatted** <p>source</p>" });
+      const built = await require("esbuild").build({ write: false, bundle: true, platform: "browser", format: "iife",
+        stdin: { resolveDir: new URL("../", import.meta.url).pathname, loader: "tsx", contents: `
+          import React from "react";
+          import {createRoot} from "react-dom/client";
+          import {AnswerPresentationView} from "./src/ai-chatbot/AnswerPresentation";
+          import {AiKitLocaleProvider} from "./src/locale";
+          createRoot(document.getElementById("root")).render(<AiKitLocaleProvider language="hu"
+            customTranslations={{hu:{"Source emphasis":"INCORRECT TRANSLATION","**Felnőtt gasztroenterológia**":"INCORRECT TRANSLATION"}}}>
+            <AnswerPresentationView presentation={${JSON.stringify(value)}}/>
+          </AiKitLocaleProvider>);` } });
+      if (playwright) await page.setViewportSize({ width, height: 900 }); else await page.setViewport({ width, height: 900 });
+      await page.setContent(`<style>body{margin:0}#root{box-sizing:border-box;width:100%;padding:8px}</style><div id="root"></div><script>${built.outputFiles[0].text}</script>`);
+      await page.waitForSelector(".ai-answer-source-markdown strong");
+      const metrics = await page.evaluate(() => {
+        const blocks = [...document.querySelectorAll<HTMLElement>(".ai-answer-source-markdown")];
+        return { text: document.getElementById("root")!.textContent, bold: blocks[0]!.querySelector("strong")?.textContent,
+          unsafe: document.querySelectorAll(".ai-answer-source-markdown a,.ai-answer-source-markdown img,.ai-answer-source-markdown iframe,.ai-answer-source-markdown script,.ai-answer-source-markdown h1,.ai-answer-source-markdown table").length,
+          executed: (window as unknown as { pwned?: boolean }).pwned === true,
+          pageOverflow: document.documentElement.scrollWidth > window.innerWidth,
+          overflow: blocks.some(block => block.scrollWidth > block.clientWidth + 1),
+          emphasis: [...document.querySelectorAll(".ai-answer-source-markdown em")].map(node => node.textContent),
+        };
+      });
+      assert.equal(metrics.bold, "second");
+      assert.equal(metrics.unsafe, 0);
+      assert.equal(metrics.executed, false);
+      assert.equal(metrics.pageOverflow, false);
+      assert.equal(metrics.overflow, false);
+      assert.match(metrics.text ?? "", /First & second/);
+      assert.match(metrics.text ?? "", /Keep link label/);
+      assert.match(metrics.text ?? "", /\*\*Unformatted\*\* <p>source<\/p>/);
+      assert.doesNotMatch(metrics.text ?? "", /INCORRECT TRANSLATION|window\.pwned|Drop image/);
+      assert.ok(metrics.emphasis.includes("Source emphasis"));
+      assert.deepEqual(requests, []);
+    }
+  } finally { await browser.close(); }
+});
+
+test("carousel requires more than four entities and provides authored navigation and position labels", async () => {
+  const { View, React, render } = await renderer();
+  for (const count of [1, 4, 5, 6]) {
+    const value = fixture("carousel");
+    const first = value.groups[0]!.entities[0]!;
+    value.groups[0]!.entities = Array.from({ length: count }, (_, index) => ({ ...first, ref: `entity-${index}`, title: `Item ${index + 1}` }));
+    const html = render(React.createElement(View, { presentation: value, carouselLabels: {
+      previous: "Authored previous", next: "Authored next", position: "Showing {first} through {last} / {total}", region: "Authored region",
+    } }));
+    if (count <= 4) assert.doesNotMatch(html, /ai-answer-carousel-controls|ai-answer-carousel-track/);
+    else {
+      assert.match(html, /class="ai-answer-carousel-controls"/);
+      assert.match(html, /aria-label="Authored previous" aria-disabled="true"/);
+      assert.match(html, /aria-label="Authored next"/);
+      assert.match(html, new RegExp(`Showing 1 through 1 / ${count}`));
+      assert.match(html, /aria-live="polite" aria-atomic="true"/);
+      assert.match(html, /overflow-x:auto/);
+    }
+  }
+});
+
 test("card and carousel navigation fills each card with centered usable buttons", async () => {
   const { View, React, render } = await renderer();
   for (const layout of ["cards", "carousel"] as const) {
@@ -141,7 +310,7 @@ test("card and carousel navigation fills each card with centered usable buttons"
     const anchors = html.match(/<a\b[^>]*class="ai-answer-link"[^>]*>/g) ?? [];
     assert.equal(anchors.length, 2);
     for (const anchor of anchors) {
-      assert.match(anchor, /(?:;|\")width:100%[;\"]/);
+      assert.match(anchor, /(?:;|")width:100%[;"]/);
       assert.match(anchor, /box-sizing:border-box/);
       assert.match(anchor, /justify-content:center/);
       assert.match(anchor, /text-align:center/);
@@ -150,7 +319,7 @@ test("card and carousel navigation fills each card with centered usable buttons"
   }
   const compact = render(React.createElement(View, { presentation: fixture("compact-list") }));
   const compactAnchor = compact.match(/<a\b[^>]*class="ai-answer-link"[^>]*>/)?.[0] ?? "";
-  assert.doesNotMatch(compactAnchor, /(?:;|\")width:100%[;\"]/);
+  assert.doesNotMatch(compactAnchor, /(?:;|")width:100%[;"]/);
 });
 
 test("four generic presets display only verified values, authored status labels and genuine links", async () => {
@@ -170,7 +339,73 @@ test("four generic presets display only verified values, authored status labels 
   }
   const currentLocale = typedFixture();
   delete currentLocale.locale;
-  assert.match(render(React.createElement(View, { presentation: currentLocale, locale: "hu-HU" })), /949,95 USD/);
+  assert.match(render(React.createElement(View, { presentation: currentLocale, locale: "hu-HU" })), /949,95\u00a0USD/);
+});
+
+test("real browser anchors card action groups at the bottom without constraining content height", {
+  skip: !process.env.WPSUITE_BROWSER_EXECUTABLE || !process.env.WPSUITE_BROWSER_DRIVER_PATH,
+}, async () => {
+  const require = createRequire(import.meta.url);
+  const driver = require(process.env.WPSUITE_BROWSER_DRIVER_PATH!);
+  const playwright = !!driver.chromium;
+  const browser = await (driver.chromium ?? driver).launch({ executablePath: process.env.WPSUITE_BROWSER_EXECUTABLE!, headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+  try {
+    const page = await browser.newPage();
+    const imageResponse = { status: 200, contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="320"><rect width="100%" height="100%" fill="purple"/></svg>' };
+    if (playwright) await page.route("**/*", (route: { fulfill: (response: unknown) => void }) => route.fulfill(imageResponse));
+    else {
+      await page.setRequestInterception(true);
+      page.on("request", (request: { respond: (response: unknown) => void }) => request.respond(imageResponse));
+    }
+    const { View, React, render } = await renderer();
+    for (const width of [220, 360, 1100]) for (const count of [3, 4, 6]) for (const images of [false, true]) {
+      const value = fixture(count > 4 ? "carousel" : "cards");
+      const group = value.groups[0]!;
+      const first = group.entities[0]!;
+      group.entities = Array.from({ length: count }, (_, index) => ({ ...first, ref: `item-${index}`,
+        title: index % 2 ? "A longer title occupying two or more lines" : "Short title",
+        description: index % 3 ? "A detailed description with more content than the adjacent card, preserved without clipping." : undefined,
+        attributes: index % 2 ? first.attributes : [],
+        image: images && index % 3 !== 2 ? { url: "https://fixture.example/product.svg", alt: "Authored image" } : undefined,
+        links: index % 3 ? first.links : [...first.links, { id: "extra", label: "A longer additional action that may wrap safely", url: "https://example.com/more" }],
+      }));
+      const viewport = { width, height: 800 };
+      if (playwright) await page.setViewportSize(viewport); else await page.setViewport(viewport);
+      const css = await readFile(new URL("../src/styles/ai-kit-ui.css", import.meta.url), "utf8");
+      await page.setContent(`<style>${css}\nbody{margin:0}</style><div id="rail">${render(React.createElement(View, { presentation: value }))}</div>`);
+      await page.$$eval("img", (items: HTMLImageElement[]) => items.forEach(image => { image.loading = "eager"; }));
+      await page.waitForFunction(() => [...document.querySelectorAll("img")].every(image => image.complete));
+      const metrics = await page.$$eval("[data-answer-entity]", (items: HTMLElement[]) => items.map(card => {
+        const box = card.getBoundingClientRect();
+        const body = card.querySelector<HTMLElement>(".ai-answer-entity-body")!;
+        const links = card.querySelector<HTMLElement>(".ai-answer-links")!;
+        const actions = links.getBoundingClientRect();
+        const contentEnd = links.previousElementSibling!.getBoundingClientRect().bottom;
+        return { top: box.top, bottom: box.bottom, actionBottom: actions.bottom, actionTop: actions.top,
+          contentEnd, bodyDisplay: getComputedStyle(body).display, direction: getComputedStyle(body).flexDirection,
+          actionRects: [...links.querySelectorAll("a")].map(link => {
+            const rect = link.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, height: rect.height, parentLeft: actions.left, parentRight: actions.right };
+          }) };
+      }));
+      assert.equal(metrics.length, count);
+      for (const card of metrics) {
+        assert.equal(card.bodyDisplay, "flex");
+        assert.equal(card.direction, "column");
+        assert.ok(Math.abs(card.bottom - card.actionBottom - 17) < 1, "action groups retain bottom padding at every content height");
+        assert.ok(card.actionTop >= card.contentEnd + 11, "auto margin preserves the minimum content/action gap");
+        for (const action of card.actionRects) {
+          assert.ok(action.height >= 44);
+          assert.ok(action.left >= action.parentLeft - 1 && action.right <= action.parentRight + 1, "multiple and wrapped actions remain within their card");
+        }
+        for (const peer of metrics.filter(item => Math.abs(item.top - card.top) < 1)) {
+          assert.ok(Math.abs(peer.actionBottom - card.actionBottom) < 1, "action groups align across a grid row or carousel track");
+        }
+      }
+      assert.equal(await page.$eval("html", (node: HTMLElement) => node.scrollWidth <= node.clientWidth), true);
+    }
+  } finally { await browser.close(); }
 });
 
 test("comparison missing source values remain empty, not zero, false or manufactured availability", async () => {
@@ -193,7 +428,8 @@ test("carousel keyboard navigation moves card focus without hijacking link keys"
   class Element { focused = false; focus() { this.focused = true; } }
   vm.runInNewContext(transformed.code, { module, exports: module.exports, HTMLElement: Element });
   const cards = [new Element(), new Element(), new Element()];
-  const container = { children: cards };
+  let direction = "ltr";
+  const container = { children: cards, ownerDocument: { defaultView: { getComputedStyle: () => ({ direction }) } } };
   let prevented = 0;
   const event = (key: string, target: unknown) => ({ key, currentTarget: container, target, preventDefault: () => prevented++ });
   module.exports.moveCarouselFocus(event("ArrowRight", cards[0]));
@@ -204,6 +440,13 @@ test("carousel keyboard navigation moves card focus without hijacking link keys"
   assert.equal(cards[0]!.focused, true);
   module.exports.moveCarouselFocus(event("ArrowRight", { tagName: "A" }));
   assert.equal(prevented, 3);
+  cards[0]!.focused = false;
+  direction = "rtl";
+  module.exports.moveCarouselFocus(event("ArrowRight", cards[1]));
+  assert.equal(cards[0]!.focused, true, "RTL visual right moves to the preceding logical card");
+  cards[2]!.focused = false;
+  module.exports.moveCarouselFocus(event("ArrowLeft", cards[1]));
+  assert.equal(cards[2]!.focused, true);
 });
 
 test("image failure removes only the failed image and does not fabricate a fallback", async () => {
@@ -277,6 +520,74 @@ test("real browser keeps card tracks within narrow rails and bounded on desktop"
           assert.ok(card <= metrics.railWidth + 1, `${layout}/${width}: card must fit narrow rail`);
           if (layout !== "compact-list") assert.ok(card <= 257, `${layout}/${width}: desktop card stays bounded`);
         }
+      }
+    }
+  } finally { await browser.close(); }
+});
+
+test("real browser carousel navigates visible batches without moving control focus and supports RTL and reduced motion", {
+  skip: !process.env.WPSUITE_BROWSER_EXECUTABLE || !process.env.WPSUITE_BROWSER_DRIVER_PATH,
+}, async () => {
+  const require = createRequire(import.meta.url);
+  const driver = require(process.env.WPSUITE_BROWSER_DRIVER_PATH!);
+  const playwright = !!driver.chromium;
+  const browser = await (driver.chromium ?? driver).launch({ executablePath: process.env.WPSUITE_BROWSER_EXECUTABLE!, headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+  try {
+    const value = fixture("carousel");
+    const first = value.groups[0]!.entities[0]!;
+    value.groups[0]!.entities = Array.from({ length: 6 }, (_, index) => ({ ...first, ref: `item-${index}`, title: `Item ${index + 1}` }));
+    const bundle = await require("esbuild").build({ write: false, bundle: true, platform: "browser", format: "iife",
+      stdin: { resolveDir: new URL("../", import.meta.url).pathname, loader: "tsx", contents: `
+        import React from "react";
+        import { createRoot } from "react-dom/client";
+        import { AnswerPresentationView } from "./src/ai-chatbot/AnswerPresentation";
+        createRoot(document.getElementById("root")).render(<AnswerPresentationView presentation={${JSON.stringify(value)}} />);
+      ` } });
+    const css = await readFile(new URL("../src/styles/ai-kit-ui.css", import.meta.url), "utf8");
+    const page = await browser.newPage();
+    if (playwright) await page.route("**/*", (route: { abort: () => void }) => route.abort());
+    else {
+      await page.setRequestInterception(true);
+      page.on("request", (request: { abort: () => void }) => request.abort());
+    }
+    if (playwright) await page.emulateMedia({ reducedMotion: "reduce" });
+    else await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+    for (const direction of ["ltr", "rtl"]) {
+      for (const width of [360, 900]) {
+        const viewport = { width, height: 700 };
+        if (playwright) await page.setViewportSize(viewport); else await page.setViewport(viewport);
+        await page.setContent(`<style>${css}\nbody{margin:0}</style><div id="root" dir="${direction}"></div><script>${bundle.outputFiles[0].text}</script>`);
+        await page.waitForSelector(".ai-answer-carousel-track");
+        assert.equal(await page.$eval('[aria-label="Previous results"]', (button: HTMLButtonElement) => button.getAttribute("aria-disabled")), "true");
+        const next = '[aria-label="Next results"]';
+        for (let step = 0; step < 6; step++) {
+          if (await page.$eval(next, (button: HTMLButtonElement) => button.getAttribute("aria-disabled") === "true")) break;
+          await page.click(next);
+          await page.waitForTimeout(100);
+          assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "Next results");
+        }
+        assert.equal(await page.$eval(next, (button: HTMLButtonElement) => button.getAttribute("aria-disabled")), "true");
+        assert.match(await page.$eval('[aria-live="polite"]', (node: HTMLElement) => node.textContent), /6 of 6$/);
+        const previous = '[aria-label="Previous results"]';
+        for (let step = 0; step < 6; step++) {
+          if (await page.$eval(previous, (button: HTMLButtonElement) => button.getAttribute("aria-disabled") === "true")) break;
+          await page.click(previous);
+          await page.waitForTimeout(100);
+        }
+        assert.equal(await page.$eval(previous, (button: HTMLButtonElement) => button.getAttribute("aria-disabled")), "true");
+        await page.focus(".ai-answer-carousel-track");
+        await page.keyboard.press("End");
+        await page.waitForTimeout(100);
+        assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-answer-entity")), "item-5");
+        await page.keyboard.press("Home");
+        assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-answer-entity")), "item-0");
+        await page.keyboard.press(direction === "rtl" ? "ArrowLeft" : "ArrowRight");
+        assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-answer-entity")), "item-1");
+        await page.focus('[data-answer-entity="item-1"] a');
+        await page.keyboard.press("ArrowRight");
+        assert.equal(await page.evaluate(() => document.activeElement?.tagName), "A", "arrow navigation does not hijack focused actions");
+        assert.equal(await page.$eval("html", (node: HTMLElement) => node.scrollWidth <= node.clientWidth), true);
       }
     }
   } finally { await browser.close(); }

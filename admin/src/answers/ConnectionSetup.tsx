@@ -3,18 +3,20 @@ import { useEffect, useRef, useState } from "react";
 import type { ConnectionPreview, ConnectionPreviewRequest, ConnectionServer, ConnectionSetupCatalog, ProductPreview, ProductPreviewRequest } from "./connection-types";
 import ProductPageLinks from "./ProductPageLinks";
 import { productPageConnectionKey } from "./product-page-links";
+import { safeAdvancedSettingsUrl } from "./client";
 
 function endpointIdentity(endpoint: string): string {
   try { return new URL(endpoint).href; } catch { return endpoint.trim(); }
 }
 
 /** Discovery is read-only. Approval adds a local draft; the parent owns Save/Finish. */
-export default function ConnectionSetup({ catalog, existing, previewConnection, onAdd, onRemove, disabled = false, openHelp, onChange, restUrl, nonce, previewProducts, openProductPageHelp }: {
+export default function ConnectionSetup({ catalog, existing, previewConnection, onAdd, onRemove, disabled = false, openHelp, onChange, restUrl, nonce, previewProducts, openProductPageHelp, advancedSettingsUrl, openShopifyHelp }: {
   catalog?: ConnectionSetupCatalog; existing: ConnectionServer[]; disabled?: boolean;
   previewConnection: (request: ConnectionPreviewRequest) => Promise<ConnectionPreview>;
   onAdd: (server: ConnectionServer) => void; onRemove?: (id: string) => void; openHelp?: () => void;
   onChange?: (server: ConnectionServer) => void; restUrl?: string; nonce?: string; openProductPageHelp?: () => void;
   previewProducts?: (request: ProductPreviewRequest) => Promise<ProductPreview>;
+  advancedSettingsUrl?: string; openShopifyHelp?: () => void;
 }) {
   const [connectorId, setConnectorId] = useState<string | null>(null);
   const [config, setConfig] = useState<Record<string, string>>({});
@@ -27,6 +29,8 @@ export default function ConnectionSetup({ catalog, existing, previewConnection, 
   const reviewedPreview = useRef<ConnectionPreview | null>(null);
   useEffect(() => () => { generation.current += 1; }, []);
   const definition = catalog?.connectors.find((item) => item.id === connectorId);
+  const shopify = definition?.id === "shopify-storefront-catalog" || existing.some((server) => server.providerPreset?.id === "shopify-storefront-catalog");
+  const advancedHref = safeAdvancedSettingsUrl(advancedSettingsUrl, window.location.href);
   const duplicate = preview && existing.find((server) => endpointIdentity(server.endpoint) === endpointIdentity(preview.server.endpoint));
   const invalidate = () => { generation.current += 1; reviewedPreview.current = null; setPreview(null); setApproved(false); setError(""); };
   const edit = (id: string, value: string) => { invalidate(); setConfig((current) => ({ ...current, [id]: value })); };
@@ -59,6 +63,15 @@ export default function ConnectionSetup({ catalog, existing, previewConnection, 
         <Text size="sm" c="dimmed">This checks the service identity and available operations. It does not ask the assistant, modify the store, or save a connection.</Text>
       </>}
     </>}
+    {shopify && <Alert color="blue" title="Shopify catalog and advanced setup"><Stack gap="xs">
+      <Text size="sm">This guided connection reads the Shopify UCP catalog. Its shopify-storefront-catalog preset is not the separate Storefront GraphQL integration for detailed inventory or fulfillment.</Text>
+      <Text size="sm">Review supported authentication and approved read schemas in detailed Tools settings. Authentication alone does not add exact stock quantities, ratings, delivery deadlines, shipping or payment options.</Text>
+      <Group gap="xs">
+        {openShopifyHelp && <Button size="compact-xs" variant="subtle" onClick={openShopifyHelp}>Shopify setup help</Button>}
+        {advancedHref && <Button component="a" size="compact-xs" variant="light" href={advancedHref} target="_blank" rel="noopener noreferrer" aria-label="Advanced Shopify connection settings (opens in a new tab)">Advanced Shopify connection settings</Button>}
+      </Group>
+      {advancedHref && <Text size="sm">Opens in a new tab; your unsaved changes stay in this tab. Finish setup or Save profile before editing there. Use secure backend credential references, never paste secret values into this setup.</Text>}
+    </Stack></Alert>}
     {error && <Alert color="red" role="alert">{error}</Alert>}
     {preview && <Card withBorder padding="sm"><Stack gap="xs">
       <Text fw={600}>Review this connection</Text><Text size="sm">Service: {preview.server.serverName}</Text><Text size="sm">Endpoint: {preview.server.endpoint}</Text>

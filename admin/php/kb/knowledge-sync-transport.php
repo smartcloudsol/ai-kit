@@ -485,6 +485,16 @@ final class KnowledgeSyncTransport
                 if (($projection['document']['structuredContent']['schemaVersion'] ?? null) === 2) {
                     $this->requireCapability('knowledge.structured-content.document-v2', $settings['backendBaseUrl']);
                 }
+                if (($projection['document']['structuredContent']['schemaVersion'] ?? null) === 3) {
+                    $this->requireCapability('knowledge.structured-content.text-formats', $settings['backendBaseUrl']);
+                    $schemas = (array) ($projection['document']['structuredContent']['fieldSchema'] ?? array());
+                    foreach ($schemas as $schema) {
+                        if (in_array(((array) $schema)['type'] ?? null, array('object', 'array'), true)) {
+                            $this->requireCapability('knowledge.structured-content.document-v2', $settings['backendBaseUrl']);
+                            break;
+                        }
+                    }
+                }
             }
         }
         $registration = $this->requiredRegistration();
@@ -717,6 +727,13 @@ final class KnowledgeSyncTransport
     {
         $compatibility = $this->backendCompatibility();
         $version = $compatibility['capabilities']['knowledge.structured-content.document-v2'] ?? null;
+        return $this->supportsStructuredContent() && is_int($version) && $version >= 1;
+    }
+
+    public function supportsStructuredContentTextFormats(): bool
+    {
+        $compatibility = $this->backendCompatibility();
+        $version = $compatibility['capabilities']['knowledge.structured-content.text-formats'] ?? null;
         return $this->supportsStructuredContent() && is_int($version) && $version >= 1;
     }
 

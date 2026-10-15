@@ -11,6 +11,14 @@ export function answerAttributeText(attribute: AnswerEntity["attributes"][number
   return Array.isArray(attribute.value) ? attribute.value.join(", ") : String(attribute.value);
 }
 
+/** Optional display metadata never replaces the exact source-backed plain fallback. */
+export function answerAttributeMarkdown(attribute: AnswerEntity["attributes"][number]): string | string[] | undefined {
+  if (attribute.type === "string" && typeof attribute.markdown === "string") return attribute.markdown;
+  if (attribute.type === "string-list" && Array.isArray(attribute.markdown) && Array.isArray(attribute.value) &&
+      attribute.markdown.length === attribute.value.length && attribute.markdown.every(value => typeof value === "string")) return attribute.markdown;
+  return undefined;
+}
+
 /** Join source-backed attribute IDs only; conflicting row contracts are never guessed. */
 export function answerComparisonRows(entities: AnswerEntity[]): AnswerEntity["attributes"] {
   const rows = new Map<string, AnswerEntity["attributes"][number] | undefined>();

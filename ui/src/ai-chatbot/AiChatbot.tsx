@@ -31,12 +31,19 @@ import {
   getStoreSelect,
   sendChatMessage,
   sendFeedbackMessage,
+  parseCatalogPage,
+  CATALOG_PAGE_HANDLE,
+  parseConfirmedVisitorAction,
+  type ConfirmedVisitorAction,
+  type VisitorActionProposal,
+  type VisitorActionResult,
   type AiChatbotLabels,
   type AiChatbotProps,
   type AiKitStatusEvent,
   type HistoryStorageMode,
   type ProcessedCitations,
   type AnswerPresentation,
+  type CatalogPage,
 } from "@smart-cloud/ai-kit-core";
 import { useSelect } from "@wordpress/data";
 import { useAiKitI18n } from "../locale";
@@ -70,6 +77,8 @@ import {
 import {
   discoverChatStreamUrl,
   discoverChatPresentationVersion,
+  discoverChatCatalogPageVersion,
+  discoverChatVisitorActionVersion,
   runChatStreamTurn,
   sendChatStreamCancel,
   type ChatActivity,
@@ -82,7 +91,12 @@ import {
 } from "./chatStream";
 import { resolveChatWelcome } from "./welcome";
 import { AnswerPresentationView } from "./AnswerPresentation";
+import { CatalogPageControls } from "./CatalogPageControls";
+import { hideVerifiedPresentationDirectives } from "./presentation-directives";
+import { ChatMarkdownImage, ChatMarkdownLink, ChatMarkdownImageLabelsContext } from "./ChatMarkdownImage";
 import { normalizeAnswerPresentation, withSafeAnswerPresentation } from "./answer-presentation-state";
+import { normalizeVisitorActions, normalizeVisitorActionResult, withSafeVisitorActions } from "./visitor-action-state";
+import { VisitorActions } from "./VisitorActions";
 
 /** Keep wide authored tables inside the message rail, not the document viewport. */
 function ChatMarkdownTable({ children, node, ...props }: ComponentPropsWithoutRef<"table"> & ExtraProps) {
@@ -127,7 +141,7 @@ function ChatComposerInput({ inputRef, expanded, ...props }: TextareaProps & {
   return <Textarea {...props} ref={inputRef} autosize minRows={expanded ? 3 : 1} maxRows={expanded ? 6 : 1} />;
 }
 
-const CHAT_MARKDOWN_COMPONENTS = { table: ChatMarkdownTable };
+const CHAT_MARKDOWN_COMPONENTS = { table: ChatMarkdownTable, img: ChatMarkdownImage, a: ChatMarkdownLink };
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -182,10 +196,26 @@ export const DEFAULT_CHATBOT_LABELS: Required<AiChatbotLabels> = {
 
   emptyResponseLabel: "Empty response",
   unexpectedErrorLabel: "Unexpected error",
+  catalogPreviousLabel: "Previous results",
+  catalogNextLabel: "Next results",
+  catalogResultsLabel: "Results",
+  catalogOfLabel: "of",
+  catalogMoreAvailableLabel: "More results available",
+  catalogExpiredLabel: "Results expired. Search again.",
+  imageEnlargeLabel: "Enlarge image",
+  imageCloseLabel: "Close image preview",
+  imagePreviewLabel: "Image preview",
+  imageUnavailableLabel: "Image unavailable",
+  carouselPreviousLabel: "Previous results",
+  carouselNextLabel: "Next results",
+  carouselPositionLabel: "{first}–{last} of {total}",
+  carouselRegionLabel: "Results",
 };
 
 type ChatResponse = {
   result: string;
+  visitorActions?: VisitorActionProposal[];
+  visitorActionResult?: VisitorActionResult;
   presentation?: AnswerPresentation;
   sessionId?: string;
   citations?: ProcessedCitations | CitationLike[];
@@ -199,6 +229,7 @@ type ChatResponse = {
     outputTokens?: number;
     maxTokens?: number;
     stopReason?: string;
+    catalogPage?: CatalogPage;
   };
 };
 
@@ -218,7 +249,10 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  visitorActions?: VisitorActionProposal[];
+  visitorActionResult?: VisitorActionResult;
   presentation?: AnswerPresentation;
+  catalogPage?: CatalogPage;
   citations?: CitationLike[];
   createdAt: number;
   feedback?: "accepted" | "rejected";
@@ -228,6 +262,7 @@ type ChatMessage = {
   completion?: "complete" | "partial" | "truncated";
   error?: boolean;
   retryText?: string;
+  retryCatalogContinuation?: string;
 };
 
 type ComposerImage = {
@@ -432,6 +467,8 @@ type PersistedChat = {
     userMessageId: string;
     text: string;
     locale: string;
+    catalogContinuation?: string;
+    confirmation?: true;
     view?: ChatStreamView;
   };
 };
@@ -1104,7 +1141,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       const hydrated: ChatMessage[] = [];
 
       for (const msg of stored) {
-        const safeMessage = withSafeAnswerPresentation(msg);
+        const safeMessage = withSafeVisitorActions(withSafeAnswerPresentation(msg));
         let attachments: ChatMessageAttachment[] | undefined;
         if (msg.attachments && msg.attachments.length > 0) {
           attachments = [];
@@ -1135,6 +1172,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
         hydrated.push({
           ...safeMessage,
+          catalogPage: msg.role === "assistant" ? parseCatalogPage(msg.catalogPage) : undefined,
+          retryCatalogContinuation: typeof msg.retryCatalogContinuation === "string" && CATALOG_PAGE_HANDLE.test(msg.retryCatalogContinuation)
+            ? msg.retryCatalogContinuation : undefined,
           attachments,
         });
       }
@@ -1316,7 +1356,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     [sendFeedbackToServer],
   );
 
-  const ask = useCallback(async (retryText?: string, fromStarter = false) => {
+  const ask = useCallback(async (retryText?: string, fromStarter = false, catalogContinuation?: string, visitorAction?: ConfirmedVisitorAction) => {
+    if (visitorAction !== undefined && (!parseConfirmedVisitorAction(visitorAction) || catalogContinuation !== undefined)) return;
+    if (catalogContinuation !== undefined && !CATALOG_PAGE_HANDLE.test(catalogContinuation)) return;
     const trimmed = (retryText ?? questionRef.current).trim();
     const selectedAudio = retryText === undefined ? composerAudioRef.current : null;
 
@@ -1381,7 +1423,22 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           : undefined;
 
       const res = (await ai.run(async ({ signal, onStatus }) => {
-        const presentationVersion = await discoverChatPresentationVersion();
+        const [presentationVersion, catalogPageVersion] = await Promise.all([
+          discoverChatPresentationVersion(), discoverChatCatalogPageVersion(),
+        ]);
+        const visitorActionVersion = await discoverChatVisitorActionVersion();
+        if (visitorAction && visitorActionVersion !== 1) {
+          throw Object.assign(new Error(I18n.get("The request could not be processed. Review your input and try again.")), { code: "VISITOR_ACTION_UNAVAILABLE" });
+        }
+        const visitorOptions = visitorActionVersion === 1 ? { visitorActionVersion,
+          ...(visitorAction ? { visitorAction } : {}),
+        } : {};
+        if (catalogContinuation !== undefined && catalogPageVersion !== 1) {
+          throw Object.assign(new Error(I18n.get(labels.catalogExpiredLabel)), { code: "CATALOG_PAGINATION_UNAVAILABLE" });
+        }
+        const catalogOptions = catalogPageVersion === 1 ? { catalogPageVersion,
+          ...(catalogContinuation !== undefined ? { catalogContinuation } : {}),
+        } : {};
         if (trimmed && !selectedAudio && selectedImages.length === 0) {
           const streamUrl = await discoverChatStreamUrl();
           if (streamUrl && !signal.aborted) {
@@ -1391,6 +1448,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               text: trimmed,
               locale: I18n.language,
               presentationVersion,
+              ...catalogOptions,
+              ...visitorOptions,
               sessionId: activeSessionId,
               requestId,
               signal,
@@ -1409,6 +1468,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                   userMessageId,
                   text: trimmed,
                   locale: I18n.language,
+                  catalogContinuation,
+                  ...(visitorAction ? { confirmation: true as const } : {}),
                   view: latestStreamView ?? undefined,
                 });
                 sessionRef.current = { id, storedAt: Date.now() };
@@ -1428,6 +1489,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                       userMessageId,
                       text: trimmed,
                       locale: I18n.language,
+                      catalogContinuation,
+                      ...(visitorAction ? { confirmation: true as const } : {}),
                       view,
                     });
                   }
@@ -1437,6 +1500,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             return {
               result: streamed.result,
               presentation: streamed.presentation,
+              visitorActions: streamed.visitorActions,
+              visitorActionResult: streamed.visitorActionResult,
               sessionId: streamed.sessionId,
               citations: streamed.citations,
               metadata: {
@@ -1455,6 +1520,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             images: selectedImages.map((img) => img.file),
             locale: I18n.language,
             presentationVersion,
+            ...catalogOptions,
+            ...visitorOptions,
             maxTokens,
           },
           {
@@ -1503,6 +1570,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
         role: "assistant",
         content: resultText,
         presentation: normalizeAnswerPresentation(res.presentation),
+        catalogPage: parseCatalogPage(res.metadata?.catalogPage),
+        visitorActions: normalizeVisitorActions(res.visitorActions),
+        visitorActionResult: normalizeVisitorActionResult(res.visitorActionResult),
         citations: normalizeChatCitations(res.citations),
         activities: res.activities,
         createdAt: Date.now(),
@@ -1536,7 +1606,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
       const errorCode = (e as Error & { code?: string; details?: { code?: string } })?.details?.code ??
         (e as Error & { code?: string })?.code;
-      const rawMessage = errorCode === "CONVERSATION_BUSY"
+      const rawMessage = errorCode === "CATALOG_PAGINATION_UNAVAILABLE"
+        ? labels.catalogExpiredLabel
+        : errorCode === "CONVERSATION_BUSY"
         ? "A response is still running. Wait for it to finish or cancel it."
         : (e as Error)?.message?.trim() || labels.unexpectedErrorLabel;
       const msg = I18n.get(rawMessage);
@@ -1557,7 +1629,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
               : `⚠️ ${msg}`,
             activities: latestStreamView?.activities,
             error: true,
-            retryText: !selectedAudio && selectedImages.length === 0 ? trimmed : undefined,
+            retryText: !visitorAction && !selectedAudio && selectedImages.length === 0 ? trimmed : undefined,
+            retryCatalogContinuation: catalogContinuation,
             createdAt: Date.now(),
           },
         ];
@@ -1587,6 +1660,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
     markLastPendingAs,
     labels.emptyResponseLabel,
     labels.unexpectedErrorLabel,
+    labels.catalogExpiredLabel,
     language,
     imageAttachmentsEnabled,
   ]);
@@ -1605,6 +1679,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       try {
         const url = await discoverChatStreamUrl();
         const presentationVersion = await discoverChatPresentationVersion();
+        const visitorActionVersion = await discoverChatVisitorActionVersion();
         if (!url) {
           throw new Error("The AI service is temporarily unavailable. Please try again.");
         }
@@ -1614,6 +1689,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             text: pending.text,
             locale: pending.locale,
             presentationVersion,
+            ...(visitorActionVersion === 1 ? { visitorActionVersion } : {}),
             sessionId: pending.checkpoint.conversationId,
             requestId: pending.checkpoint.requestId,
             resume: pending.checkpoint,
@@ -1655,6 +1731,9 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             role: "assistant",
             content: result.result,
             presentation: normalizeAnswerPresentation(result.presentation),
+            catalogPage: parseCatalogPage(result.metadata?.catalogPage),
+            visitorActions: normalizeVisitorActions(result.visitorActions),
+            visitorActionResult: normalizeVisitorActionResult(result.visitorActionResult),
             citations: normalizeChatCitations(result.citations),
             activities: latestView?.activities,
             createdAt: Date.now(),
@@ -1679,7 +1758,8 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                 : `⚠️ ${message}`,
               activities: latestView?.activities,
               error: true,
-              retryText: pending.text,
+              retryText: pending.confirmation ? undefined : pending.text,
+              retryCatalogContinuation: pending.catalogContinuation,
               createdAt: Date.now(),
             },
           ]);
@@ -2012,8 +2092,12 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           parsed.activeStream?.checkpoint?.turnId &&
           parsed.activeStream.checkpoint.conversationId
         ) {
-          const safeStream = { ...parsed.activeStream,
-            ...(parsed.activeStream.view ? { view: withSafeAnswerPresentation(parsed.activeStream.view) } : {}) };
+          const safeStream = { checkpoint: parsed.activeStream.checkpoint,
+            userMessageId: parsed.activeStream.userMessageId, text: parsed.activeStream.text, locale: parsed.activeStream.locale,
+            ...(parsed.activeStream.confirmation === true ? { confirmation: true as const } : {}),
+            catalogContinuation: typeof parsed.activeStream.catalogContinuation === "string" && CATALOG_PAGE_HANDLE.test(parsed.activeStream.catalogContinuation)
+              ? parsed.activeStream.catalogContinuation : undefined,
+            ...(parsed.activeStream.view ? { view: withSafeVisitorActions(withSafeAnswerPresentation(parsed.activeStream.view)) } : {}) };
           setActiveStream(safeStream);
           setStreamToResume(safeStream);
         }
@@ -2058,7 +2142,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
     const persistableMessages: PersistedChatMessage[] = messages.map(
       ({ attachments, ...rest }) => ({
-        ...withSafeAnswerPresentation(rest),
+        ...withSafeVisitorActions(withSafeAnswerPresentation(rest)),
         attachments: attachments?.map(
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           ({ objectUrl, blob, ...persisted }) => persisted,
@@ -2072,7 +2156,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
       session: sessionRef.current,
       messages: persistableMessages,
       activeStream: activeStream ? { ...activeStream,
-        ...(activeStream.view ? { view: withSafeAnswerPresentation(activeStream.view) } : {}) } : undefined,
+        ...(activeStream.view ? { view: withSafeVisitorActions(withSafeAnswerPresentation(activeStream.view)) } : {}) } : undefined,
     };
 
     try {
@@ -2210,7 +2294,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                   )}
                 </Stack>
               )}
-              {messages.map((msg) => {
+              {messages.map((msg, messageIndex) => {
                 const isUser = msg.role === "user";
                 const isLastCanceled =
                   isUser &&
@@ -2260,10 +2344,22 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
                         {msg.role === "assistant" ? (
                           <>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={CHAT_MARKDOWN_COMPONENTS}>
-                              {msg.content}
-                            </ReactMarkdown>
-                            <AnswerPresentationView presentation={msg.presentation} locale={I18n.language} />
+                            {!msg.visitorActionResult && <ChatMarkdownImageLabelsContext.Provider value={{
+                              enlarge: labels.imageEnlargeLabel, close: labels.imageCloseLabel,
+                              preview: labels.imagePreviewLabel, unavailable: labels.imageUnavailableLabel,
+                            }}>
+                              <ReactMarkdown remarkPlugins={[remarkGfm, hideVerifiedPresentationDirectives(msg.presentation, msg.content)]} components={CHAT_MARKDOWN_COMPONENTS}>
+                                {msg.content}
+                              </ReactMarkdown>
+                            </ChatMarkdownImageLabelsContext.Provider>}
+                            <AnswerPresentationView presentation={msg.presentation} locale={I18n.language}
+                              carouselLabels={{ previous: labels.carouselPreviousLabel, next: labels.carouselNextLabel,
+                                position: labels.carouselPositionLabel, region: labels.carouselRegionLabel }} />
+                            <VisitorActions proposals={msg.visitorActions} result={msg.visitorActionResult}
+                              busy={ai.busy || !!activeStream || !!streamToResume || sendLockRef.current}
+                              consumedHandles={messages.flatMap(message => message.visitorActionResult ? [message.visitorActionResult.handle] : [])}
+                              retryDisabled={messages.slice(messageIndex + 1).some(message => message.visitorActionResult?.handle === msg.visitorActionResult?.handle)}
+                              onConfirm={(action, label) => { void ask(label, false, undefined, action); }} />
                           </>
                         ) : (
                           <Text size="sm" miw="100px">
@@ -2401,6 +2497,19 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
                         </Group>
                       )}
 
+                      {msg.role === "assistant" && !msg.error && msg.catalogPage && (
+                        <CatalogPageControls page={msg.catalogPage} busy={ai.busy || isChatBusy}
+                          labels={{
+                            catalogPreviousLabel: labels.catalogPreviousLabel,
+                            catalogNextLabel: labels.catalogNextLabel,
+                            catalogResultsLabel: labels.catalogResultsLabel,
+                            catalogOfLabel: labels.catalogOfLabel,
+                            catalogMoreAvailableLabel: labels.catalogMoreAvailableLabel,
+                            catalogExpiredLabel: labels.catalogExpiredLabel,
+                          }}
+                          onNavigate={(handle, label) => void ask(label, false, handle)} />
+                      )}
+
                       {msg.citations && msg.citations.length > 0 && (
                         <details className="ai-citations">
                           <summary>
@@ -2440,7 +2549,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
 
                       {msg.role === "assistant" && msg.error && msg.retryText && (
                         <Button variant="subtle" size="xs" disabled={ai.busy}
-                          onClick={() => void ask(msg.retryText)}>
+                          onClick={() => void ask(msg.retryText, false, msg.retryCatalogContinuation)}>
                           {I18n.get("Retry")}
                         </Button>
                       )}
