@@ -337,6 +337,10 @@ class Parser
 
         foreach ($blocks as $block) {
             if (($block['blockName'] ?? '') === 'smartcloud-ai-kit/kb-section') {
+                // Do not convert excluded children or invoke conversion hooks.
+                if (($block['attrs']['mode'] ?? 'inherit') === 'exclude') {
+                    continue;
+                }
                 // This is a KB section block
                 $section = $this->parseKbSectionBlock($post, $block, $sort_order);
 

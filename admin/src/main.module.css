@@ -14,6 +14,7 @@ input[readonly].mantine-Select-input {
 /* Keep Mantine's accessible input invisible, including WordPress's disabled
    checkbox opacity and mobile sizing overrides. The track remains visible. */
 .answersSurface :global(.mantine-Switch-input)[type="checkbox"],
+:global(.wpsuite-ai-kit-dialog) :global(.mantine-Switch-input)[type="checkbox"],
 :global(#smartcloud-ai-kit-admin)
   .wpc-container
   :global(.mantine-Switch-input)[type="checkbox"] {
@@ -28,6 +29,8 @@ input[readonly].mantine-Select-input {
 }
 
 /* WordPress adds a native checkbox mark; Mantine already renders its own. */
+:global(.wpsuite-ai-kit-dialog) input[type="checkbox"]::before,
+:global(.wpsuite-ai-kit-dialog) input[type="checkbox"]::after,
 .answersSurface input[type="checkbox"]::before,
 .answersSurface input[type="checkbox"]::after,
 :global(#smartcloud-ai-kit-admin) .wpc-container input[type="checkbox"]::before,
@@ -42,6 +45,55 @@ input[readonly].mantine-Select-input {
   display: none !important;
   visibility: hidden !important;
   background: none !important;
+}
+
+/* Put helper copy below controls and reserve equal label space in form rows. */
+.answersSurface :global(.mantine-SimpleGrid-root) > :global(.mantine-InputWrapper-root) > label,
+:global(.wpsuite-ai-kit-dialog) :global(.mantine-SimpleGrid-root) > :global(.mantine-InputWrapper-root) > label {
+  min-height: 2lh;
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 4px;
+}
+
+/* Pure input rows share label/control/help/error tracks. Unlike a fixed label
+   height, subgrid also aligns controls when a translated label spans 3+ lines. */
+.answersSurface :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))),
+:global(.wpsuite-ai-kit-dialog) :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) {
+  row-gap: 4px;
+}
+
+.answersSurface :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root),
+:global(.wpsuite-ai-kit-dialog) :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  min-width: 0;
+  padding-bottom: var(--mantine-spacing-sm);
+}
+
+.answersSurface :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) > label,
+:global(.wpsuite-ai-kit-dialog) :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) > label {
+  grid-row: 1;
+  min-height: 0;
+  margin: 0;
+}
+
+.answersSurface :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) > :global(.mantine-Input-wrapper),
+:global(.wpsuite-ai-kit-dialog) :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) > :global(.mantine-Input-wrapper) {
+  grid-row: 2;
+}
+
+.answersSurface :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) > :global(.mantine-InputWrapper-description),
+:global(.wpsuite-ai-kit-dialog) :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) > :global(.mantine-InputWrapper-description) {
+  grid-row: 3;
+  margin: 0;
+}
+
+.answersSurface :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) > :global(.mantine-InputWrapper-error),
+:global(.wpsuite-ai-kit-dialog) :global(.mantine-SimpleGrid-root):not(:has(> :not(:global(.mantine-InputWrapper-root)))) > :global(.mantine-InputWrapper-root) > :global(.mantine-InputWrapper-error) {
+  grid-row: 4;
+  margin: 0;
 }
 
 .wpc-tabs-label {

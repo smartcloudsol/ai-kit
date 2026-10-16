@@ -23,6 +23,28 @@ final class EffectiveContentRenderer
      */
     public function render(\WP_Post $post): string
     {
+        // KB-only render scope: normal frontend rendering must remain unchanged.
+        // Keep the guard active for templates, post-content, patterns and every
+        // fallback, including nested dynamic blocks rendered by WordPress.
+        $exclude = static function ($pre_render, array $block) {
+            return self::isExcludedSection($block) ? '' : $pre_render;
+        };
+        add_filter('pre_render_block', $exclude, PHP_INT_MAX, 2);
+        try {
+            return $this->renderSource($post);
+        } finally {
+            remove_filter('pre_render_block', $exclude, PHP_INT_MAX);
+        }
+    }
+
+    private static function isExcludedSection(array $block): bool
+    {
+        return ($block['blockName'] ?? '') === 'smartcloud-ai-kit/kb-section'
+            && ($block['attrs']['mode'] ?? 'inherit') === 'exclude';
+    }
+
+    private function renderSource(\WP_Post $post): string
+    {
         $fallback = $this->renderPostContent($post);
         $template = $this->resolveBlockTemplate($post);
 
@@ -177,6 +199,11 @@ final class EffectiveContentRenderer
 
         foreach ($blocks as $block) {
             if (!is_array($block)) {
+                continue;
+            }
+
+            // Never promote a semantic main out of an excluded ancestor.
+            if (self::isExcludedSection($block)) {
                 continue;
             }
 

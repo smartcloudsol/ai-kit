@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.9
+Stable tag: 1.6.10
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -197,6 +197,16 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 Full release history and detailed upgrade guidance: https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md
 
+= 1.6.10 =
+* Make display-template creation explicit, show readable multi-content-type sources and suggest approved field pointers without changing source permissions.
+* Edit template mappings, tool workflow inputs and steps, suggested visitor actions and MCP tools in compact lists with independent private drafts and explicit Apply/Cancel controls. Keep multiple collapsible editors open while adding, applying, moving or removing sibling rows.
+* Close unchanged rows immediately and confirm discarding modified rows on Cancel or collapse. Keep header enable switches independent of form edits, reserve distinct pending-row IDs, enforce list limits across pending additions, and prevent stale drafts from overwriting externally changed or removed rows.
+* Use a single local confirmation for removal and discarded changes; keep nested Escape handling scoped to the active editor.
+* Fix duplicate WordPress checkbox marks in dialogs and align row inputs even when labels wrap onto several lines.
+* Clarify automatic Knowledge Sync, manual source review and metadata layers; protect unsaved content policies when switching content types and distinguish field inspection from approval.
+* Honor explicitly excluded KB sections during automatic template rendering and nested content conversion without hiding those sections on the public page.
+* Keep AI Kit Core 1.5.24, UI 1.5.42 and Hub 2.6.1. The separate filtered-page, source-count and answer-recovery backend corrections require orchestration v1.0.130 or equivalent.
+
 = 1.6.9 =
 * Structured sources: Review explicit plain-text, HTML or Markdown formats with a compatible backend. Preserve original values; declared HTML defaults to readable plain text. Separately opt a structured display template into restricted rich-text formatting without enabling links, images or raw HTML.
 * Configure authenticated Shopify Storefront reads for supported product, option, price and inventory filters; report incomplete or unsupported coverage honestly.
@@ -222,44 +232,13 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Remove the unused prompt template editor and clarify the remaining templates' roles.
 * Update AI Kit Core to 1.5.22 and UI to 1.5.37; retain Hub 2.6.1.
 
-= 1.6.6 =
-* Keep a localized response-generation status visible after source checks and completed tool operations while the reply is still being prepared.
-* Preserve operation history without duplicating active progress or retaining pending status after the request ends.
-* Update AI Kit UI to 1.5.36; retain Core 1.5.21 and Hub 2.6.1.
-
-= 1.6.5 =
-* Synchronize explicitly registered nested objects and typed arrays with bounded schemas, selected fields and existing publication approval.
-* Keep message entry compact at every screen size; focus restores the editor and labelled actions. Expand card navigation buttons to the card width.
-* Show localized operation-specific progress without technical tool names or repeated historical thinking rows.
-* Merge duplicate public source links and omit raw structured-record JSON from citation previews while retaining internal grounding.
-* Configure simple read-only tool sequences and parallel dependencies with private modal drafts on compatible backends.
-* Update AI Kit Core to 1.5.21 and UI to 1.5.35; retain Hub 2.6.1.
-
-= 1.6.4 =
-* Improve display-template editing with a compact list, private modal drafts, confirmed removal, field guidance and explicit apply/save steps.
-* Add opt-in synchronization of public featured images, alternative text and authored excerpts alongside registered own fields.
-* Support profile-owned, conditional navigation destinations and encoded source identifiers on compatible backends, without provider-specific logic.
-* Preserve existing display profiles and client response formats; missing or unverified facts do not create images, identifiers or booking availability.
-
-= 1.6.3 =
-* Answers: Add reusable product, comparison, recommendation and status presets with source-bound money, currency, units and explicit availability semantics.
-* Chatbot: Improve mobile tables, compact message entry and navigation buttons; hide technical provenance while preserving verified links and history.
-* Static export: Declare shadow UI styles safely before asynchronous initialization; retain shadow isolation.
-* Compatibility: Bundle Core 1.5.19, UI 1.5.33 and Hub 2.6.1; improve PHP translations, SQL bindings and readme history.
-
-= 1.6.2 =
-* Knowledge sources: Explicitly select registered, public custom fields and map them to neutral typed fields for structured synchronization.
-* Answers: Enable profile-scoped own-content record and schema tools on a compatible backend, bound to the current Knowledge Base result and source version.
-* Admin: Check backend compatibility before enabling structured synchronization and preserve existing settings when that capability is unavailable.
-* Answers: Display verified own-content, MCP/UCP and REST results using configurable lists, cards or carousels while preserving the text answer.
-* Admin: Configure source-bound display templates and field mappings, and preview actual approved read results without granting additional tool permissions.
-* Chatbot: Preserve bounded display snapshots, source references and check times across streaming, reconnects and saved history.
-* Dependencies: Update AI Kit Core to 1.5.18 and AI Kit UI to 1.5.32.
-
 == Upgrade Notice ==
 
+= 1.6.10 =
+KB exclusions need marked source sections, reviewed resync and ingestion; saved template overrides take precedence. Installation does not rewrite old KB text. Backend paging, source counts and answer recovery need orchestration v1.0.130 or equivalent, deployed separately.
+
 = 1.6.9 =
-New Storefront, confirmed shipping quotes and text formats need orchestration v1.0.129 or equivalent verified capabilities. Rich text additionally needs an explicit template opt-in. Review Shopify grants, credentials, address privacy, page size and translations; resync changed format mappings. Backend updates and static republishing remain separate.
+Storefront, confirmed shipping quotes and text formats need orchestration v1.0.129 or equivalent. Rich text needs template opt-in. Review Shopify grants, credentials, address privacy, paging and translations; resync format changes. Deploy the backend and republish static assets separately.
 
 = 1.6.8 =
 Existing field approvals and mappings are preserved; no new fields are automatically enabled. The separate omitted-search recovery and accurate source-validation activity need orchestration v1.0.125 or equivalent. Backend deployment is not automatic.

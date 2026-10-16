@@ -563,6 +563,9 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         <span className="highlightable">Display templates</span>
       </Title>
       <Text>
+        Add template opens a new draft. Its optional preset supplies initial
+        presentation defaults; it is not a source filter, permission or permanent
+        template type. Existing custom templates do not need a preset.
         Select an approved read source and a compact list, cards or carousel
         layout. Map its own output fields with JSON Pointers; empty selects the
         root. Templates do not authorize new tools, run code or accept raw HTML.
@@ -572,9 +575,10 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         or path prefixes. Never use a model-generated URL, price or time slot.
       </Text>
       <Text>
-        Write headings and button labels in the intended content language.
-        Changing the assistant language does not translate authored template
-        copy. The template list opens an editor for each template. Add, remove
+        Headings and button labels use the shared translation catalog in the
+        chatbot UI language. Missing translations retain the authored source;
+        the model does not translate these labels. The answer can follow a
+        different question language. The template list opens an editor for each template. Add, remove
         or move attribute and navigation mappings to control visibility and
         order; removing a mapping never deletes source data. Apply to profile
         draft accepts the editor changes but does not save them to the backend.
@@ -582,6 +586,14 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         activates the full profile draft, including confirmed template removals.
         Each applied template change carries one new revision and shows at most six items.
         Missing images or prices do not prevent a valid title from appearing.
+      </Text>
+      <Text>
+        WordPress structured content can share one template across several
+        approved content types. Pointer suggestions come from their approved
+        field mappings; for example, target key specialty becomes
+        <Code>/fields/specialty</Code>. Observed sample fields are labelled
+        separately and are not a guarantee for every record. Advanced pointers
+        remain editable. Missing fields are omitted, not invented.
       </Text>
       <Text>
         Navigation can read a complete verified HTTPS URL, or use a profile-owned
@@ -599,10 +611,27 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
       <Text>
         Preview executes a bounded authenticated read of the approved source,
         not a model call. Enter its declared lookup arguments, never pasted
-        output. Observed fields describe only that fresh sample and are not an
+        output. For WordPress, use the entity reference and expected source
+        version of an already synchronized record. These identify the record
+        to read; they are not example card data. Observed fields describe only that fresh sample and are not an
         output schema. Any profile, connection, mapping or argument change
         invalidates the preview. A navigation link opens a page; it does not
         place an order or book an appointment. Save the profile after review.
+      </Text>
+
+      <Title order={3} mt="md" id="conversation-profile-workflows">
+        <span className="highlightable">Tool workflows and list drafts</span>
+      </Title>
+      <Text>
+        A workflow connects approved reads in one assistant turn. Inputs describe
+        the values supplied by the assistant; steps bind these inputs or earlier
+        verified results to tool arguments. Dependencies, not visual order,
+        decide when steps can run. Independent steps may run concurrently.
+        Expand an item to edit it, then Apply to draft. Cancel keeps the last
+        applied item. Removing an item asks for confirmation and affects only
+        the draft; review dependent steps after renaming or removal.
+        Save conversation profile activates the complete configuration.
+        Suggested visitor actions guide replies; they do not execute tools.
       </Text>
 
       <Title order={3} mt="md" id="conversation-profile-connections">
@@ -866,6 +895,22 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
         markdown documents from your content, which you can review, customize,
         and publish to your backend.
       </Text>
+      <Text>
+        Automatic Knowledge Sync manages ongoing publication using approved
+        content-type policies. Source review and manual publishing provides
+        individual document previews, overrides and immediate publish/withdraw
+        controls. It does not replace the automatic policy: review that policy
+        when a source must stay excluded. Metadata configuration layers supply
+        defaults and overrides for classification, not a separate publisher.
+      </Text>
+      <Text>
+        In Content policy, Public content type selects the policy being edited
+        below it. In the field list, checking a field approves mirroring;
+        selecting its name opens that field&apos;s settings. Source text format
+        can explicitly declare HTML rich text or Markdown. Save the policy and
+        synchronize a new source version before testing. A template must also
+        opt into safe rich-text formatting; otherwise display stays plain text.
+      </Text>
 
       <Title order={3} mt="md" id="kb-settings-base-url">
         <span className="highlightable">Base URL Override</span>
@@ -888,7 +933,7 @@ const pages: Record<AiKitAdminPage, ReactNode> = {
       </Text>
 
       <Title order={3} mt="md" id="kb-sources-list">
-        <span className="highlightable">KB Sources List</span>
+        <span className="highlightable">Source review and manual publishing</span>
       </Title>
       <Text>
         The sources list shows all posts and pages that are enabled as KB

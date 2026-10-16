@@ -100,8 +100,21 @@ class Converter
         $inner_html = $block['innerHTML'] ?? '';
         $inner_blocks = $block['innerBlocks'] ?? [];
 
+        // Exclusion is an ingestion boundary, including inside ordinary groups
+        // and other KB sections. Never convert children of an excluded block.
+        if ($block_name === 'smartcloud-ai-kit/kb-section' && ($attrs['mode'] ?? 'inherit') === 'exclude') {
+            return '';
+        }
+
         // Special handling for certain block types
         switch ($block_name) {
+            case 'smartcloud-ai-kit/kb-section':
+                // The saved wrapper HTML may be nonempty but contain none of
+                // its children. Included sections must retain those children.
+                return !empty($inner_blocks)
+                    ? $this->blocksToMarkdown($inner_blocks, $depth + 1)
+                    : $this->htmlToMarkdown($inner_html);
+
             case 'core/list':
                 // Lists: build from innerBlocks (each list-item block)
                 if (!empty($inner_blocks)) {
@@ -223,6 +236,10 @@ class Converter
      */
     private function preprocessHtml(string $html): string
     {
+        // Consume explicit exclusion metadata before removing presentation-only
+        // classes and data attributes. No content/topic heuristics are used.
+        $html = $this->removeExcludedHtmlSections($html);
+
         // Remove WordPress-specific wrapper divs and attributes that don't affect content
         $html = preg_replace('/\s+class="[^"]*"/', '', $html);
         $html = preg_replace('/\s+id="[^"]*"/', '', $html);
@@ -235,6 +252,44 @@ class Converter
         $html = preg_replace('/\[([^\]]+)\]/', '', $html);
 
         return $html;
+    }
+
+    /** Remove the existing Elementor KB marker's complete subtree only. */
+    private function removeExcludedHtmlSections(string $html): string
+    {
+        $document = new \DOMDocument();
+        $previous_errors = libxml_use_internal_errors(true);
+        try {
+            // Match the UTF-8 handling used by our HTML-to-Markdown dependency.
+            // NONET forbids network access while parsing malformed fragments.
+            if (!$document->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NONET)) {
+                throw new \RuntimeException('KB source HTML could not be checked for excluded sections.');
+            }
+            $excluded = (new \DOMXPath($document))->query(
+                '//*[@data-mode="exclude" and contains(concat(" ", normalize-space(@class), " "), " wpsaik-kb-section ")]'
+            );
+            if ($excluded === false) {
+                throw new \RuntimeException('KB source exclusion query failed.');
+            }
+            if ($excluded->length === 0) {
+                return $html;
+            }
+            // Removing deepest nodes first also handles nested exclusions.
+            for ($index = $excluded->length - 1; $index >= 0; $index--) {
+                $node = $excluded->item($index);
+                if ($node !== null && $node->parentNode !== null) {
+                    $node->parentNode->removeChild($node);
+                }
+            }
+            $cleaned = $document->saveHTML($document->documentElement);
+            if ($cleaned === false) {
+                throw new \RuntimeException('KB source exclusion serialization failed.');
+            }
+            return $cleaned;
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous_errors);
+        }
     }
 
     /**
