@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.10
+Stable tag: 1.6.11
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -197,6 +197,13 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 Full release history and detailed upgrade guidance: https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md
 
+= 1.6.11 =
+* Keep visitor-confirmed shipping forms compact, with responsive fields and expandable optional address fields that retain their values.
+* On compatible backends, select a source-provided delivery country by its localized name and show clearer shipping-check and estimate labels with expandable supplementary details.
+* Translate new frontend controls through all supported UI catalogs while preserving product names, source values and the separate answer language.
+* Negotiate visitor-action v2 for HTTP, streaming and saved results while retaining legacy backend compatibility and explicit visitor confirmation before a shipping calculation.
+* Update AI Kit Core to 1.5.25 and UI to 1.5.43; retain Hub 2.6.1. Backend deployment and static-asset publication remain separate operator steps.
+
 = 1.6.10 =
 * Make display-template creation explicit, show readable multi-content-type sources and suggest approved field pointers without changing source permissions.
 * Edit template mappings, tool workflow inputs and steps, suggested visitor actions and MCP tools in compact lists with independent private drafts and explicit Apply/Cancel controls. Keep multiple collapsible editors open while adding, applying, moving or removing sibling rows.
@@ -233,6 +240,9 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Update AI Kit Core to 1.5.22 and UI to 1.5.37; retain Hub 2.6.1.
 
 == Upgrade Notice ==
+
+= 1.6.11 =
+Country selection and compact quotes need a separate WP Suite Cloud Deployment update (not public v1.0.130). Republish static assets; review translations. Legacy backends remain compatible. Shipping checks require form submission, do not order or pay, and do not promise immediate cart deletion.
 
 = 1.6.10 =
 KB exclusions need marked source sections, reviewed resync and ingestion; saved template overrides take precedence. Installation does not rewrite old KB text. Backend paging, source counts and answer recovery need orchestration v1.0.130 or equivalent, deployed separately.

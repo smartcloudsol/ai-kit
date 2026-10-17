@@ -362,7 +362,7 @@ export type PromptAudioInput = {
 export interface PromptArgs {
     messages: PromptMessages;
     /** Explicit visitor consent is independent of model planning. */
-    visitorActionVersion?: 1;
+    visitorActionVersion?: 1 | 2;
     visitorAction?: import("./visitor-action").ConfirmedVisitorAction;
     /** Explicit opt-in to the compatible backend display contract. */
     presentationVersion?: 1 | 2 | 3;
@@ -513,7 +513,7 @@ export interface SearchMessageArgs {
     userSelectedTags?: string[];
 }
 export interface ChatMessageArgs {
-    visitorActionVersion?: 1;
+    visitorActionVersion?: 1 | 2;
     visitorAction?: import("./visitor-action").ConfirmedVisitorAction;
     /** Opt into server-owned, expiring catalog page continuations. */
     catalogPageVersion?: 1;

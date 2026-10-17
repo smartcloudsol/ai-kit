@@ -64,7 +64,7 @@ export type ChatStreamOptions = {
     /** Selected only after verified ai.catalog.pagination capability discovery; handles contain no client-selected queries. */
     catalogPageVersion?: 1;
     catalogContinuation?: string;
-    visitorActionVersion?: 1;
+    visitorActionVersion?: 1 | 2;
     visitorAction?: ConfirmedVisitorAction;
     sessionId?: string;
     requestId: string;
@@ -104,8 +104,8 @@ export declare function summarizeChatActivities(activities: ChatActivity[]): {
 };
 export declare function chatPresentationVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | 2 | 3;
 export declare function chatCatalogPageVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | undefined;
-export declare function chatVisitorActionVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | undefined;
-export declare function discoverChatVisitorActionVersion(): Promise<1 | undefined>;
+export declare function chatVisitorActionVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | 2 | undefined;
+export declare function discoverChatVisitorActionVersion(): Promise<1 | 2 | undefined>;
 /** The same negotiation applies to HTTP prompts and every stream resume frame. */
 export declare function discoverChatPresentationVersion(): Promise<1 | 2 | 3>;
 /** Older or unverified backends must never receive the new catalog request fields. */

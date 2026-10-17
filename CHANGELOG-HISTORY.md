@@ -9,6 +9,26 @@ This archive preserves the original changelog and upgrade guidance verbatim. The
 * Preserve operation history without duplicating active progress or retaining pending status after the request ends.
 * Update AI Kit UI to 1.5.36; retain Core 1.5.21 and Hub 2.6.1.
 
+= 1.6.5 =
+* Synchronize explicitly registered nested objects and typed arrays with bounded schemas, selected fields and existing publication approval.
+* Keep message entry compact at every screen size; focus restores the editor and labelled actions. Expand card navigation buttons to the card width.
+* Show localized operation-specific progress without technical tool names or repeated historical thinking rows.
+* Merge duplicate public source links and omit raw structured-record JSON from citation previews while retaining internal grounding.
+* Configure simple read-only tool sequences and parallel dependencies with private modal drafts on compatible backends.
+* Update AI Kit Core to 1.5.21 and UI to 1.5.35; retain Hub 2.6.1.
+
+= 1.6.4 =
+* Improve display-template editing with a compact list, private modal drafts, confirmed removal, field guidance and explicit apply/save steps.
+* Add opt-in synchronization of public featured images, alternative text and authored excerpts alongside registered own fields.
+* Support profile-owned, conditional navigation destinations and encoded source identifiers on compatible backends, without provider-specific logic.
+* Preserve existing display profiles and client response formats; missing or unverified facts do not create images, identifiers or booking availability.
+
+= 1.6.3 =
+* Answers: Add reusable product, comparison, recommendation and status presets with source-bound money, currency, units and explicit availability semantics.
+* Chatbot: Improve mobile tables, compact message entry and navigation buttons; hide technical provenance while preserving verified links and history.
+* Static export: Declare shadow UI styles safely before asynchronous initialization; retain shadow isolation.
+* Compatibility: Bundle Core 1.5.19, UI 1.5.33 and Hub 2.6.1; improve PHP translations, SQL bindings and readme history.
+
 = 1.6.2 =
 * Knowledge sources: Explicitly select registered, public custom fields and map them to neutral typed fields for structured synchronization.
 * Answers: Enable profile-scoped own-content record and schema tools on a compatible backend, bound to the current Knowledge Base result and source version.

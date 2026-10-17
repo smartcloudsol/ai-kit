@@ -5,6 +5,8 @@ export interface VisitorActionField {
     kind: "text" | "country-code";
     required: boolean;
     maxLength: number;
+    /** Version 2 only: verified ISO country choices, never inferred from visitor locale. */
+    countryCodes?: string[];
 }
 export interface VisitorActionSummary {
     label: string;
@@ -13,10 +15,12 @@ export interface VisitorActionSummary {
     valueKind?: "source" | "message";
 }
 export interface VisitorActionProposal {
-    schemaVersion: 1;
+    schemaVersion: 1 | 2;
     handle: string;
     title: string;
     description: string;
+    /** Version 2 only: secondary disclosure, separate from the compact description. */
+    details?: string;
     submitLabel: string;
     summary: VisitorActionSummary[];
     fields: VisitorActionField[];
@@ -28,11 +32,15 @@ export interface ConfirmedVisitorAction {
     values: Record<string, string>;
 }
 export interface VisitorActionResult {
-    schemaVersion: 1;
+    schemaVersion: 1 | 2;
     handle: string;
     status: "completed" | "pending" | "failed";
     title: string;
+    /** Version 2 only: purpose-specific server-authored status. */
+    statusLabel?: string;
     summary: VisitorActionSummary[];
+    /** Version 2 only: secondary source facts and server-authored disclosures. */
+    details?: VisitorActionSummary[];
     /** Pending, known actions may offer a manual read-only retry of the same handle. */
     retryLabel?: string;
 }

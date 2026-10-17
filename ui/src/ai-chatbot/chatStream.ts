@@ -114,7 +114,7 @@ export type ChatStreamOptions = {
   /** Selected only after verified ai.catalog.pagination capability discovery; handles contain no client-selected queries. */
   catalogPageVersion?: 1;
   catalogContinuation?: string;
-  visitorActionVersion?: 1;
+  visitorActionVersion?: 1 | 2;
   visitorAction?: ConfirmedVisitorAction;
   sessionId?: string;
   requestId: string;
@@ -348,11 +348,14 @@ export function chatCatalogPageVersionForCapabilities(capabilities?: Record<stri
   return capabilities?.["ai.catalog.pagination"] === 1 ? 1 : undefined;
 }
 
-export function chatVisitorActionVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | undefined {
-  return capabilities?.["ai.visitor.actions"] === 1 ? 1 : undefined;
+export function chatVisitorActionVersionForCapabilities(capabilities?: Record<string, unknown>): 1 | 2 | undefined {
+  const version = capabilities?.["ai.visitor.actions"];
+  // Keep the base capability at 1 for already published clients. The additive
+  // opt-in selects richer envelopes without disabling their v1 consent flow.
+  return version === 2 || (version === 1 && capabilities?.["ai.visitor.actions.v2"] === 1) ? 2 : version === 1 ? 1 : undefined;
 }
 
-export async function discoverChatVisitorActionVersion(): Promise<1 | undefined> {
+export async function discoverChatVisitorActionVersion(): Promise<1 | 2 | undefined> {
   try {
     const backend = await resolveBackend();
     if (!backend.available || backend.compatibility?.status !== "verified") return undefined;
@@ -481,7 +484,7 @@ export async function runChatStreamTurn(
   if (options.signal.aborted) throw abortError();
   const visitorAction = options.visitorAction === undefined ? undefined : parseConfirmedVisitorAction(options.visitorAction);
   if (!options.resume && options.visitorAction !== undefined &&
-      (!visitorAction || options.visitorActionVersion !== 1 || options.catalogContinuation !== undefined)) {
+      (!visitorAction || (options.visitorActionVersion !== 1 && options.visitorActionVersion !== 2) || options.catalogContinuation !== undefined)) {
     throw new ChatStreamError("The request could not be processed. Review your input and try again.", "INVALID_VISITOR_ACTION");
   }
   if (!options.resume && options.catalogContinuation !== undefined) {
@@ -554,7 +557,7 @@ export async function runChatStreamTurn(
             version: 1,
             type: "turn.resume",
             presentationVersion,
-            ...(options.visitorActionVersion === 1 ? { visitorActionVersion: 1 } : {}),
+            ...(options.visitorActionVersion === 1 || options.visitorActionVersion === 2 ? { visitorActionVersion: options.visitorActionVersion } : {}),
             requestId: options.requestId,
             conversationId: checkpoint.conversationId,
             turnId: checkpoint.turnId,
@@ -772,7 +775,7 @@ export async function runChatStreamTurn(
                   version: 1,
                   type: "turn.resume",
                   presentationVersion,
-                  ...(options.visitorActionVersion === 1 ? { visitorActionVersion: 1 } : {}),
+                  ...(options.visitorActionVersion === 1 || options.visitorActionVersion === 2 ? { visitorActionVersion: options.visitorActionVersion } : {}),
                   requestId: options.requestId,
                   conversationId: checkpoint.conversationId,
                   turnId: checkpoint.turnId,
@@ -788,7 +791,7 @@ export async function runChatStreamTurn(
                   message: { text: options.text },
                   ...(options.catalogPageVersion === 1 ? { catalogPageVersion: 1,
                     ...(options.catalogContinuation ? { catalogContinuation: options.catalogContinuation } : {}) } : {}),
-                  ...(options.visitorActionVersion === 1 ? { visitorActionVersion: 1,
+                  ...(options.visitorActionVersion === 1 || options.visitorActionVersion === 2 ? { visitorActionVersion: options.visitorActionVersion,
                     ...(visitorAction ? { visitorAction } : {}) } : {}),
                 },
           ),
@@ -836,7 +839,7 @@ export async function runChatStreamTurn(
               version: 1,
               type: "turn.resume",
               presentationVersion,
-              ...(options.visitorActionVersion === 1 ? { visitorActionVersion: 1 } : {}),
+              ...(options.visitorActionVersion === 1 || options.visitorActionVersion === 2 ? { visitorActionVersion: options.visitorActionVersion } : {}),
               requestId: options.requestId,
               conversationId: checkpoint.conversationId,
               turnId: checkpoint.turnId,

@@ -1427,10 +1427,10 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
           discoverChatPresentationVersion(), discoverChatCatalogPageVersion(),
         ]);
         const visitorActionVersion = await discoverChatVisitorActionVersion();
-        if (visitorAction && visitorActionVersion !== 1) {
+        if (visitorAction && visitorActionVersion !== 1 && visitorActionVersion !== 2) {
           throw Object.assign(new Error(I18n.get("The request could not be processed. Review your input and try again.")), { code: "VISITOR_ACTION_UNAVAILABLE" });
         }
-        const visitorOptions = visitorActionVersion === 1 ? { visitorActionVersion,
+        const visitorOptions = visitorActionVersion === 1 || visitorActionVersion === 2 ? { visitorActionVersion,
           ...(visitorAction ? { visitorAction } : {}),
         } : {};
         if (catalogContinuation !== undefined && catalogPageVersion !== 1) {
@@ -1689,7 +1689,7 @@ const AiChatbotBase: FC<AiChatbotProps & AiKitShellInjectedProps> = (props) => {
             text: pending.text,
             locale: pending.locale,
             presentationVersion,
-            ...(visitorActionVersion === 1 ? { visitorActionVersion } : {}),
+            ...(visitorActionVersion === 1 || visitorActionVersion === 2 ? { visitorActionVersion } : {}),
             sessionId: pending.checkpoint.conversationId,
             requestId: pending.checkpoint.requestId,
             resume: pending.checkpoint,
