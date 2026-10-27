@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.6.11
+Stable tag: 1.7.0
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -195,6 +195,12 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 == Changelog ==
 
+= 1.7.0 =
+* Keep Knowledge Base registration, pairing material, synchronization state and scheduled jobs bound to their backend profile while preserving shared WordPress content.
+* Reject stale classic-editor, Quick Edit, Bulk Edit and AJAX changes before they can affect another selected backend.
+* Keep plugin settings and configuration resets scoped to the selected backend; support explicit workspace API connections alongside legacy connections.
+* Update AI Kit Core to 1.5.26, UI to 1.5.44 and shared Hub to 2.7.0. Installing the plugin does not deploy or migrate a backend.
+
 Full release history and detailed upgrade guidance: https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md
 
 = 1.6.11 =
@@ -228,18 +234,10 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Support JSON-encoded OAuth client-credentials token requests alongside the existing form encoding.
 * Update AI Kit Core to 1.5.24 and UI to 1.5.42; retain Hub 2.6.1.
 
-= 1.6.8 =
-* Review approved structured fields in a searchable, bounded list with one editable details panel.
-* Show source descriptions before approval, clarify fixed field types and keep nested schemas collapsible and scrollable.
-* Collapse message entry after a valid submission without stealing focus back when the response finishes.
-* Update AI Kit UI to 1.5.38; retain Core 1.5.22 and Hub 2.6.1.
-
-= 1.6.7 =
-* Show distinct source-document totals on compatible backends; hide legacy chunk counts.
-* Remove the unused prompt template editor and clarify the remaining templates' roles.
-* Update AI Kit Core to 1.5.22 and UI to 1.5.37; retain Hub 2.6.1.
-
 == Upgrade Notice ==
+
+= 1.7.0 =
+Update the WP Suite plugins together. New backend profiles use separate Knowledge Base state and need their own enrollment. Existing single-backend sites keep their configuration.
 
 = 1.6.11 =
 Country selection and compact quotes need a separate WP Suite Cloud Deployment update (not public v1.0.130). Republish static assets; review translations. Legacy backends remain compatible. Shipping checks require form submission, do not order or pay, and do not promise immediate cart deletion.

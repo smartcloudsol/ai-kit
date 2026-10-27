@@ -13,6 +13,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 class Schema
 {
     /**
@@ -23,7 +25,7 @@ class Schema
         global $wpdb;
 
         $charset_collate = $wpdb->get_charset_collate();
-        $prefix = $wpdb->prefix . 'smartcloud_ai_kit_';
+        $prefix = BackendProfileState::tablePrefix();
 
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
@@ -226,7 +228,7 @@ class Schema
     public static function dropTables(): void
     {
         global $wpdb;
-        $prefix = $wpdb->prefix . 'smartcloud_ai_kit_';
+        $prefix = BackendProfileState::tablePrefix();
 
         $tables = [
             "{$prefix}kb_sources",

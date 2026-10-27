@@ -15,14 +15,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 class RepositoryDependencies
 {
-    private string $table;
-
-    public function __construct()
+    private function tableName(): string
     {
-        global $wpdb;
-        $this->table = $wpdb->prefix . 'smartcloud_ai_kit_kb_dependencies';
+        return BackendProfileState::table('kb_dependencies');
     }
 
     /**
@@ -54,7 +53,7 @@ class RepositoryDependencies
             // Delete existing dependencies for this source
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->delete(
-                $this->table,
+                $this->tableName(),
                 ['kb_source_post_id' => $kb_source_post_id],
                 ['%d']
             );
@@ -75,7 +74,7 @@ class RepositoryDependencies
                 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
                 $wpdb->query($wpdb->prepare(
                     "INSERT INTO %i (kb_source_post_id, referenced_post_id, reference_type) VALUES " . implode(', ', $placeholders), // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- Dynamic placeholder building for bulk insert
-                    array_merge([$this->table], $values)
+                    array_merge([$this->tableName()], $values)
                 ));
             }
 
@@ -114,7 +113,7 @@ class RepositoryDependencies
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $results = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT kb_source_post_id FROM %i WHERE referenced_post_id = %d",
-            $this->table,
+            $this->tableName(),
             $referenced_post_id
         ));
 
@@ -144,7 +143,7 @@ class RepositoryDependencies
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $results = $wpdb->get_col($wpdb->prepare(
             "SELECT DISTINCT referenced_post_id FROM %i WHERE kb_source_post_id = %d",
-            $this->table,
+            $this->tableName(),
             $kb_source_post_id
         ));
 
@@ -162,7 +161,7 @@ class RepositoryDependencies
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         return (bool) $wpdb->delete(
-            $this->table,
+            $this->tableName(),
             ['kb_source_post_id' => $kb_source_post_id],
             ['%d']
         );
@@ -180,7 +179,7 @@ class RepositoryDependencies
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         return (bool) $wpdb->delete(
-            $this->table,
+            $this->tableName(),
             ['referenced_post_id' => $referenced_post_id],
             ['%d']
         );

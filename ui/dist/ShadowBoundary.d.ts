@@ -18,6 +18,8 @@ export type ShadowBoundaryProps = {
      * Same id everywhere => singleton overlay host.
      */
     overlayRootId?: string;
+    /** Remove an instance-owned overlay host on effect cleanup; shared hosts are retained. */
+    ownedOverlay?: boolean;
     setHost: React.Dispatch<SetStateAction<HTMLElement | null>>;
     /** Optional notification for consumers that need a distinct modal portal. */
     setRootElement?: React.Dispatch<SetStateAction<HTMLDivElement | null>>;
@@ -28,4 +30,4 @@ export type ShadowBoundaryProps = {
         shadowRoot: ShadowRoot;
     }) => React.ReactNode;
 };
-export declare function ShadowBoundary({ stylesheets, children, rootElementId, mode, overlayRootId, setHost, setRootElement, }: ShadowBoundaryProps): import("react").JSX.Element;
+export declare function ShadowBoundary({ stylesheets, children, rootElementId, mode, overlayRootId, ownedOverlay, setHost, setRootElement, }: ShadowBoundaryProps): import("react").JSX.Element;

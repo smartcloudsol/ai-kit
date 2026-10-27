@@ -6,6 +6,7 @@ use SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRunnerLock;
 use SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRuntime;
 
 if (!defined('ABSPATH')) { exit; }
+require_once __DIR__ . '/kb/backend-profile-state.php';
 
 /** Reset configuration without publishing deletions or removing synchronization records. */
 final class LocalConfigurationReset
@@ -32,7 +33,7 @@ final class LocalConfigurationReset
 
     public static function options(): array
     {
-        return array(SMARTCLOUD_AI_KIT_SLUG, 'smartcloud_ai_kit_kb_sync_policies', 'smartcloud_ai_kit_kb_sync_settings', 'smartcloud_ai_kit_kb_sync_publisher_consumer', 'smartcloud_ai_kit_kb_base_url_override', 'smartcloud_ai_kit_answers_setup_completed');
+        return array_map([\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::class, 'optionName'], array(SMARTCLOUD_AI_KIT_SLUG, 'smartcloud_ai_kit_kb_sync_policies', 'smartcloud_ai_kit_kb_sync_settings', 'smartcloud_ai_kit_kb_sync_publisher_consumer', 'smartcloud_ai_kit_kb_base_url_override', 'smartcloud_ai_kit_answers_setup_completed'));
     }
 
     public static function reset(string $revision): bool|\WP_Error
@@ -45,17 +46,17 @@ final class LocalConfigurationReset
         $requestLocked = false;
         try {
             // Share the producer's request lock so a new full resync cannot begin during reset.
-            $expires = (int) get_option(self::REQUEST_LOCK, 0);
-            if ($expires > 0 && $expires <= time()) { delete_option(self::REQUEST_LOCK); }
-            $requestLocked = add_option(self::REQUEST_LOCK, time() + 30, '', false);
+            $expires = (int) get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(self::REQUEST_LOCK), 0);
+            if ($expires > 0 && $expires <= time()) { delete_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(self::REQUEST_LOCK)); }
+            $requestLocked = add_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(self::REQUEST_LOCK), time() + 30, '', false);
             if (!$requestLocked) { return self::error(__('A full synchronization request is being prepared. Retry after it finishes.', 'smartcloud-ai-kit'), 409); }
-            $job = get_option(KnowledgeSyncRuntime::FULL_RESYNC_OPTION, null);
+            $job = get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(KnowledgeSyncRuntime::FULL_RESYNC_OPTION), null);
             if (is_array($job) && isset($job['id']) && ($job['state'] ?? '') !== 'complete' && !(($job['state'] ?? '') === 'attention-required' && ($job['reason'] ?? '') === 'full_resync_scope_changed')) {
                 return self::error(__('A full knowledge synchronization is pending or running. Resolve it before resetting settings.', 'smartcloud-ai-kit'), 409);
             }
             if (!hash_equals(ConfigurationReset::revision(self::descriptor()), $revision)) { return self::error(__('Settings changed. Reload the confirmation before resetting.', 'smartcloud-ai-kit'), 409); }
             foreach (array(KnowledgeSyncRuntime::CRON_HOOK, KnowledgeSyncRuntime::FULL_RESYNC_CRON_HOOK) as $hook) {
-                $cleared = wp_clear_scheduled_hook($hook, array(), true);
+                $cleared = wp_clear_scheduled_hook($hook, \SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::cronArgs(), true);
                 if (is_wp_error($cleared) || $cleared === false) { return self::error(__('Synchronization scheduling could not be fully stopped. No configuration was reset, but some scheduled events may already have stopped. Review knowledge-sync scheduling and WP-Cron before retrying.', 'smartcloud-ai-kit'), 500); }
             }
             // Deliberately bypass policy setters: disabling a policy through those setters enqueues remote deletion.
@@ -65,7 +66,7 @@ final class LocalConfigurationReset
             }
             return $result;
         } finally {
-            if ($requestLocked) { delete_option(self::REQUEST_LOCK); }
+            if ($requestLocked) { delete_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(self::REQUEST_LOCK)); }
             $lock->release($token);
         }
     }

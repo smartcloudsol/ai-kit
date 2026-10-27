@@ -6,7 +6,7 @@
  * Requires at least: 6.9
  * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.6.11
+ * Version:           1.7.0
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +18,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.6.11';
+const VERSION = '1.7.0';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {
@@ -48,6 +48,9 @@ final class AiKit
 
     /** KB Admin instance */
     private KnowledgeBase\Admin $kbAdmin;
+
+    /** Last authoritative read, held only for this PHP request. */
+    private ?array $cloudSettingsSnapshot = null;
 
     private function __construct()
     {
@@ -383,23 +386,13 @@ final class AiKit
     /** @return array<string, mixed>|\WP_Error */
     private function fetchRemoteSiteSettings(): array|\WP_Error
     {
+        $this->cloudSettingsSnapshot = null;
         $connection = $this->connectionSettings();
-        if ($connection instanceof \WP_Error) {
-            return $connection;
-        }
-        $response = wp_remote_get($connection['endpoint'], array(
-            'headers' => array('X-Site-Key' => $connection['siteKey'], 'X-Plugin' => 'ai-kit'),
-            'timeout' => 15,
-        ));
-        if (is_wp_error($response)) {
-            return $response;
-        }
-        $status = wp_remote_retrieve_response_code($response);
-        $data = json_decode(wp_remote_retrieve_body($response), true);
-        if (200 !== $status || !is_array($data) || !is_array($data['settings'] ?? null)) {
-            /* translators: %d: HTTP response status code. */
-            return new \WP_Error('smartcloud_ai_kit_chatbot_settings_read_failed', sprintf(__('AI-Kit settings could not be read (HTTP %d).', 'smartcloud-ai-kit'), $status));
-        }
+        if (is_wp_error($connection)) return $connection;
+        $data = SiteSettingsTransport::request($connection);
+        if (is_wp_error($data)) return $data;
+        if (!is_array($data['settings'] ?? null)) return new \WP_Error('smartcloud_ai_kit_chatbot_settings_read_failed', __('AI-Kit settings could not be read.', 'smartcloud-ai-kit'));
+        $this->cloudSettingsSnapshot = array('connection' => $connection, 'revision' => $data['revision'] ?? null);
         return $data['settings'];
     }
 
@@ -407,55 +400,24 @@ final class AiKit
     private function putRemoteSiteSettings(array $settings): array|\WP_Error
     {
         $connection = $this->connectionSettings();
-        if ($connection instanceof \WP_Error) {
-            return $connection;
-        }
-        unset($settings['subscriptionType']);
-        $response = wp_remote_request($connection['endpoint'], array(
-            'method' => 'PUT',
-            'headers' => array('Content-Type' => 'application/json', 'X-Site-Key' => $connection['siteKey'], 'X-Plugin' => 'ai-kit'),
-            'body' => wp_json_encode(array('settings' => $settings)),
-            'timeout' => 15,
-        ));
-        if (is_wp_error($response)) {
-            return $response;
-        }
-        $status = wp_remote_retrieve_response_code($response);
-        $data = json_decode(wp_remote_retrieve_body($response), true);
-        if (200 !== $status || !is_array($data) || !is_array($data['settings'] ?? null)) {
-            /* translators: %d: HTTP response status code. */
-            return new \WP_Error('smartcloud_ai_kit_chatbot_settings_write_failed', sprintf(__('AI-Kit settings could not be updated (HTTP %d).', 'smartcloud-ai-kit'), $status));
-        }
+        if (is_wp_error($connection)) return $connection;
+        $snapshot = $this->cloudSettingsSnapshot;
+        if ($snapshot === null || $snapshot['connection'] !== $connection) return new \WP_Error('smartcloud_ai_kit_chatbot_settings_write_failed', __('Site connection changed. Reload before saving.', 'smartcloud-ai-kit'));
+        $data = SiteSettingsTransport::request($connection, $settings, $snapshot['revision']);
+        if (is_wp_error($data)) return $data;
+        if (!is_array($data['settings'] ?? null)) return new \WP_Error('smartcloud_ai_kit_chatbot_settings_write_failed', __('AI-Kit settings could not be updated.', 'smartcloud-ai-kit'));
+        $this->cloudSettingsSnapshot = array('connection' => $connection, 'revision' => $data['revision'] ?? null);
         return $data['settings'];
     }
 
-    /** @return array<string, string>|\WP_Error */
+    /** @return array<string, mixed>|\WP_Error */
     private function connectionSettings(): array|\WP_Error
     {
-        $settings = get_option('smartcloud-wpsuite/site-settings');
-        if (false === $settings) {
-            $settings = get_option('hub-for-wpsuiteio/site-settings');
+        if (!class_exists(SiteSettingsTransport::class, false)) {
+            $packaged = __DIR__ . '/admin/answers-settings.php';
+            require_once is_file($packaged) ? $packaged : __DIR__ . '/admin/php/answers-settings.php';
         }
-        $value = static function (mixed $source, string $key): string {
-            if (is_object($source)) {
-                return (string) ($source->{$key} ?? '');
-            }
-            return is_array($source) ? (string) ($source[$key] ?? '') : '';
-        };
-        $account_id = $value($settings, 'accountId');
-        $site_id = $value($settings, 'siteId');
-        $site_key = $value($settings, 'siteKey');
-        if ('' === $account_id || '' === $site_id || '' === $site_key) {
-            return new \WP_Error('smartcloud_ai_kit_chatbot_site_not_connected', __('Connect this site to WP Suite before applying the Chatbot preset.', 'smartcloud-ai-kit'));
-        }
-        $api_base = 'https://api.wpsuite.io';
-        if (str_contains((string) get_site_url(), 'dev.wpsuite.io')) {
-            $api_base .= '/dev';
-        }
-        return array(
-            'endpoint' => sprintf('%s/account/%s/site/%s/settings', $api_base, rawurlencode($account_id), rawurlencode($site_id)),
-            'siteKey' => $site_key,
-        );
+        return SiteSettingsTransport::connection();
     }
 
     /** @return array<string, mixed>|\WP_Error */

@@ -9,6 +9,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 require_once __DIR__ . '/structured-content.php';
 
 /**
@@ -44,7 +46,7 @@ final class KnowledgeSyncPolicyStore
     /** @return array<string, mixed>|null */
     public function getForPostType(string $post_type): ?array
     {
-        $policies = get_option(self::OPTION_NAME, array());
+        $policies = get_option(BackendProfileState::optionName(self::OPTION_NAME), array());
         if (!is_array($policies) || !isset($policies[$post_type]) || !is_array($policies[$post_type])) {
             return null;
         }
@@ -56,7 +58,7 @@ final class KnowledgeSyncPolicyStore
     public function saveForPostType(string $post_type, array $policy): array
     {
         $normalized = $this->normalizePolicy($post_type, $policy);
-        $policies = get_option(self::OPTION_NAME, array());
+        $policies = get_option(BackendProfileState::optionName(self::OPTION_NAME), array());
         if (!is_array($policies)) {
             $policies = array();
         }
@@ -87,7 +89,7 @@ final class KnowledgeSyncPolicyStore
             }
         }
         $policies[$post_type] = $normalized;
-        update_option(self::OPTION_NAME, $policies, false);
+        update_option(BackendProfileState::optionName(self::OPTION_NAME), $policies, false);
         do_action('smartcloud_ai_kit_knowledge_sync_policy_changed', $post_type, $normalized, $previous);
 
         return $normalized;
@@ -96,7 +98,7 @@ final class KnowledgeSyncPolicyStore
     /** @return array<string, array<string, mixed>> */
     public function getAll(): array
     {
-        $stored = get_option(self::OPTION_NAME, array());
+        $stored = get_option(BackendProfileState::optionName(self::OPTION_NAME), array());
         if (!is_array($stored)) {
             return array();
         }
@@ -222,7 +224,7 @@ final class KnowledgeSyncPublicReleaseGate
 
     public static function mode(): string
     {
-        $stored = get_option('smartcloud_ai_kit_kb_sync_settings', array());
+        $stored = get_option(BackendProfileState::optionName('smartcloud_ai_kit_kb_sync_settings'), array());
         $mode = is_array($stored) && is_string($stored['publicReleaseGate'] ?? null)
             ? $stored['publicReleaseGate']
             : self::MODE_DISABLED;
@@ -236,7 +238,7 @@ final class KnowledgeSyncPublicReleaseGate
 
     public static function selectedConsumerId(): string
     {
-        $consumer_id = get_option(self::SELECTION_OPTION, '');
+        $consumer_id = get_option(BackendProfileState::optionName(self::SELECTION_OPTION), '');
         return is_string($consumer_id) && preg_match('/^[A-Za-z0-9._:-]+$/', $consumer_id) === 1
             ? $consumer_id
             : '';
@@ -248,12 +250,12 @@ final class KnowledgeSyncPublicReleaseGate
         if ($consumer_id === '' || preg_match('/^[A-Za-z0-9._:-]+$/', $consumer_id) !== 1) {
             return false;
         }
-        return update_option(self::SELECTION_OPTION, $consumer_id, false);
+        return update_option(BackendProfileState::optionName(self::SELECTION_OPTION), $consumer_id, false);
     }
 
     public static function clearSelection(): void
     {
-        delete_option(self::SELECTION_OPTION);
+        delete_option(BackendProfileState::optionName(self::SELECTION_OPTION));
     }
 
     /**
@@ -644,7 +646,7 @@ final class KnowledgeSyncReleaseCursorRepository
     private function tableName(): string
     {
         global $wpdb;
-        return $wpdb->prefix . 'smartcloud_ai_kit_kb_sync_release_cursors';
+        return BackendProfileState::table('kb_sync_release_cursors');
     }
 
     /** @param array<string, mixed> $receipt */
@@ -775,7 +777,7 @@ final class KnowledgeSyncOutboxRepository
     private function tableName(): string
     {
         global $wpdb;
-        return $wpdb->prefix . 'smartcloud_ai_kit_kb_sync_outbox';
+        return BackendProfileState::table('kb_sync_outbox');
     }
 
     public function enqueue(
@@ -1263,7 +1265,7 @@ final class KnowledgeSyncOutboxRepository
     private function releaseCursorTableName(): string
     {
         global $wpdb;
-        return $wpdb->prefix . 'smartcloud_ai_kit_kb_sync_release_cursors';
+        return BackendProfileState::table('kb_sync_release_cursors');
     }
 
     public function enqueueScopeDeletion(int $blog_id, string $post_type, string $correlation_id): int
@@ -1325,6 +1327,7 @@ final class KnowledgeSyncCapture
     /** Invalidate every referencing public post in bounded pages; never export attachment data on its own. */
     public function onFeaturedAttachmentChanged(int $attachment_id): void
     {
+        BackendProfileState::assertClassicMutation();
         if (!function_exists('get_posts')) { return; }
         $offset = 0;
         do {
@@ -1352,6 +1355,7 @@ final class KnowledgeSyncCapture
     /** Own-field edits use the normal publisher-gated capture path, never the KB override bypass. */
     public function onStructuredMetadataChanged(mixed $meta_id, int $post_id, string $meta_key, mixed $meta_value): void
     {
+        BackendProfileState::assertClassicMutation();
         unset($meta_id, $meta_value);
         if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) { return; }
         $post = get_post($post_id);
@@ -1406,6 +1410,7 @@ final class KnowledgeSyncCapture
 
     public function onAfterInsertPost(int $post_id, \WP_Post $post, bool $update, ?\WP_Post $post_before): void
     {
+        BackendProfileState::assertClassicMutation();
         unset($update);
 
         if ($post->post_type === 'attachment') { $this->onFeaturedAttachmentChanged($post_id); }
@@ -1468,6 +1473,7 @@ final class KnowledgeSyncCapture
     /** Metadata edits do not fire WordPress post-save hooks. */
     public function onBaseMetadataChanged(int $post_id, string $doc_id, string $section_id): void
     {
+        BackendProfileState::assertClassicMutation();
         if ($doc_id !== 'post-' . $post_id . '/base' || $section_id !== 'main') {
             return;
         }
@@ -1498,6 +1504,7 @@ final class KnowledgeSyncCapture
 
     public function onBeforeDeletePost(int $post_id, \WP_Post $post): void
     {
+        BackendProfileState::assertClassicMutation();
         if ($post->post_type !== 'attachment') { $this->onAttachmentParentChanged($post_id); }
         if ($this->eligiblePolicy($post->post_type) === null) {
             return;
@@ -1537,6 +1544,7 @@ final class KnowledgeSyncCapture
         bool $append,
         array $old_term_taxonomy_ids
     ): void {
+        BackendProfileState::assertClassicMutation();
         unset($terms, $append);
 
         if ($term_taxonomy_ids === $old_term_taxonomy_ids) {

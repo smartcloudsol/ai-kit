@@ -6,6 +6,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 final class SourcePublicationStatus
 {
     public const STATUSES = ['needs_review', 'ready_to_publish', 'published', 'sync_pending', 'sync_running', 'sync_delivered', 'sync_error', 'sync_blocked', 'sync_removed'];
@@ -67,14 +69,14 @@ final class SourcePublicationStatus
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Current per-source state, read only.
         $row = $wpdb->get_row($wpdb->prepare(
             'SELECT state, desired_operation, desired_generation, leased_generation, last_error_code FROM %i WHERE consumer_id = %s AND blog_id = %d AND post_type = %s AND post_id = %d',
-            $wpdb->prefix . 'smartcloud_ai_kit_kb_sync_outbox',
+            BackendProfileState::table('kb_sync_outbox'),
             'wordpress-blog-' . get_current_blog_id(), get_current_blog_id(), $post->post_type ?? '', $post_id
         ));
-        $docs = $wpdb->get_col($wpdb->prepare('SELECT DISTINCT doc_id FROM %i WHERE post_id = %d', $wpdb->prefix . 'smartcloud_ai_kit_kb_generated', $post_id));
-        $states = $wpdb->get_results($wpdb->prepare('SELECT doc_id, last_backend_status FROM %i WHERE post_id = %d', $wpdb->prefix . 'smartcloud_ai_kit_kb_publish_state', $post_id));
+        $docs = $wpdb->get_col($wpdb->prepare('SELECT DISTINCT doc_id FROM %i WHERE post_id = %d', BackendProfileState::table('kb_generated'), $post_id));
+        $states = $wpdb->get_results($wpdb->prepare('SELECT doc_id, last_backend_status FROM %i WHERE post_id = %d', BackendProfileState::table('kb_publish_state'), $post_id));
         $stale_locked = (bool) $wpdb->get_var($wpdb->prepare(
             'SELECT 1 FROM %i o INNER JOIN %i g ON o.post_id = g.post_id AND o.doc_id = g.doc_id AND o.section_id = g.section_id WHERE o.post_id = %d AND o.locked = 1 AND (o.origin_hash_at_override IS NULL OR o.origin_hash_at_override <> g.origin_hash) LIMIT 1',
-            $wpdb->prefix . 'smartcloud_ai_kit_kb_overrides', $wpdb->prefix . 'smartcloud_ai_kit_kb_generated', $post_id
+            BackendProfileState::table('kb_overrides'), BackendProfileState::table('kb_generated'), $post_id
         ));
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $map = [];

@@ -32,6 +32,8 @@ export type ShadowBoundaryProps = {
    * Same id everywhere => singleton overlay host.
    */
   overlayRootId?: string;
+  /** Remove an instance-owned overlay host on effect cleanup; shared hosts are retained. */
+  ownedOverlay?: boolean;
 
   setHost: React.Dispatch<SetStateAction<HTMLElement | null>>;
   /** Optional notification for consumers that need a distinct modal portal. */
@@ -92,6 +94,7 @@ export function ShadowBoundary({
   rootElementId,
   mode = "local",
   overlayRootId = "ai-kit-overlay-root",
+  ownedOverlay = false,
   setHost,
   setRootElement,
 }: ShadowBoundaryProps) {
@@ -114,6 +117,7 @@ export function ShadowBoundary({
 
     // 1) Decide overlay host vs local host
     let host: HTMLElement;
+    let createdOverlay = false;
     if (mode === "overlay") {
       let overlayHost = doc.getElementById(
         overlayRootId,
@@ -131,6 +135,7 @@ export function ShadowBoundary({
         overlayHost.style.pointerEvents = "none";
 
         doc.body.appendChild(overlayHost);
+        createdOverlay = true;
       }
       host = overlayHost;
     } else {
@@ -195,8 +200,9 @@ export function ShadowBoundary({
     return () => {
       mo.disconnect();
       mq?.removeEventListener?.("change", onMq);
+      if (mode === "overlay" && ownedOverlay && createdOverlay) host.remove();
     };
-  }, [mode, overlayRootId, rootElementId, stylesKey]);
+  }, [mode, overlayRootId, ownedOverlay, rootElementId, stylesKey]);
 
   const emotionCache = useMemo(() => {
     if (!portalTarget) return null;

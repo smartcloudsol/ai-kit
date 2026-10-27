@@ -35,6 +35,13 @@ try {
     clearstatcache();
     file_store_expect((fileperms($fixture . '/keys/knowledge-sync-blog-7.pem') & 0777) === 0600, 'Promoted key must remain owner-only.');
     file_store_expect(count(glob($fixture . '/keys/*')) === 1, 'Rotation must leave no temporary PEM or backup behind.');
+    $store->writePending('fixture-rejected-not-a-private-key');
+    $rejected = false;
+    try { $store->promotePending(function (): void { throw new RuntimeException('Synthetic binding publication failed'); }); }
+    catch (RuntimeException $error) { $rejected = true; }
+    file_store_expect($rejected && $store->readCurrent() === 'fixture-second-not-a-private-key', 'Failed binding publication must restore the exact previous file key.');
+    file_store_expect($store->readPending() === 'fixture-rejected-not-a-private-key', 'The rejected candidate stays pending until explicit caller cleanup.');
+    $store->discardPending();
     $store->writePending('fixture-discard-not-a-private-key');
     $store->discardPending();
     file_store_expect($store->readPending() === null && $store->readCurrent() === 'fixture-second-not-a-private-key', 'Discard must retain the enrolled current key.');

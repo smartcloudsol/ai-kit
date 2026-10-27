@@ -13,17 +13,16 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 /**
  * KB Source Repository - manages smartcloud_ai_kit_kb_sources table
  */
 class Repository
 {
-    private string $table_name;
-
-    public function __construct()
+    private function tableName(): string
     {
-        global $wpdb;
-        $this->table_name = $wpdb->prefix . 'smartcloud_ai_kit_kb_sources';
+        return BackendProfileState::table('kb_sources');
     }
 
     /**
@@ -33,7 +32,7 @@ class Repository
     {
         global $wpdb;
         return $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->prepare('SELECT * FROM %i WHERE post_id = %d', $this->table_name, $post_id)
+            $wpdb->prepare('SELECT * FROM %i WHERE post_id = %d', $this->tableName(), $post_id)
         );
     }
 
@@ -69,7 +68,7 @@ class Repository
 
         if ($existing) {
             $result = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $this->table_name,
+                $this->tableName(),
                 $data,
                 ['post_id' => $post_id],
                 ['%d', '%s', '%d', '%s', '%s', '%s'],
@@ -86,7 +85,7 @@ class Repository
         } else {
             $data['created_at'] = $now;
             $result = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $this->table_name,
+                $this->tableName(),
                 $data,
                 ['%d', '%s', '%d', '%s', '%s', '%s', '%s']
             ) !== false;
@@ -108,7 +107,7 @@ class Repository
     {
         global $wpdb;
         $result = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $this->table_name,
+            $this->tableName(),
             ['enabled' => 0, 'updated_at' => current_time('mysql')],
             ['post_id' => $post_id],
             ['%d', '%s'],
@@ -127,7 +126,7 @@ class Repository
     {
         global $wpdb;
         return $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $this->table_name,
+            $this->tableName(),
             ['post_id' => $post_id],
             ['%d']
         ) !== false;
@@ -140,7 +139,7 @@ class Repository
     {
         global $wpdb;
         return $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->prepare('SELECT * FROM %i WHERE enabled = 1 ORDER BY updated_at DESC', $this->table_name)
+            $wpdb->prepare('SELECT * FROM %i WHERE enabled = 1 ORDER BY updated_at DESC', $this->tableName())
         );
     }
 }
@@ -150,12 +149,9 @@ class Repository
  */
 class KBGeneratedRepository
 {
-    private string $table_name;
-
-    public function __construct()
+    private function tableName(): string
     {
-        global $wpdb;
-        $this->table_name = $wpdb->prefix . 'smartcloud_ai_kit_kb_generated';
+        return BackendProfileState::table('kb_generated');
     }
 
     /**
@@ -167,7 +163,7 @@ class KBGeneratedRepository
         return $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
                 'SELECT * FROM %i WHERE post_id = %d ORDER BY sort_order ASC',
-                $this->table_name,
+                $this->tableName(),
                 $post_id
             )
         );
@@ -182,7 +178,7 @@ class KBGeneratedRepository
         return $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
                 'SELECT * FROM %i WHERE post_id = %d AND doc_id = %s ORDER BY sort_order ASC',
-                $this->table_name,
+                $this->tableName(),
                 $post_id,
                 $doc_id
             )
@@ -198,7 +194,7 @@ class KBGeneratedRepository
         return $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
                 'SELECT * FROM %i WHERE post_id = %d AND doc_id = %s AND section_id = %s',
-                $this->table_name,
+                $this->tableName(),
                 $post_id,
                 $doc_id,
                 $section_id
@@ -245,7 +241,7 @@ class KBGeneratedRepository
 
         if ($existing) {
             return $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $this->table_name,
+                $this->tableName(),
                 $data,
                 [
                     'post_id' => $section['post_id'],
@@ -257,7 +253,7 @@ class KBGeneratedRepository
             ) !== false;
         } else {
             return $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $this->table_name,
+                $this->tableName(),
                 $data,
                 ['%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s']
             ) !== false;
@@ -271,7 +267,7 @@ class KBGeneratedRepository
     {
         global $wpdb;
         return $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $this->table_name,
+            $this->tableName(),
             ['post_id' => $post_id],
             ['%d']
         ) !== false;
@@ -284,7 +280,7 @@ class KBGeneratedRepository
     {
         global $wpdb;
         return $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $this->table_name,
+            $this->tableName(),
             ['post_id' => $post_id, 'doc_id' => $doc_id],
             ['%d', '%s']
         ) !== false;
@@ -296,12 +292,9 @@ class KBGeneratedRepository
  */
 class KBOverrideRepository
 {
-    private string $table_name;
-
-    public function __construct()
+    private function tableName(): string
     {
-        global $wpdb;
-        $this->table_name = $wpdb->prefix . 'smartcloud_ai_kit_kb_overrides';
+        return BackendProfileState::table('kb_overrides');
     }
 
     /**
@@ -313,7 +306,7 @@ class KBOverrideRepository
         return $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
                 'SELECT * FROM %i WHERE post_id = %d AND doc_id = %s AND section_id = %s',
-                $this->table_name,
+                $this->tableName(),
                 $post_id,
                 $doc_id,
                 $section_id
@@ -330,7 +323,7 @@ class KBOverrideRepository
         return $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
                 'SELECT * FROM %i WHERE post_id = %d AND doc_id = %s',
-                $this->table_name,
+                $this->tableName(),
                 $post_id,
                 $doc_id
             )
@@ -365,7 +358,7 @@ class KBOverrideRepository
 
         if ($existing) {
             return $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $this->table_name,
+                $this->tableName(),
                 $data,
                 [
                     'post_id' => $override['post_id'],
@@ -377,7 +370,7 @@ class KBOverrideRepository
             ) !== false;
         } else {
             return $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $this->table_name,
+                $this->tableName(),
                 $data,
                 ['%d', '%s', '%s', '%s', '%s', '%d', '%s', '%s']
             ) !== false;
@@ -391,7 +384,7 @@ class KBOverrideRepository
     {
         global $wpdb;
         return $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $this->table_name,
+            $this->tableName(),
             [
                 'post_id' => $post_id,
                 'doc_id' => $doc_id,
@@ -408,7 +401,7 @@ class KBOverrideRepository
     {
         global $wpdb;
         return $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $this->table_name,
+            $this->tableName(),
             ['post_id' => $post_id],
             ['%d']
         ) !== false;
@@ -420,12 +413,9 @@ class KBOverrideRepository
  */
 class KBPublishStateRepository
 {
-    private string $table_name;
-
-    public function __construct()
+    private function tableName(): string
     {
-        global $wpdb;
-        $this->table_name = $wpdb->prefix . 'smartcloud_ai_kit_kb_publish_state';
+        return BackendProfileState::table('kb_publish_state');
     }
 
     /**
@@ -437,7 +427,7 @@ class KBPublishStateRepository
         return $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
                 'SELECT * FROM %i WHERE post_id = %d AND doc_id = %s',
-                $this->table_name,
+                $this->tableName(),
                 $post_id,
                 $doc_id
             )
@@ -453,7 +443,7 @@ class KBPublishStateRepository
         return $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->prepare(
                 'SELECT * FROM %i WHERE post_id = %d',
-                $this->table_name,
+                $this->tableName(),
                 $post_id
             )
         );
@@ -481,7 +471,7 @@ class KBPublishStateRepository
 
         if ($existing) {
             return $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $this->table_name,
+                $this->tableName(),
                 $data,
                 [
                     'post_id' => $state['post_id'],
@@ -492,7 +482,7 @@ class KBPublishStateRepository
             ) !== false;
         } else {
             return $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                $this->table_name,
+                $this->tableName(),
                 $data,
                 ['%d', '%s', '%s', '%s', '%s', '%s']
             ) !== false;
@@ -506,7 +496,7 @@ class KBPublishStateRepository
     {
         global $wpdb;
         return $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $this->table_name,
+            $this->tableName(),
             ['post_id' => $post_id, 'doc_id' => $doc_id],
             ['%d', '%s']
         ) !== false;
@@ -519,7 +509,7 @@ class KBPublishStateRepository
     {
         global $wpdb;
         return $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $this->table_name,
+            $this->tableName(),
             ['post_id' => $post_id],
             ['%d']
         ) !== false;

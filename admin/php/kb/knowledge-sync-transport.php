@@ -9,6 +9,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 final class KnowledgeSyncTransportException extends \RuntimeException
 {
     public function __construct(public readonly string $errorCode, string $message)
@@ -25,7 +27,7 @@ interface KnowledgeSyncPrivateKeyStore
 
     public function writePending(string $private_key): void;
 
-    public function promotePending(): void;
+    public function promotePending(?callable $commit = null): void;
 
     public function discardPending(): void;
 
@@ -61,7 +63,7 @@ final class KnowledgeSyncFilePrivateKeyStore implements KnowledgeSyncPrivateKeyS
         ) {
             throw new KnowledgeSyncTransportException('unsafe_key_directory', 'The private-key directory must be outside the WordPress webroot.');
         }
-        $base = $directory . DIRECTORY_SEPARATOR . 'knowledge-sync-blog-' . $blog_id;
+        $base = $directory . DIRECTORY_SEPARATOR . 'knowledge-sync-blog-' . $blog_id . BackendProfileState::fileSuffix();
         $this->current_path = $base . '.pem';
         $this->pending_path = $base . '.pending.pem';
     }
@@ -91,7 +93,7 @@ final class KnowledgeSyncFilePrivateKeyStore implements KnowledgeSyncPrivateKeyS
         }
     }
 
-    public function promotePending(): void
+    public function promotePending(?callable $commit = null): void
     {
         if (!is_file($this->pending_path)) {
             throw new KnowledgeSyncTransportException('key_promotion_failed', 'The enrolled private key could not be promoted.');
@@ -109,6 +111,17 @@ final class KnowledgeSyncFilePrivateKeyStore implements KnowledgeSyncPrivateKeyS
                 rename($backup, $this->current_path);
             }
             throw new KnowledgeSyncTransportException('key_promotion_failed', 'The enrolled private key could not be promoted.');
+        }
+        try {
+            if ($commit !== null) {
+                $commit();
+            }
+        } catch (\Throwable $error) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Restore the exact before-image if local binding publication fails.
+            if (!rename($this->current_path, $this->pending_path) || ($has_current && !rename($backup, $this->current_path))) {
+                throw new KnowledgeSyncTransportException('key_rollback_failed', 'The previous enrollment could not be restored. Keep both local key files for recovery.');
+            }
+            throw $error;
         }
         if ($has_current && is_file($backup)) {
             // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Delete only this rotation's exact local backup after successful promotion.
@@ -178,36 +191,51 @@ final class KnowledgeSyncEncryptedOptionPrivateKeyStore implements KnowledgeSync
     {
         $stored = $this->stored();
         $stored['pending'] = $this->encrypt($private_key);
-        update_option(self::OPTION_NAME, $stored, false);
+        update_option(BackendProfileState::optionName(self::OPTION_NAME), $stored, false);
     }
 
-    public function promotePending(): void
+    public function promotePending(?callable $commit = null): void
     {
         $stored = $this->stored();
         if (!isset($stored['pending']) || !is_array($stored['pending'])) {
             throw new KnowledgeSyncTransportException('key_promotion_failed', 'No pending private key is available.');
         }
+        $previous = $stored;
         $stored['current'] = $stored['pending'];
         unset($stored['pending']);
-        update_option(self::OPTION_NAME, $stored, false);
+        update_option(BackendProfileState::optionName(self::OPTION_NAME), $stored, false);
+        if ($this->stored() !== $stored) {
+            throw new KnowledgeSyncTransportException('key_promotion_failed', 'The enrolled private key could not be promoted.');
+        }
+        try {
+            if ($commit !== null) {
+                $commit();
+            }
+        } catch (\Throwable $error) {
+            update_option(BackendProfileState::optionName(self::OPTION_NAME), $previous, false);
+            if ($this->stored() !== $previous) {
+                throw new KnowledgeSyncTransportException('key_rollback_failed', 'The previous enrollment could not be restored. Keep local key storage for recovery.');
+            }
+            throw $error;
+        }
     }
 
     public function discardPending(): void
     {
         $stored = $this->stored();
         unset($stored['pending']);
-        update_option(self::OPTION_NAME, $stored, false);
+        update_option(BackendProfileState::optionName(self::OPTION_NAME), $stored, false);
     }
 
     public function deleteAll(): void
     {
-        delete_option(self::OPTION_NAME);
+        delete_option(BackendProfileState::optionName(self::OPTION_NAME));
     }
 
     /** @return array<string, mixed> */
     private function stored(): array
     {
-        $stored = get_option(self::OPTION_NAME, array());
+        $stored = get_option(BackendProfileState::optionName(self::OPTION_NAME), array());
         return is_array($stored) ? $stored : array();
     }
 
@@ -230,7 +258,7 @@ final class KnowledgeSyncEncryptedOptionPrivateKeyStore implements KnowledgeSync
             OPENSSL_RAW_DATA,
             base64_decode($payload['iv'], true) ?: '',
             base64_decode($payload['tag'], true) ?: '',
-            'wpsuite-ai-kit-knowledge-sync-v1'
+            'wpsuite-ai-kit-knowledge-sync-v1' . BackendProfileState::fileSuffix()
         );
         if (!is_string($plaintext) || $plaintext === '') {
             throw new KnowledgeSyncTransportException('key_decryption_failed', 'The private key could not be decrypted.');
@@ -250,7 +278,7 @@ final class KnowledgeSyncEncryptedOptionPrivateKeyStore implements KnowledgeSync
             OPENSSL_RAW_DATA,
             $iv,
             $tag,
-            'wpsuite-ai-kit-knowledge-sync-v1',
+            'wpsuite-ai-kit-knowledge-sync-v1' . BackendProfileState::fileSuffix(),
             16
         );
         if (!is_string($ciphertext) || strlen($tag) !== 16) {
@@ -459,7 +487,7 @@ final class KnowledgeSyncTransport
         }
         $local = $this->localStatus();
         $version = $local['backendCompatibility']['capabilities']['knowledge.automation'] ?? null;
-        return !empty($local['configured']) && !empty($local['enrolled']) && is_int($version) && $version >= 6;
+        return !empty($local['configured']) && !empty($local['enrolled']) && ($local['bindingStatus'] ?? '') === 'bound' && ($local['remoteError'] ?? null) === null && is_int($version) && $version >= 6;
     }
 
     /**
@@ -634,6 +662,8 @@ final class KnowledgeSyncTransport
             'metadataResyncRequired' => $resync_required,
             'configured' => $settings['backendBaseUrl'] !== '' && $settings['keyStorageMode'] !== 'disabled',
             'enrolled' => $registration !== null,
+            'bindingStatus' => $registration === null ? 'none' : ($this->bindingError($registration, $settings) === null ? 'bound' : (empty($registration['backendBaseUrl']) ? 'unverified' : 'mismatch')),
+            'backendBaseUrl' => $registration['backendBaseUrl'] ?? null,
             'keyId' => $registration['keyId'] ?? null,
             'workspaceId' => $registration['workspaceId'] ?? null,
             'siteId' => $registration['siteId'] ?? null,
@@ -738,14 +768,30 @@ final class KnowledgeSyncTransport
     }
 
     /** @return array<string, mixed> */
-    public function enroll(string $pairing_code): array
+    public function enroll(string $pairing_code, ?array $replacement = null): array
     {
-        if ($this->registration() !== null) {
-            throw new KnowledgeSyncTransportException('already_enrolled', 'Rotate or revoke the existing site key before enrolling again.');
-        }
+        return $this->withEnrollmentLock(fn(): array => $this->enrollLocked($pairing_code, $replacement));
+    }
+
+    private function enrollLocked(string $pairing_code, ?array $replacement): array
+    {
+        $previous_registration = $this->registration();
+        $previous_settings = $this->settings->get();
+        $previous_raw_settings = get_option(BackendProfileState::optionName(KnowledgeSyncSettingsStore::OPTION_NAME), null);
         $settings = $this->configuredSettings();
-        $this->requireCapability('knowledge.automation', $settings['backendBaseUrl']);
         $identity = $this->identity->get();
+        if ($previous_registration !== null) {
+            if ($replacement === null || !is_string($replacement['expectedKeyId'] ?? null) || !hash_equals((string) ($previous_registration['keyId'] ?? ''), $replacement['expectedKeyId'])) {
+                throw new KnowledgeSyncTransportException('already_enrolled', 'Confirm pairing the selected backend before replacing the existing local enrollment.');
+            }
+            if (($replacement['workspaceId'] ?? null) !== $identity['workspaceId'] || ($replacement['siteId'] ?? null) !== $identity['siteId'] || !is_string($replacement['backendBaseUrl'] ?? null) || !is_string($replacement['environment'] ?? null)) {
+                throw new KnowledgeSyncTransportException('enrollment_identity_mismatch', 'The requested enrollment does not match the selected site.');
+            }
+            $settings = $this->settings->enrollmentSettings($replacement['backendBaseUrl'], $replacement['environment']);
+        } elseif ($replacement !== null) {
+            throw new KnowledgeSyncTransportException('enrollment_changed', 'The local enrollment changed. Refresh before pairing again.');
+        }
+        $this->requireCapability('knowledge.automation', $settings['backendBaseUrl']);
         $pairing_code = trim($pairing_code);
         if ($pairing_code === '' || strlen($pairing_code) > 128) {
             throw new KnowledgeSyncTransportException('invalid_pairing_code', 'The pairing code is invalid.');
@@ -782,9 +828,10 @@ final class KnowledgeSyncTransport
             ) {
                 throw new KnowledgeSyncTransportException('enrollment_identity_mismatch', 'The enrollment response identity does not match this site.');
             }
-            $store->promotePending();
             $registration = array(
                 'keyId' => $response['keyId'],
+                'backendBaseUrl' => $settings['backendBaseUrl'],
+                'keyStorageMode' => $settings['keyStorageMode'],
                 'workspaceId' => $response['workspaceId'],
                 'siteId' => $response['siteId'],
                 'environment' => $response['environment'],
@@ -793,45 +840,109 @@ final class KnowledgeSyncTransport
                 'producerPrefix' => is_string($response['producerPrefix'] ?? null) ? $response['producerPrefix'] : '',
                 'enrolledGmt' => gmdate('c'),
             );
-            update_option(self::REGISTRATION_OPTION, $registration, false);
+            if ($this->registration() !== $previous_registration || $this->settings->get() !== $previous_settings || $this->identity->get() !== $identity) {
+                throw new KnowledgeSyncTransportException('enrollment_changed', 'The local connection changed while pairing. Refresh before trying again.');
+            }
+            $store->promotePending(function () use ($registration, $settings, $previous_registration, $previous_raw_settings): void {
+                try {
+                    update_option(BackendProfileState::optionName(self::REGISTRATION_OPTION), $registration, false);
+                    if ($this->registration() !== $registration) {
+                        throw new KnowledgeSyncTransportException('enrollment_commit_failed', 'The new enrollment could not be stored.');
+                    }
+                    $this->settings->save($settings);
+                    if ($this->settings->get() !== $settings) {
+                        throw new KnowledgeSyncTransportException('enrollment_commit_failed', 'The new enrollment settings could not be stored.');
+                    }
+                } catch (\Throwable $error) {
+                    if ($this->registration() === $registration) {
+                        if ($previous_registration === null) {
+                            delete_option(BackendProfileState::optionName(self::REGISTRATION_OPTION));
+                        } else {
+                            update_option(BackendProfileState::optionName(self::REGISTRATION_OPTION), $previous_registration, false);
+                        }
+                    }
+                    // Only the exact candidate settings are ours to reverse.
+                    if ($this->settings->get() === $settings) {
+                        if ($previous_raw_settings === null) {
+                            delete_option(BackendProfileState::optionName(KnowledgeSyncSettingsStore::OPTION_NAME));
+                        } else {
+                            update_option(BackendProfileState::optionName(KnowledgeSyncSettingsStore::OPTION_NAME), $previous_raw_settings, false);
+                        }
+                    }
+                    throw $error;
+                }
+            });
             // The local fingerprint belongs to the previously enrolled remote
             // producer (if any). Force the first runner pass to establish the
             // WordPress vocabulary on this newly enrolled backend.
             KnowledgeSyncVocabularyService::invalidate();
             return $registration;
         } catch (\Throwable $error) {
-            $store->discardPending();
+            if (!($error instanceof KnowledgeSyncTransportException && $error->errorCode === 'key_rollback_failed')) {
+                $store->discardPending();
+            }
             throw $error;
         }
     }
 
     /** @return array<string, mixed> */
-    public function verifyStatus(?string $page_token = null, int $limit = 25): array
+    public function verifyStatus(?string $page_token = null, int $limit = 25, bool $adopt_binding = false): array
+    {
+        if ($adopt_binding) {
+            return $this->withEnrollmentLock(fn(): array => $this->verifyStatusLocked($page_token, $limit, true));
+        }
+        return $this->verifyStatusLocked($page_token, $limit, false);
+    }
+
+    private function verifyStatusLocked(?string $page_token, int $limit, bool $adopt_binding): array
     {
         $settings = $this->configuredSettings();
+        $registration = $this->requiredRegistration($adopt_binding);
         $this->requireCapability('knowledge.automation', $settings['backendBaseUrl']);
-        $registration = $this->requiredRegistration();
         $query = array('limit' => (string) max(1, min(100, $limit)));
         if (is_string($page_token) && $page_token !== '') {
             $query['pageToken'] = $page_token;
         }
-        return $this->signedRequest(
+        $response = $this->signedRequest(
             'GET',
             '/automation/kb/status',
             array(),
             $registration,
             $settings['backendBaseUrl'],
             null,
-            $query
+            $query,
+            $adopt_binding
         );
+        foreach (array('keyId', 'workspaceId', 'siteId', 'environment') as $field) {
+            if (($response[$field] ?? null) !== ($registration[$field] ?? null)) {
+                throw new KnowledgeSyncTransportException('enrollment_identity_mismatch', 'The remote enrollment does not match the selected local connection.');
+            }
+        }
+        if ($adopt_binding && empty($registration['backendBaseUrl'])) {
+            if ($this->registration() !== $registration || $this->settings->get() !== $settings || $this->bindingError($registration, $settings) !== 'enrollment_backend_unverified') {
+                throw new KnowledgeSyncTransportException('enrollment_changed', 'The local enrollment changed during verification. Refresh before trying again.');
+            }
+            $registration['backendBaseUrl'] = $settings['backendBaseUrl'];
+            $registration['keyStorageMode'] = $settings['keyStorageMode'];
+            update_option(BackendProfileState::optionName(self::REGISTRATION_OPTION), $registration, false);
+            if ($this->registration() !== $registration) {
+                throw new KnowledgeSyncTransportException('enrollment_commit_failed', 'The verified enrollment binding could not be stored.');
+            }
+        }
+        return $response;
     }
 
     /** @return array<string, mixed> */
     public function rotate(int $overlap_seconds = 300): array
     {
+        return $this->withEnrollmentLock(fn(): array => $this->rotateLocked($overlap_seconds));
+    }
+
+    private function rotateLocked(int $overlap_seconds = 300): array
+    {
         $settings = $this->configuredSettings();
-        $this->requireCapability('knowledge.automation', $settings['backendBaseUrl']);
         $registration = $this->requiredRegistration();
+        $this->requireCapability('knowledge.automation', $settings['backendBaseUrl']);
         $store = $this->key_stores->create($settings['keyStorageMode']);
         $pair = $this->signer->generateKeyPair();
         $store->writePending($pair['privateKey']);
@@ -857,7 +968,7 @@ final class KnowledgeSyncTransport
             $store->promotePending();
             $registration['keyId'] = $next_key_id;
             $registration['rotatedGmt'] = gmdate('c');
-            update_option(self::REGISTRATION_OPTION, $registration, false);
+            update_option(BackendProfileState::optionName(self::REGISTRATION_OPTION), $registration, false);
             return $registration;
         } catch (\Throwable $error) {
             $store->discardPending();
@@ -868,9 +979,14 @@ final class KnowledgeSyncTransport
     /** @return array<string, mixed> */
     public function revoke(): array
     {
+        return $this->withEnrollmentLock(fn(): array => $this->revokeLocked());
+    }
+
+    private function revokeLocked(): array
+    {
         $settings = $this->configuredSettings();
-        $this->requireCapability('knowledge.automation', $settings['backendBaseUrl']);
         $registration = $this->requiredRegistration();
+        $this->requireCapability('knowledge.automation', $settings['backendBaseUrl']);
         $response = $this->signedRequest(
             'POST',
             '/automation/kb/keys/revoke',
@@ -883,7 +999,7 @@ final class KnowledgeSyncTransport
         }
         $store = $this->key_stores->create($settings['keyStorageMode']);
         $store->deleteAll();
-        delete_option(self::REGISTRATION_OPTION);
+        delete_option(BackendProfileState::optionName(self::REGISTRATION_OPTION));
         return $response;
     }
 
@@ -898,9 +1014,13 @@ final class KnowledgeSyncTransport
         array $registration,
         string $base_url,
         ?string $logical_idempotency_key = null,
-        array $query = array()
+        array $query = array(),
+        bool $allow_unbound = false
     ): array
     {
+        if ($this->requiredRegistration($allow_unbound) !== $registration) {
+            throw new KnowledgeSyncTransportException('enrollment_changed', 'The local enrollment changed. Refresh before trying again.');
+        }
         $store = $this->key_stores->create($this->settings->get()['keyStorageMode']);
         $private_key = $store->readCurrent();
         if ($private_key === null) {
@@ -979,6 +1099,12 @@ final class KnowledgeSyncTransport
         if (!is_array($decoded)) {
             throw new KnowledgeSyncTransportException('invalid_backend_response', 'The knowledge-sync backend returned invalid JSON.');
         }
+        if ($status === 401 || $status === 403) {
+            throw new KnowledgeSyncTransportException(
+                'backend_authentication_failed',
+                'The Knowledge Sync backend did not accept this connection. Check the selected backend, workspace, site and environment. Verify a matching enrollment or explicitly pair the selected backend. The existing local enrollment and private key have been retained.'
+            );
+        }
         if ($status < 200 || $status >= 300) {
             $code = isset($decoded['code']) && is_string($decoded['code'])
                 ? sanitize_key($decoded['code'])
@@ -1017,17 +1143,51 @@ final class KnowledgeSyncTransport
     /** @return array<string, mixed>|null */
     private function registration(): ?array
     {
-        $registration = get_option(self::REGISTRATION_OPTION, null);
+        $registration = get_option(BackendProfileState::optionName(self::REGISTRATION_OPTION), null);
         return is_array($registration) ? $registration : null;
     }
 
     /** @return array<string, mixed> */
-    private function requiredRegistration(): array
+    private function requiredRegistration(bool $allow_unbound = false): array
     {
         $registration = $this->registration();
         if ($registration === null || empty($registration['keyId'])) {
             throw new KnowledgeSyncTransportException('site_not_enrolled', 'Enroll this site before using signed transport.');
         }
+        $error = $this->bindingError($registration, $this->settings->get());
+        if ($error !== null && !($allow_unbound && $error === 'enrollment_backend_unverified')) {
+            throw new KnowledgeSyncTransportException($error, 'The saved Knowledge Sync enrollment does not match the selected backend or site. Verify the original connection or explicitly pair the selected backend.');
+        }
         return $registration;
+    }
+
+    private function bindingError(array $registration, array $settings): ?string
+    {
+        try {
+            $identity = $this->identity->get();
+        } catch (\Throwable $error) {
+            return 'enrollment_identity_mismatch';
+        }
+        if (($registration['workspaceId'] ?? null) !== $identity['workspaceId'] || ($registration['siteId'] ?? null) !== $identity['siteId'] || ($registration['environment'] ?? null) !== $settings['environment'] || (isset($registration['keyStorageMode']) && $registration['keyStorageMode'] !== $settings['keyStorageMode'])) {
+            return 'enrollment_identity_mismatch';
+        }
+        if (empty($registration['backendBaseUrl'])) {
+            return 'enrollment_backend_unverified';
+        }
+        return $registration['backendBaseUrl'] !== $settings['backendBaseUrl'] ? 'enrollment_backend_mismatch' : null;
+    }
+
+    private function withEnrollmentLock(callable $operation): array
+    {
+        $lock = new KnowledgeSyncRunnerLock();
+        $token = $lock->acquire(120);
+        if ($token === null) {
+            throw new KnowledgeSyncTransportException('enrollment_busy', 'Knowledge Sync is busy. Retry after the current operation finishes.');
+        }
+        try {
+            return $operation();
+        } finally {
+            $lock->release($token);
+        }
     }
 }

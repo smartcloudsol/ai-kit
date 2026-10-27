@@ -55,7 +55,14 @@ import DocSidebar from "./DocSidebar";
 import { NoRegistrationRequiredBanner } from "./noregistration";
 import { AiKitOnboarding } from "./onboarding";
 
-import { SiteSettings, SubscriptionType } from "@smart-cloud/wpsuite-core";
+import {
+  getSitePluginSettings,
+  getBackendProfileContext, assertBackendProfileConfiguration,
+  resolveBackendProfileLegacyTargets,
+  getWpSuite,
+  type SiteSettings,
+  type SubscriptionType,
+} from "@smart-cloud/wpsuite-core";
 
 import "jquery";
 
@@ -239,15 +246,17 @@ interface MainProps {
 
 const production = process.env?.NODE_ENV === "production";
 
-const apiUrl =
+const legacyApiUrl =
   !production || window.location.host === "dev.wpsuite.io"
-    ? "https://api.wpsuite.io/dev"
+    ? "https://api-dev.wpsuite.io"
     : "https://api.wpsuite.io";
 
-const configUrl =
+const legacyConfigUrl =
   !production || window.location.host === "dev.wpsuite.io"
     ? "https://wpsuite.io/static/config/dev.json"
     : "https://wpsuite.io/static/config/prod.json";
+
+const { apiBaseUrl: apiUrl, configUrl } = resolveBackendProfileLegacyTargets(legacyApiUrl, legacyConfigUrl);
 
 const aiKit = getAiKitPlugin();
 
@@ -304,6 +313,7 @@ const Main = (props: MainProps) => {
     queryKey: ["config"],
     queryFn: async () => {
       const response = await fetch(configUrl).catch((err) => {
+        if (getBackendProfileContext()) throw err;
         return {
           ok: true,
           statusText: err.message,
@@ -341,7 +351,9 @@ const Main = (props: MainProps) => {
         throw new Error(response.statusText);
       }
 
-      return response.json();
+      const result = await response.json();
+      assertBackendProfileConfiguration(result);
+      return result;
     },
   });
 
@@ -1003,23 +1015,14 @@ const Main = (props: MainProps) => {
 
 async function fetchSite(accountId: string, siteId: string, siteKey: string) {
   try {
-    const response = await fetch(
-      `${apiUrl}/account/${accountId}/site/${siteId}/settings`,
-      {
-        method: "GET",
-        headers: {
-          "X-Plugin": "ai-kit",
-          "X-Site-Key": siteKey,
-        },
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch site: ${response.statusText}`);
-    }
-
-    const body = await response.json();
-    return body as unknown as Site;
+    return await getSitePluginSettings<AiKitConfig>({
+      legacyApiBaseUrl: apiUrl,
+      workspaceId: accountId,
+      siteId,
+      siteKey,
+      pluginKey: "ai-kit",
+      connection: getWpSuite()?.siteSettings,
+    });
   } catch (err) {
     console.error("fetchSite error:", err);
     throw err;

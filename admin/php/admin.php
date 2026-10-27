@@ -15,6 +15,7 @@ use SmartCloud\WPSuite\AiKit\Logger;
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly.
 }
+require_once __DIR__ . '/kb/backend-profile-state.php';
 if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'admin/model.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/model.php';
 }
@@ -31,7 +32,7 @@ class Admin
         );
 
         // WP can return array/object depending on previous versions / serialization.
-        $raw = get_option(SMARTCLOUD_AI_KIT_SLUG);
+        $raw = get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(SMARTCLOUD_AI_KIT_SLUG));
 
         // Merge missing properties from defaultSettings
         $merged = array_merge(
@@ -244,7 +245,7 @@ class Admin
         );
 
         // Frissített beállítások mentése
-        update_option(SMARTCLOUD_AI_KIT_SLUG, $this->settings);
+        update_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(SMARTCLOUD_AI_KIT_SLUG), $this->settings);
 
         Logger::info('AI-Kit settings updated', [
             'debugLoggingEnabled' => $debugLoggingEnabled,

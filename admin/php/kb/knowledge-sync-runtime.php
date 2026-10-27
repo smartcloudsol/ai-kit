@@ -9,6 +9,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 require_once __DIR__ . '/localization.php';
 
 /** Resolves authored base-document metadata independently of markdown locking. */
@@ -16,7 +18,7 @@ final class KnowledgeSyncDocumentMetadata
 {
     public static function baseUrlOverride(): string
     {
-        return rtrim(trim((string) get_option('smartcloud_ai_kit_kb_base_url_override', '')), '/');
+        return rtrim(trim((string) get_option(BackendProfileState::optionName('smartcloud_ai_kit_kb_base_url_override'), '')), '/');
     }
 
     public static function applyBaseUrlOverride(string $url): string
@@ -79,7 +81,7 @@ final class KnowledgeSyncSettingsStore
     /** @return array{includeSubsites:bool,baselinePageSize:int,transportBatchSize:int,syncIntervalMinutes:int,publicReleaseGate:string,backendBaseUrl:string,keyStorageMode:string,environment:string} */
     public function get(): array
     {
-        $stored = get_option(self::OPTION_NAME, array());
+        $stored = get_option(BackendProfileState::optionName(self::OPTION_NAME), array());
         if (!is_array($stored)) {
             $stored = array();
         }
@@ -133,7 +135,16 @@ final class KnowledgeSyncSettingsStore
             'keyStorageMode' => $this->normalizeKeyStorageMode($settings['keyStorageMode'] ?? 'disabled'),
             'environment' => $this->normalizeEnvironment($settings['environment'] ?? 'prod'),
         );
-        update_option(self::OPTION_NAME, $normalized, false);
+        $registration = get_option(BackendProfileState::optionName('smartcloud_ai_kit_kb_sync_registration'), null);
+        if (is_array($registration)) {
+            $bound_backend = $registration['backendBaseUrl'] ?? $previous['backendBaseUrl'];
+            $bound_environment = $registration['environment'] ?? $previous['environment'];
+            $bound_storage = $registration['keyStorageMode'] ?? $previous['keyStorageMode'];
+            if ($normalized['backendBaseUrl'] !== $bound_backend || $normalized['environment'] !== $bound_environment || $normalized['keyStorageMode'] !== $bound_storage) {
+                throw new \InvalidArgumentException('Explicitly pair the selected backend before changing an enrolled Knowledge Sync connection. The existing enrollment is preserved.');
+            }
+        }
+        update_option(BackendProfileState::optionName(self::OPTION_NAME), $normalized, false);
         if (
             $previous['publicReleaseGate'] === 'disabled' &&
             $normalized['publicReleaseGate'] === 'static-publisher' &&
@@ -148,6 +159,18 @@ final class KnowledgeSyncSettingsStore
         do_action('smartcloud_ai_kit_knowledge_sync_settings_changed', $normalized);
 
         return $normalized;
+    }
+
+    /** Prepare an explicit replacement target without publishing any local setting. */
+    public function enrollmentSettings(string $backend_base_url, string $environment): array
+    {
+        $settings = $this->get();
+        $settings['backendBaseUrl'] = $this->normalizeBackendBaseUrl($backend_base_url);
+        $settings['environment'] = $this->normalizeEnvironment($environment);
+        if ($settings['backendBaseUrl'] === '') {
+            throw new \InvalidArgumentException('Knowledge-sync backend URL is required for enrollment.');
+        }
+        return $settings;
     }
 
     private function normalizePublicReleaseGate(mixed $value): string
@@ -218,7 +241,7 @@ final class KnowledgeSyncBaselineRepository
     private function tableName(): string
     {
         global $wpdb;
-        return $wpdb->prefix . 'smartcloud_ai_kit_kb_sync_baselines';
+        return BackendProfileState::table('kb_sync_baselines');
     }
 
     public function ensure(
@@ -556,7 +579,7 @@ final class KnowledgeSyncAuditRepository
     private function tableName(): string
     {
         global $wpdb;
-        return $wpdb->prefix . 'smartcloud_ai_kit_kb_sync_audit';
+        return BackendProfileState::table('kb_sync_audit');
     }
 
     /** @param array<string, scalar|null> $details */
@@ -944,18 +967,18 @@ final class KnowledgeSyncVocabularyService
 
     public static function invalidate(): void
     {
-        delete_option(self::OPTION_NAME);
+        delete_option(BackendProfileState::optionName(self::OPTION_NAME));
     }
 
     /** Force a new vocabulary delivery while retaining its monotonic source version. */
     public static function requestResync(): void
     {
-        $stored = get_option(self::OPTION_NAME, array());
+        $stored = get_option(BackendProfileState::optionName(self::OPTION_NAME), array());
         if (!is_array($stored)) {
             $stored = array();
         }
         unset($stored['fingerprint']);
-        update_option(self::OPTION_NAME, $stored, false);
+        update_option(BackendProfileState::optionName(self::OPTION_NAME), $stored, false);
     }
 
     /** @return array{status:string,changed?:bool,errorCode?:string} */
@@ -980,7 +1003,7 @@ final class KnowledgeSyncVocabularyService
             );
         }
         $fingerprint = hash('sha256', KnowledgeSyncCategoryPaths::mode() . ':' . $encoded);
-        $stored = get_option(self::OPTION_NAME, array());
+        $stored = get_option(BackendProfileState::optionName(self::OPTION_NAME), array());
         if (!is_array($stored)) {
             $stored = array();
         }
@@ -1002,7 +1025,7 @@ final class KnowledgeSyncVocabularyService
             );
         }
         if ($response['status'] === 'accepted') {
-            update_option(self::OPTION_NAME, array(
+            update_option(BackendProfileState::optionName(self::OPTION_NAME), array(
                 'fingerprint' => $fingerprint,
                 'sourceVersion' => $version,
                 'acceptedGmt' => gmdate('c'),
@@ -1117,7 +1140,7 @@ final class KnowledgeSyncVocabularyService
     /** @return array{status:string,sourceVersion:int,additions:array<int,array{namespace:string,slug:string,label:string}>,removals:array<int,array{namespace:string,slug:string,label:string}>,changes:array<int,array{namespace:string,slug:string,fromLabel:string,toLabel:string}>} */
     public function metadataDiff(): array
     {
-        $stored = get_option(self::OPTION_NAME, array());
+        $stored = get_option(BackendProfileState::optionName(self::OPTION_NAME), array());
         $stored = is_array($stored) ? $stored : array();
         $accepted = isset($stored['namespaces']) && is_array($stored['namespaces'])
             ? $stored['namespaces']
@@ -1199,13 +1222,13 @@ final class KnowledgeSyncRunnerLock
     public function acquire(int $ttl_seconds = 300): ?string
     {
         $now = time();
-        $existing = get_option(self::OPTION_NAME, null);
+        $existing = get_option(BackendProfileState::optionName(self::OPTION_NAME), null);
         if (is_array($existing) && (int) ($existing['expires'] ?? 0) <= $now) {
-            delete_option(self::OPTION_NAME);
+            delete_option(BackendProfileState::optionName(self::OPTION_NAME));
         }
 
         $token = wp_generate_uuid4();
-        $created = add_option(self::OPTION_NAME, array(
+        $created = add_option(BackendProfileState::optionName(self::OPTION_NAME), array(
             'token' => $token,
             'expires' => $now + max(60, min(900, $ttl_seconds)),
         ), '', false);
@@ -1214,9 +1237,9 @@ final class KnowledgeSyncRunnerLock
 
     public function release(string $token): void
     {
-        $existing = get_option(self::OPTION_NAME, null);
+        $existing = get_option(BackendProfileState::optionName(self::OPTION_NAME), null);
         if (is_array($existing) && hash_equals((string) ($existing['token'] ?? ''), $token)) {
-            delete_option(self::OPTION_NAME);
+            delete_option(BackendProfileState::optionName(self::OPTION_NAME));
         }
     }
 }
@@ -1238,8 +1261,8 @@ final class KnowledgeSyncRuntime
     {
         add_filter('cron_schedules', array($this, 'addCronSchedule'));
         add_action('init', array($this, 'ensureScheduled'));
-        add_action(self::CRON_HOOK, array($this, 'run'));
-        add_action(self::FULL_RESYNC_CRON_HOOK, array($this, 'run'));
+        add_action(self::CRON_HOOK, array($this, 'runScheduled'), 10, 1);
+        add_action(self::FULL_RESYNC_CRON_HOOK, array($this, 'runScheduled'), 10, 1);
         add_action('smartcloud_ai_kit_knowledge_sync_policy_changed', array($this, 'onPolicyChanged'), 10, 3);
         add_action('smartcloud_ai_kit_knowledge_sync_settings_changed', array($this, 'ensureScheduled'));
         add_action(KnowledgeSyncPublicReleaseGate::RELEASE_ACTION, array($this, 'onPublicRelease'), 10, 1);
@@ -1247,6 +1270,12 @@ final class KnowledgeSyncRuntime
 
     /** @param array<string, mixed> $receipt */
     public function onPublicRelease(array $receipt): void
+    {
+        $captured = is_array($receipt['backendProfile'] ?? null) ? $receipt['backendProfile'] : null;
+        BackendProfileState::runScheduled($captured, function () use ($receipt): void { $this->onPublicReleaseInContext($receipt); });
+    }
+
+    private function onPublicReleaseInContext(array $receipt): void
     {
         if (!KnowledgeSyncPublicReleaseGate::enabled()) {
             return;
@@ -1322,7 +1351,7 @@ final class KnowledgeSyncRuntime
             }
         }
         if ($accepted && function_exists('wp_schedule_single_event')) {
-            wp_schedule_single_event(time() + 1, self::CRON_HOOK);
+            wp_schedule_single_event(time() + 1, self::CRON_HOOK, BackendProfileState::cronArgs());
             $this->wakeFullResync();
         }
     }
@@ -1347,17 +1376,17 @@ final class KnowledgeSyncRuntime
     public function ensureScheduled(): void
     {
         if (!$this->hasEnabledPolicyInScope()) {
-            wp_clear_scheduled_hook(self::CRON_HOOK);
+            wp_clear_scheduled_hook(self::CRON_HOOK, BackendProfileState::cronArgs());
             return;
         }
         $minutes = (new KnowledgeSyncSettingsStore())->get()['syncIntervalMinutes'];
         $schedule = $this->cronScheduleName($minutes);
-        $current_schedule = wp_get_schedule(self::CRON_HOOK);
+        $current_schedule = wp_get_schedule(self::CRON_HOOK, BackendProfileState::cronArgs());
         if (is_string($current_schedule) && $current_schedule !== $schedule) {
-            wp_clear_scheduled_hook(self::CRON_HOOK);
+            wp_clear_scheduled_hook(self::CRON_HOOK, BackendProfileState::cronArgs());
         }
-        if (!wp_next_scheduled(self::CRON_HOOK)) {
-            wp_schedule_event(time() + ($minutes * 60), $schedule, self::CRON_HOOK);
+        if (!wp_next_scheduled(self::CRON_HOOK, BackendProfileState::cronArgs())) {
+            wp_schedule_event(time() + ($minutes * 60), $schedule, self::CRON_HOOK, BackendProfileState::cronArgs());
         }
     }
 
@@ -1369,17 +1398,17 @@ final class KnowledgeSyncRuntime
     /** Queue one durable, bounded rescan without doing network or document work in the request. */
     public function requestFullResync(): array
     {
-        $existing = get_option(self::FULL_RESYNC_OPTION, null);
+        $existing = get_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), null);
         if ($this->fullResyncIsActive($existing)) {
             return $this->fullResyncStatus();
         }
 
-        $lock_expires = (int) get_option(self::FULL_RESYNC_REQUEST_LOCK, 0);
+        $lock_expires = (int) get_option(BackendProfileState::optionName(self::FULL_RESYNC_REQUEST_LOCK), 0);
         if ($lock_expires > 0 && $lock_expires <= time()) {
-            delete_option(self::FULL_RESYNC_REQUEST_LOCK);
+            delete_option(BackendProfileState::optionName(self::FULL_RESYNC_REQUEST_LOCK));
         }
-        if (!add_option(self::FULL_RESYNC_REQUEST_LOCK, time() + 30, '', false)) {
-            $existing = get_option(self::FULL_RESYNC_OPTION, null);
+        if (!add_option(BackendProfileState::optionName(self::FULL_RESYNC_REQUEST_LOCK), time() + 30, '', false)) {
+            $existing = get_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), null);
             if ($this->fullResyncIsActive($existing)) {
                 return $this->fullResyncStatus();
             }
@@ -1387,7 +1416,7 @@ final class KnowledgeSyncRuntime
         }
 
         try {
-            $existing = get_option(self::FULL_RESYNC_OPTION, null);
+            $existing = get_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), null);
             if ($this->fullResyncIsActive($existing)) {
                 return $this->fullResyncStatus();
             }
@@ -1405,8 +1434,9 @@ final class KnowledgeSyncRuntime
                 'completedGmt' => null,
                 'reason' => null,
                 'scopes' => $scopes,
+                'backendProfile' => BackendProfileState::capture(),
             );
-            update_option(self::FULL_RESYNC_OPTION, $job, false);
+            update_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), $job, false);
             (new KnowledgeSyncAuditRepository())->record('full-resync', 'requested', array(
                 'jobId' => $job['id'],
                 'scopeCount' => count($scopes),
@@ -1414,14 +1444,14 @@ final class KnowledgeSyncRuntime
             $this->scheduleFullResyncFollowup(1);
             return $this->fullResyncStatus();
         } finally {
-            delete_option(self::FULL_RESYNC_REQUEST_LOCK);
+            delete_option(BackendProfileState::optionName(self::FULL_RESYNC_REQUEST_LOCK));
         }
     }
 
     /** @return array<string, mixed>|null */
     public function fullResyncStatus(): ?array
     {
-        $job = get_option(self::FULL_RESYNC_OPTION, null);
+        $job = get_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), null);
         if (!is_array($job) || !is_array($job['scopes'] ?? null)) {
             return null;
         }
@@ -1546,7 +1576,7 @@ final class KnowledgeSyncRuntime
         global $wpdb;
         $placeholders = implode(', ', array_fill(0, count($post_types), '%s'));
         $arguments = array_merge(
-            array($wpdb->prefix . 'smartcloud_ai_kit_kb_sync_outbox', $blog_id),
+            array(BackendProfileState::table('kb_sync_outbox'), $blog_id),
             $post_types
         );
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- The IN placeholders are generated from the validated scope length, with one bound argument for each placeholder.
@@ -1568,19 +1598,19 @@ final class KnowledgeSyncRuntime
             return;
         }
         $scheduled_at = time() + max(1, $delay_seconds);
-        $existing = wp_next_scheduled(self::FULL_RESYNC_CRON_HOOK);
+        $existing = wp_next_scheduled(self::FULL_RESYNC_CRON_HOOK, BackendProfileState::cronArgs());
         if ($existing !== false && $existing <= $scheduled_at) {
             return;
         }
         if ($existing !== false) {
-            wp_clear_scheduled_hook(self::FULL_RESYNC_CRON_HOOK);
+            wp_clear_scheduled_hook(self::FULL_RESYNC_CRON_HOOK, BackendProfileState::cronArgs());
         }
-        wp_schedule_single_event($scheduled_at, self::FULL_RESYNC_CRON_HOOK);
+        wp_schedule_single_event($scheduled_at, self::FULL_RESYNC_CRON_HOOK, BackendProfileState::cronArgs());
     }
 
     public function wakeFullResync(): void
     {
-        if ($this->fullResyncIsActive(get_option(self::FULL_RESYNC_OPTION, null))) {
+        if ($this->fullResyncIsActive(get_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), null))) {
             $this->scheduleFullResyncFollowup(1);
         }
     }
@@ -1588,9 +1618,14 @@ final class KnowledgeSyncRuntime
     /** Apply a queued request once before any bounded scan pages are processed. */
     private function activateFullResync(): void
     {
-        $job = get_option(self::FULL_RESYNC_OPTION, null);
+        $job = get_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), null);
         if (!is_array($job) || ($job['state'] ?? '') !== 'queued') {
             return;
+        }
+        $binding = BackendProfileState::capture();
+        if ($binding !== null && is_array($job['backendProfile'] ?? null)
+            && $job['backendProfile'] !== $binding) {
+            throw new \RuntimeException('Queued full synchronization belongs to a different backend binding.');
         }
         $original_blog_id = get_current_blog_id();
         try {
@@ -1602,13 +1637,13 @@ final class KnowledgeSyncRuntime
                     if (
                         defined('SMARTCLOUD_AI_KIT_DB_VERSION') &&
                         version_compare(
-                            (string) get_option('smartcloud_ai_kit_db_version', '0'),
+                            (string) get_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), '0'),
                             (string) SMARTCLOUD_AI_KIT_DB_VERSION,
                             '<'
                         )
                     ) {
                         Schema::createTables();
-                        update_option('smartcloud_ai_kit_db_version', SMARTCLOUD_AI_KIT_DB_VERSION);
+                        update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), SMARTCLOUD_AI_KIT_DB_VERSION);
                     }
                     $policies = new KnowledgeSyncPolicyStore();
                     $repository = new KnowledgeSyncBaselineRepository();
@@ -1642,7 +1677,7 @@ final class KnowledgeSyncRuntime
         $job['startedGmt'] = gmdate('c');
         $job['updatedGmt'] = $job['startedGmt'];
         $job['reason'] = null;
-        update_option(self::FULL_RESYNC_OPTION, $job, false);
+        update_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), $job, false);
         (new KnowledgeSyncAuditRepository())->record('full-resync', 'started', array('jobId' => $job['id']));
     }
 
@@ -1663,6 +1698,16 @@ final class KnowledgeSyncRuntime
         $this->ensureScheduled();
     }
 
+    /** Cron receives its captured backend, never a newly selected active backend. */
+    public function runScheduled(?array $captured = null): array
+    {
+        try {
+            return BackendProfileState::runScheduled($captured, fn(): array => $this->run());
+        } catch (\Throwable $error) {
+            return ['status' => 'profile-unavailable', 'errorCode' => 'backend_profile_binding_unavailable', 'blogs' => []];
+        }
+    }
+
     /** @return array<string, mixed> */
     public function run(bool $force_drift_check = false): array
     {
@@ -1670,7 +1715,7 @@ final class KnowledgeSyncRuntime
         $lock = new KnowledgeSyncRunnerLock();
         $token = $lock->acquire();
         if ($token === null) {
-            if ($this->fullResyncIsActive(get_option(self::FULL_RESYNC_OPTION, null))) {
+            if ($this->fullResyncIsActive(get_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), null))) {
                 $this->scheduleFullResyncFollowup(30);
             }
             return array('status' => 'locked', 'blogs' => array());
@@ -1702,13 +1747,13 @@ final class KnowledgeSyncRuntime
                     if (
                         defined('SMARTCLOUD_AI_KIT_DB_VERSION') &&
                         version_compare(
-                            (string) get_option('smartcloud_ai_kit_db_version', '0'),
+                            (string) get_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), '0'),
                             (string) SMARTCLOUD_AI_KIT_DB_VERSION,
                             '<'
                         )
                     ) {
                         Schema::createTables();
-                        update_option('smartcloud_ai_kit_db_version', SMARTCLOUD_AI_KIT_DB_VERSION);
+                        update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), SMARTCLOUD_AI_KIT_DB_VERSION);
                     }
                     $policies = new KnowledgeSyncPolicyStore();
                     $settings = (new KnowledgeSyncSettingsStore())->get();
@@ -1753,13 +1798,13 @@ final class KnowledgeSyncRuntime
                     if ($dispatch !== null) {
                         $results[] = array_merge(array('blogId' => $blog_id), $dispatch);
                     }
-                    $last_drift_check = absint(get_option(self::DRIFT_CHECK_OPTION, 0));
+                    $last_drift_check = absint(get_option(BackendProfileState::optionName(self::DRIFT_CHECK_OPTION), 0));
                     if ($force_drift_check || $last_drift_check + DAY_IN_SECONDS <= time()) {
                         $drift = $this->repairRemoteDrift();
                         if ($drift !== null) {
                             $results[] = array_merge(array('blogId' => $blog_id), $drift);
                             if ($drift['status'] === 'complete') {
-                                update_option(self::DRIFT_CHECK_OPTION, time(), false);
+                                update_option(BackendProfileState::optionName(self::DRIFT_CHECK_OPTION), time(), false);
                             }
                         }
                     }
@@ -1798,7 +1843,7 @@ final class KnowledgeSyncRuntime
             'completedGmt' => gmdate('c'),
             'blogs' => $results,
         );
-        update_option(self::LAST_RUN_OPTION, $result, false);
+        update_option(BackendProfileState::optionName(self::LAST_RUN_OPTION), $result, false);
         try {
             $this->refreshFullResyncProgress($results);
         } catch (\Throwable $error) {
@@ -1813,14 +1858,14 @@ final class KnowledgeSyncRuntime
     /** @param array<int, array<string, mixed>> $results */
     private function refreshFullResyncProgress(array $results): void
     {
-        $job = get_option(self::FULL_RESYNC_OPTION, null);
+        $job = get_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), null);
         if (!is_array($job) || !$this->fullResyncIsActive($job)) {
             return;
         }
         if (($job['state'] ?? '') === 'queued') {
             $job['reason'] = 'full_resync_initialization_failed';
             $job['updatedGmt'] = gmdate('c');
-            update_option(self::FULL_RESYNC_OPTION, $job, false);
+            update_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), $job, false);
             $this->scheduleFullResyncFollowup(60);
             return;
         }
@@ -1872,7 +1917,7 @@ final class KnowledgeSyncRuntime
                             $scanning = true;
                         }
                     }
-                    $vocabulary = get_option(KnowledgeSyncVocabularyService::OPTION_NAME, array());
+                    $vocabulary = get_option(BackendProfileState::optionName(KnowledgeSyncVocabularyService::OPTION_NAME), array());
                     if (!is_array($vocabulary) || empty($vocabulary['fingerprint'])) {
                         $vocabulary_pending = true;
                     }
@@ -1929,9 +1974,9 @@ final class KnowledgeSyncRuntime
         if ($state === 'complete') {
             $job['completedGmt'] = $job['updatedGmt'];
         }
-        update_option(self::FULL_RESYNC_OPTION, $job, false);
+        update_option(BackendProfileState::optionName(self::FULL_RESYNC_OPTION), $job, false);
         if ($state === 'complete' && !$was_complete) {
-            wp_clear_scheduled_hook(self::FULL_RESYNC_CRON_HOOK);
+            wp_clear_scheduled_hook(self::FULL_RESYNC_CRON_HOOK, BackendProfileState::cronArgs());
             (new KnowledgeSyncAuditRepository())->record('full-resync', 'completed', array('jobId' => $job['id']));
         } elseif ($state === 'scanning') {
             $this->scheduleFullResyncFollowup(10);
@@ -1992,7 +2037,7 @@ final class KnowledgeSyncRuntime
         $transport = KnowledgeSyncTransport::create();
         $outbox = new KnowledgeSyncOutboxRepository();
         $policies = new KnowledgeSyncPolicyStore();
-        $stored_page_token = get_option(self::DRIFT_CURSOR_OPTION, null);
+        $stored_page_token = get_option(BackendProfileState::optionName(self::DRIFT_CURSOR_OPTION), null);
         $page_token = is_string($stored_page_token) && $stored_page_token !== ''
             ? $stored_page_token
             : null;
@@ -2064,9 +2109,9 @@ final class KnowledgeSyncRuntime
         } while ($page_token !== null && $page_token !== '' && $pages < 20);
 
         if ($page_token !== null && $page_token !== '') {
-            update_option(self::DRIFT_CURSOR_OPTION, $page_token, false);
+            update_option(BackendProfileState::optionName(self::DRIFT_CURSOR_OPTION), $page_token, false);
         } else {
-            delete_option(self::DRIFT_CURSOR_OPTION);
+            delete_option(BackendProfileState::optionName(self::DRIFT_CURSOR_OPTION));
         }
 
         (new KnowledgeSyncAuditRepository())->record('drift-reconciliation', 'completed', array(

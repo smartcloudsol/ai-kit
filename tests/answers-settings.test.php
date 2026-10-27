@@ -10,7 +10,7 @@ function current_user_can(string $cap): bool { return $GLOBALS['allowed']; }
 function get_option(string $key, mixed $default = false): mixed { return $key === 'smartcloud-wpsuite/site-settings' ? $GLOBALS['connection'] : $default; }
 function home_url(string $path): string { return 'https://dev.example.test/site-home' . $path; }
 function admin_url(string $path): string { return 'https://dev.example.test/wordpress/wp-admin/' . $path; }
-function get_site_url(): string { return 'https://dev.wpsuite.io'; }
+function get_site_url(): string { return $GLOBALS['answers_site_url'] ?? 'https://dev.wpsuite.io'; }
 function wp_parse_url(string $url, int $component): mixed { return parse_url($url, $component); }
 function wp_json_encode(mixed $value): string { return json_encode($value, JSON_THROW_ON_ERROR); }
 class WP_Error { public function __construct(public string $code, public string $message, public array $data = []) {} }
@@ -47,7 +47,7 @@ check($state['preview_url'] === 'https://dev.example.test/site-home/', 'Preview 
 check($state['advanced_tools_url'] === 'https://dev.example.test/wordpress/wp-admin/admin.php?page=smartcloud-ai-kit&section=conversation-profile&profile-section=tools#conversation-profile-tools-settings', 'Advanced tools destination follows the WordPress admin URL including a subdirectory install.');
 check($state['connected'] && !$state['backend_configured'], 'Connected settings load without an AI backend.');
 check(!str_contains(json_encode($state), 'fixture-only-placeholder') && !str_contains(json_encode($state), 'futureConfig'), 'Projection never returns credentials or unknown advanced settings.');
-check($requests[0][1] === 'https://api.wpsuite.io/dev/account/workspace-1/site/site-1/settings', 'Existing cloud dev endpoint is authoritative.');
+check($requests[0][1] === 'https://api-dev.wpsuite.io/account/workspace-1/site/site-1/settings', 'Developer settings use the stable API root without a dev path.');
 check($requests[0][2]['redirection'] === 0 && $requests[0][2]['headers']['X-Plugin'] === 'ai-kit', 'Credentials cannot follow redirects and projection selects AI Kit config.');
 $before = $remote['settings'];
 $saved = AnswersSettings::save(request($state['revision'], ['enableChatbot'=>true]));
@@ -94,6 +94,25 @@ foreach ([['openButtonPosition'=>'center'], ['brandColor'=>'red'], ['brandColor'
 }
 $saved = AnswersSettings::save(request($saved['revision'], ['brandColor'=>'']));
 check(is_array($saved) && $remote['settings']['chatbot']['primaryColor'] === 'blue', 'Clearing the custom brand selects the default palette.');
+// Exercise the real transport resolver without sending or mutating settings.
+foreach (array('https://wpsuite.io', 'https://dev.wpsuite.io.evil.example', 'https://other.example/?redirect=dev.wpsuite.io') as $url) {
+    $GLOBALS['answers_site_url'] = $url;
+    $target = \SmartCloud\WPSuite\AiKit\SiteSettingsTransport::connection();
+    check(is_array($target) && $target['endpoint'] === 'https://api.wpsuite.io/account/workspace-1/site/site-1/settings', 'Non-dev hosts preserve the production settings API.');
+}
+$legacy_connection = $connection;
+$connection = array_merge($connection, ['workspaceId'=>'workspace-1','workspaceApiMode'=>'workspace','platformApiBaseUrl'=>'https://secondary.example.test/dev','platformConfigUrl'=>'https://delivery.example.test/secondary.json']);
+foreach (array('https://dev.wpsuite.io', 'https://wpsuite.io') as $url) {
+    $GLOBALS['answers_site_url'] = $url;
+    $target = \SmartCloud\WPSuite\AiKit\SiteSettingsTransport::connection();
+    check(is_array($target) && $target['endpoint'] === 'https://secondary.example.test/dev/workspace/workspace-1/site/site-1/settings', 'Explicit secondary binding wins on both dev and prod hosts.');
+}
+$valid_connection = $connection;
+foreach (array('http://bad.example.test', 'https://user:secret@bad.example.test', 'https://bad.example.test?query=value', 'https://bad.example.test#fragment') as $url) {
+    $connection = array_merge($valid_connection, ['platformApiBaseUrl'=>$url]);
+    check(\SmartCloud\WPSuite\AiKit\SiteSettingsTransport::connection() instanceof WP_Error, 'Invalid explicit API never falls back to a host-selected backend.');
+}
+$connection = $legacy_connection; unset($GLOBALS['answers_site_url']);
 $count = count($requests);
 $allowed = false; check(AnswersSettings::read() instanceof WP_Error && AnswersSettings::save(request('', ['title'=>'No'])) instanceof WP_Error && count($requests) === $count, 'Denied administrators cannot read or mutate cloud configuration.');
 echo "Answers settings: $checks checks passed.\n";

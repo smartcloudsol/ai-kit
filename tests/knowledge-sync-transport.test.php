@@ -14,6 +14,11 @@ $options = array(
 );
 $requests = array();
 $registered_public_key = '';
+$registered_public_keys = array();
+$enrollment_failure_mode = '';
+$enrollment_hook = null;
+$reject_signed = false;
+$verify_identity_mismatch = false;
 $uuid_sequence = 0;
 
 $transients = [];
@@ -41,8 +46,22 @@ function update_option(string $name, mixed $value, ?bool $autoload = null): bool
 {
     global $options;
     transport_expect($autoload === false, 'Sensitive transport options must not autoload.');
+    if ($name === 'smartcloud_ai_kit_kb_sync_registration' && !empty($GLOBALS['fail_registration_commit'])) {
+        $GLOBALS['fail_registration_commit'] = false;
+        return false;
+    }
+    if ($name === 'smartcloud_ai_kit_kb_sync_settings' && !empty($GLOBALS['fail_settings_commit']) && ($value['backendBaseUrl'] ?? '') === 'https://api.example.com/next-base') {
+        $GLOBALS['fail_settings_commit'] = false;
+        return false;
+    }
     $options[$name] = $value;
     return true;
+}
+
+function add_option(string $name, mixed $value, string $deprecated = '', bool $autoload = false): bool
+{
+    if (array_key_exists($name, $GLOBALS['options'])) return false;
+    return update_option($name, $value, $autoload);
 }
 
 function delete_option(string $name): bool
@@ -125,9 +144,11 @@ function wp_remote_retrieve_body(array $response): string
  */
 function wp_remote_request(string $url, array $arguments): array
 {
-    global $capability_mode, $registered_public_key, $requests;
+    global $capability_mode, $registered_public_key, $registered_public_keys, $requests, $enrollment_failure_mode, $enrollment_hook, $reject_signed, $verify_identity_mismatch;
     $requests[] = array('url' => $url, 'arguments' => $arguments);
-    $path = (string) parse_url($url, PHP_URL_PATH);
+    $actual_path = (string) parse_url($url, PHP_URL_PATH);
+    $backend_prefix = str_starts_with($actual_path, '/next-base/') ? '/next-base' : '/base';
+    $path = preg_replace('~^/next-base/~', '/base/', $actual_path);
     $query = (string) parse_url($url, PHP_URL_QUERY);
     $body = json_decode((string) ($arguments['body'] ?? ''), true);
     $body = is_array($body) ? $body : array();
@@ -162,14 +183,17 @@ function wp_remote_request(string $url, array $arguments): array
 
     if ($path === '/base/automation/kb/enroll') {
         transport_expect(!isset($arguments['headers']['X-WPSuite-Signature']), 'Enrollment must not pretend to be signed.');
+        if ($enrollment_failure_mode === 'reject') return array('response' => array('code' => 401), 'body' => '{"message":"Unauthorized"}');
+        $registered_public_keys[$backend_prefix] = (string) $body['publicKey'];
         $registered_public_key = (string) $body['publicKey'];
+        if (is_callable($enrollment_hook)) $enrollment_hook();
         return array(
             'response' => array('code' => 201),
             'body' => json_encode(array(
                 'keyId' => 'ak_test_current',
-                'workspaceId' => 'workspace-17',
-                'siteId' => 'site-42',
-                'environment' => 'dev',
+                'workspaceId' => $enrollment_failure_mode === 'wrong-identity' ? 'foreign-workspace' : $body['workspaceId'],
+                'siteId' => $body['siteId'],
+                'environment' => $body['environment'],
                 'algorithm' => 'ES256',
                 'allowedScopes' => array('knowledge:status', 'knowledge:key-rotate', 'knowledge:write', 'knowledge:metadata'),
                 'producerPrefix' => 'documents/workspace-17/site-42/',
@@ -177,6 +201,7 @@ function wp_remote_request(string $url, array $arguments): array
         );
     }
 
+    if ($reject_signed) return array('response' => array('code' => 401), 'body' => '{"message":"Unauthorized"}');
     $headers = $arguments['headers'];
     $content = (string) $arguments['body'];
     transport_expect(hash('sha256', $content) === $headers['X-WPSuite-Content-SHA256'], 'The signed content hash must match the exact HTTP body.');
@@ -193,11 +218,12 @@ function wp_remote_request(string $url, array $arguments): array
     ));
     $signature = base64_decode(strtr($headers['X-WPSuite-Signature'], '-_', '+/'), true);
     transport_expect(
-        is_string($signature) && openssl_verify($canonical, $signature, $registered_public_key, OPENSSL_ALGO_SHA256) === 1,
+        is_string($signature) && openssl_verify($canonical, $signature, $registered_public_keys[$backend_prefix] ?? $registered_public_key, OPENSSL_ALGO_SHA256) === 1,
         'The backend must be able to verify the WordPress ES256 signature.'
     );
 
     if ($path === '/base/automation/kb/keys/rotate') {
+        $registered_public_keys[$backend_prefix] = (string) $body['publicKey'];
         $registered_public_key = (string) $body['publicKey'];
         return array(
             'response' => array('code' => 200),
@@ -233,7 +259,7 @@ function wp_remote_request(string $url, array $arguments): array
         'response' => array('code' => 200),
         'body' => json_encode(array(
             'keyId' => $headers['X-WPSuite-Key-Id'],
-            'workspaceId' => 'workspace-17',
+            'workspaceId' => $verify_identity_mismatch ? 'foreign-workspace' : 'workspace-17',
             'siteId' => 'site-42',
             'environment' => 'dev',
             'status' => 'active',
@@ -294,20 +320,15 @@ $options['smartcloud_ai_kit_kb_sync_vocabulary_state'] = array(
     'fingerprint' => str_repeat('b', 64),
     'sourceVersion' => 8,
 );
-$settings->save(array(
-    'backendBaseUrl' => 'https://api.example.com/next-base',
-    'keyStorageMode' => 'encrypted-option',
-    'environment' => 'dev',
-));
-transport_expect(
-    !isset($options['smartcloud_ai_kit_kb_sync_vocabulary_state']),
-    'Changing the API Settings backend snapshot must force a vocabulary baseline.'
-);
-$settings->save(array(
-    'backendBaseUrl' => 'https://api.example.com/base/',
-    'keyStorageMode' => 'encrypted-option',
-    'environment' => 'dev',
-));
+$before_retarget_settings = $settings->get();
+$retarget_rejected = false;
+try {
+    $settings->save(array('backendBaseUrl' => 'https://api.example.com/next-base', 'keyStorageMode' => 'encrypted-option', 'environment' => 'dev'));
+} catch (InvalidArgumentException $error) {
+    $retarget_rejected = true;
+}
+transport_expect($retarget_rejected && $settings->get() === $before_retarget_settings, 'An enrolled connection cannot be silently retargeted by mirroring API Settings.');
+transport_expect(isset($options['smartcloud_ai_kit_kb_sync_vocabulary_state']), 'Rejected retarget must also preserve the existing vocabulary baseline.');
 $serialized_keys = serialize($options['smartcloud_ai_kit_kb_sync_private_keys']);
 transport_expect(!str_contains($serialized_keys, 'PRIVATE KEY'), 'The database fallback must never store plaintext private key material.');
 transport_expect($transport->verifyStatus()['status'] === 'active', 'A signed status request must complete.');
@@ -467,3 +488,106 @@ try {
 }
 transport_expect($format_blocked && count($requests) === $before_format_requests + 1, 'Formatted dispatch refuses old backend before signing, credentials or content transmission.');
 echo "Structured text-format capability and dispatch guards passed.\n";
+
+// Real transport/keystore regression: every credential is synthetic and only local fake HTTP is used.
+$capability_mode = 'verified'; $transients = array();
+$transport = KnowledgeSyncTransport::create();
+$old_registration = $transport->enroll('synthetic-original-pairing');
+$old_settings = $options['smartcloud_ai_kit_kb_sync_settings'];
+$old_private = $options['smartcloud_ai_kit_kb_sync_private_keys'];
+$old_hub = $options['smartcloud-wpsuite/site-settings'];
+$replacement = array('expectedKeyId' => $old_registration['keyId'], 'backendBaseUrl' => 'https://api.example.com/next-base', 'workspaceId' => 'workspace-17', 'siteId' => 'site-42', 'environment' => 'dev');
+function enrollment_rejects(callable $operation, string $expected): void {
+    try { $operation(); } catch (KnowledgeSyncTransportException $error) { transport_expect($error->errorCode === $expected, 'Expected guarded enrollment error: ' . $expected); return; }
+    throw new RuntimeException('Expected enrollment failure: ' . $expected);
+}
+function old_enrollment_unchanged(string $label): void {
+    global $options, $old_registration, $old_settings, $old_private;
+    transport_expect($options['smartcloud_ai_kit_kb_sync_registration'] === $old_registration, $label . ': original registration retained.');
+    transport_expect($options['smartcloud_ai_kit_kb_sync_settings'] === $old_settings, $label . ': original settings retained.');
+    transport_expect($options['smartcloud_ai_kit_kb_sync_private_keys'] === $old_private, $label . ': original encrypted key retained byte-for-byte.');
+}
+$before = count($requests);
+$options['smartcloud_ai_kit_kb_sync_settings']['backendBaseUrl'] = 'https://api.example.com/next-base';
+// Deliberately corrupt stored ciphertext: a binding error must win BEFORE key decryption.
+$options['smartcloud_ai_kit_kb_sync_private_keys'] = array('current' => array('ciphertext' => 'bad'));
+enrollment_rejects(fn() => $transport->verifyStatus(), 'enrollment_backend_mismatch');
+transport_expect(count(array_filter(array_slice($requests, $before), fn($r) => str_contains($r['url'], '/automation/'))) === 0, 'Retarget guard must prevent all signed requests.');
+$options['smartcloud_ai_kit_kb_sync_settings'] = $old_settings; $options['smartcloud_ai_kit_kb_sync_private_keys'] = $old_private;
+$options['smartcloud-wpsuite/site-settings'] = array('workspaceId' => 'other-workspace', 'siteId' => 'other-site');
+enrollment_rejects(fn() => $transport->verifyStatus(), 'enrollment_identity_mismatch');
+$options['smartcloud-wpsuite/site-settings'] = $old_hub;
+$legacy_registration = $old_registration; unset($legacy_registration['backendBaseUrl'], $legacy_registration['keyStorageMode']);
+$options['smartcloud_ai_kit_kb_sync_registration'] = $legacy_registration;
+enrollment_rejects(fn() => $transport->verifyStatus(), 'enrollment_backend_unverified');
+$reject_signed = true;
+enrollment_rejects(fn() => $transport->verifyStatus(null, 25, true), 'backend_authentication_failed');
+transport_expect($options['smartcloud_ai_kit_kb_sync_registration'] === $legacy_registration, 'Failed explicit verify must not adopt an old unknown backend.');
+$reject_signed = false;
+$verify_identity_mismatch = true;
+enrollment_rejects(fn() => $transport->verifyStatus(null, 25, true), 'enrollment_identity_mismatch');
+transport_expect($options['smartcloud_ai_kit_kb_sync_registration'] === $legacy_registration, 'Foreign status receipt must never adopt an old backend binding.');
+$verify_identity_mismatch = false;
+transport_expect($transport->verifyStatus(null, 25, true)['status'] === 'active', 'Explicit signed verify can prove an old same-site enrollment.');
+transport_expect($options['smartcloud_ai_kit_kb_sync_registration'] == $old_registration, 'Only successful explicit verification binds the existing backend tuple.');
+$old_registration = $options['smartcloud_ai_kit_kb_sync_registration'];
+// A stale local binding wins even with a cold/unavailable capability manifest.
+// No HTTP request, private-key read, pending key or capability cache write is allowed.
+$saved_transients = $transients; $saved_capability_mode = $capability_mode;
+foreach (array('identity', 'backend') as $mismatch) {
+    $options['smartcloud-wpsuite/site-settings'] = $mismatch === 'identity'
+        ? array('workspaceId' => 'different-workspace', 'siteId' => 'different-site') : $old_hub;
+    $options['smartcloud_ai_kit_kb_sync_settings'] = $old_settings;
+    if ($mismatch === 'backend') $options['smartcloud_ai_kit_kb_sync_settings']['backendBaseUrl'] = 'https://api.example.com/next-base';
+    $options['smartcloud_ai_kit_kb_sync_private_keys'] = array('current' => array('ciphertext' => 'deliberately-unreadable'));
+    foreach (array('verify', 'rotate', 'revoke') as $operation) {
+        $transients = array(); $capability_mode = 'legacy';
+        $before_requests = count($requests); $before_options = $options;
+        enrollment_rejects(
+            fn() => $operation === 'verify' ? $transport->verifyStatus(null, 25, true) : $transport->{$operation}(),
+            $mismatch === 'identity' ? 'enrollment_identity_mismatch' : 'enrollment_backend_mismatch'
+        );
+        transport_expect(count($requests) === $before_requests, 'Cold-cache ' . $operation . ' rejects stale ' . $mismatch . ' before ALL HTTP.');
+        transport_expect($transients === array(), 'Stale binding does not populate a capability cache.');
+        transport_expect($options === $before_options, 'Cold-cache guard preserves all options and releases its temporary lock.');
+    }
+}
+$options['smartcloud-wpsuite/site-settings'] = $old_hub;
+$options['smartcloud_ai_kit_kb_sync_settings'] = $old_settings;
+$options['smartcloud_ai_kit_kb_sync_private_keys'] = $old_private;
+$transients = $saved_transients; $capability_mode = $saved_capability_mode;
+$reject_signed = true;
+try {
+    $transport->revoke();
+    throw new RuntimeException('Expected a rejected signed revocation.');
+} catch (KnowledgeSyncTransportException $error) {
+    transport_expect($error->errorCode === 'backend_authentication_failed', 'Rejected signed revoke has a specific authentication diagnostic.');
+    transport_expect(str_contains($error->getMessage(), 'explicitly pair the selected backend'), 'Authentication errors explain the supported explicit recovery action.');
+}
+old_enrollment_unchanged('rejected signed revocation');
+$reject_signed = false;
+$before = count($requests);
+enrollment_rejects(fn() => $transport->enroll('synthetic-new-pairing', array_merge($replacement, array('expectedKeyId' => 'stale-id'))), 'already_enrolled');
+transport_expect(count($requests) === $before, 'Stale replacement CAS fails before HTTP.'); old_enrollment_unchanged('stale CAS');
+$enrollment_failure_mode = 'reject';
+enrollment_rejects(fn() => $transport->enroll('synthetic-new-pairing', $replacement), 'backend_authentication_failed'); old_enrollment_unchanged('remote rejection');
+$enrollment_failure_mode = 'wrong-identity';
+enrollment_rejects(fn() => $transport->enroll('synthetic-new-pairing', $replacement), 'enrollment_identity_mismatch'); old_enrollment_unchanged('foreign receipt');
+$enrollment_failure_mode = '';
+$enrollment_hook = function () use (&$options): void { $options['smartcloud-wpsuite/site-settings'] = array('workspaceId' => 'operator-changed', 'siteId' => 'operator-site'); };
+enrollment_rejects(fn() => $transport->enroll('synthetic-new-pairing', $replacement), 'enrollment_changed'); old_enrollment_unchanged('operator changed selection');
+transport_expect($options['smartcloud-wpsuite/site-settings']['workspaceId'] === 'operator-changed', 'A concurrent operator selection must never be restored over.');
+$enrollment_hook = null; $options['smartcloud-wpsuite/site-settings'] = $old_hub;
+$fail_registration_commit = true;
+enrollment_rejects(fn() => $transport->enroll('synthetic-new-pairing', $replacement), 'enrollment_commit_failed'); old_enrollment_unchanged('local commit failure');
+$fail_settings_commit = true;
+enrollment_rejects(fn() => $transport->enroll('synthetic-new-pairing', $replacement), 'enrollment_commit_failed'); old_enrollment_unchanged('local settings commit failure');
+$options['smartcloud_ai_kit_kb_sync_runner_lock'] = array('token' => 'synthetic-held-lock', 'expires' => time() + 300);
+enrollment_rejects(fn() => $transport->enroll('synthetic-new-pairing', $replacement), 'enrollment_busy'); old_enrollment_unchanged('runner busy');
+unset($options['smartcloud_ai_kit_kb_sync_runner_lock']);
+$new_registration = $transport->enroll('synthetic-new-pairing', $replacement);
+transport_expect($new_registration['backendBaseUrl'] === $replacement['backendBaseUrl'], 'Accepted replacement publishes the selected backend binding.');
+transport_expect($options['smartcloud_ai_kit_kb_sync_settings']['backendBaseUrl'] === $replacement['backendBaseUrl'], 'Backend settings advance only after enrollment acceptance.');
+transport_expect($options['smartcloud_ai_kit_kb_sync_private_keys']['current'] !== $old_private['current'] && !isset($options['smartcloud_ai_kit_kb_sync_private_keys']['pending']), 'Only successful replacement promotes the pending encrypted key.');
+transport_expect($transport->verifyStatus()['status'] === 'active', 'The accepted new binding and promoted key must sign successfully.');
+echo "Enrollment binding/re-pair: legacy adoption, retarget/identity/CAS guards, remote/local failure preservation, concurrency and successful replacement passed.\n";

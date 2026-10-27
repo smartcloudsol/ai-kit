@@ -3,6 +3,79 @@ namespace SmartCloud\WPSuite\AiKit;
 
 if (!defined('ABSPATH')) { exit; }
 
+/** Internal transport. Site credentials and full settings remain within the PHP request. */
+final class SiteSettingsTransport
+{
+    private static function error(string $message, int $status = 400): \WP_Error
+    {
+        return new \WP_Error('ai_kit_site_settings', $message, array('status' => $status));
+    }
+
+    /** @return array<string,mixed>|\WP_Error */
+    public static function connection(): array|\WP_Error
+    {
+        $raw = get_option('smartcloud-wpsuite/site-settings', false);
+        if ($raw === false) $raw = get_option('hub-for-wpsuiteio/site-settings', false);
+        $values = is_object($raw) ? get_object_vars($raw) : (is_array($raw) ? $raw : array());
+        $workspace = $values['workspaceId'] ?? ''; $account = $values['accountId'] ?? '';
+        foreach (array($workspace, $account) as $id) {
+            if (!is_string($id) || trim($id) !== $id) return self::error(__('Invalid workspace connection. Reload before saving.', 'smartcloud-ai-kit'), 409);
+        }
+        if ($workspace !== '' && $account !== '' && $workspace !== $account) return self::error(__('Workspace connection changed. Reload before saving.', 'smartcloud-ai-kit'), 409);
+        $workspace = $workspace !== '' ? $workspace : $account;
+        foreach (array($workspace, $values['siteId'] ?? '', $values['siteKey'] ?? '') as $id) {
+            if (!is_string($id) || trim($id) !== $id || $id === '') return self::error(__('Connect this site to WP Suite before loading its settings.', 'smartcloud-ai-kit'), 409);
+        }
+        $mode = $values['workspaceApiMode'] ?? 'legacy';
+        if (!in_array($mode, array('legacy', 'workspace'), true)) return self::error(__('Invalid workspace API mode.', 'smartcloud-ai-kit'));
+        $api = $values['platformApiBaseUrl'] ?? ''; $config = $values['platformConfigUrl'] ?? '';
+        $explicit = $mode === 'workspace' || $api !== '' || $config !== '';
+        $base = strtolower((string) parse_url(get_site_url(), PHP_URL_HOST)) === 'dev.wpsuite.io' ? 'https://api-dev.wpsuite.io' : 'https://api.wpsuite.io';
+        if ($explicit) {
+            if ($mode !== 'workspace') return self::error(__('Explicit platform connection requires workspace API mode.', 'smartcloud-ai-kit'));
+            foreach (array('api' => $api, 'config' => $config) as $name => $url) {
+                $parts = is_string($url) ? parse_url($url) : false;
+                if (!is_string($url) || preg_match('/[\\\\\s?#\x00-\x1f\x7f]/', $url) || filter_var($url, FILTER_VALIDATE_URL) === false || !is_array($parts)
+                    || strtolower($parts['scheme'] ?? '') !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
+                    || ($name === 'config' && !preg_match('/\.json$/iD', $parts['path'] ?? ''))) return self::error(__('Explicit platform connection requires HTTPS API and JSON configuration URLs without credentials, query or fragment.', 'smartcloud-ai-kit'));
+            }
+            $base = rtrim($api, '/');
+        }
+        return array('accountId' => $workspace, 'workspaceId' => $workspace, 'siteId' => $values['siteId'], 'siteKey' => $values['siteKey'], 'workspace' => $explicit,
+            'platformConfigUrl' => $explicit ? $config : '', 'endpoint' => $base . '/' . ($explicit ? 'workspace' : 'account') . '/' . rawurlencode($workspace) . '/site/' . rawurlencode($values['siteId']) . '/settings');
+    }
+
+    /** @return array<string,mixed>|\WP_Error */
+    public static function request(array $connection, ?array $settings = null, ?int $expectedRevision = null): array|\WP_Error
+    {
+        $workspace = $connection['workspace'];
+        if ($settings !== null && self::connection() !== $connection) return self::error(__('Site connection changed. Reload before saving.', 'smartcloud-ai-kit'), 409);
+        if ($workspace && $settings !== null && ($expectedRevision === null || $expectedRevision < 0)) return self::error(__('Reload site settings before saving.', 'smartcloud-ai-kit'), 409);
+        $args = array('timeout' => 20, 'redirection' => 0, 'headers' => array('X-Site-Key' => $connection['siteKey'], 'X-Plugin' => $workspace ? 'aiKit' : 'ai-kit'));
+        if ($settings === null) $response = wp_remote_get($connection['endpoint'], $args);
+        else {
+            unset($settings['subscriptionType']);
+            $args['method'] = 'PUT'; $args['headers']['Content-Type'] = 'application/json';
+            $args['body'] = wp_json_encode($workspace ? array('pluginKey' => 'aiKit', 'expectedRevision' => $expectedRevision, 'settings' => $settings) : array('settings' => $settings));
+            $response = wp_remote_request($connection['endpoint'], $args);
+        }
+        if (is_wp_error($response)) return self::error(__('The WP Suite settings service could not be reached. Retry without discarding your edits.', 'smartcloud-ai-kit'), 502);
+        $status = wp_remote_retrieve_response_code($response);
+        if ($status !== 200) return self::error(sprintf(__('WP Suite settings request failed (HTTP %d).', 'smartcloud-ai-kit'), $status), $status >= 400 && $status < 500 ? $status : 502);
+        $data = json_decode(wp_remote_retrieve_body($response), true);
+        if (!is_array($data)) return self::error(__('Invalid site settings response.', 'smartcloud-ai-kit'), 502);
+        if (!$workspace) return $data;
+        $site = $settings === null ? ($data['site'] ?? null) : array('workspaceId' => $connection['workspaceId'], 'siteId' => $connection['siteId']);
+        if (!is_array($site) || ($site['workspaceId'] ?? null) !== $connection['workspaceId'] || ($site['siteId'] ?? null) !== $connection['siteId']) return self::error(__('Site settings response does not match the connection.', 'smartcloud-ai-kit'), 502);
+        $configuration = $data['configuration'] ?? null;
+        if ($configuration === null && $settings === null && array_key_exists('configuration', $data)) return array_merge($site, array('accountId' => $connection['workspaceId'], 'settings' => array(), 'revision' => 0));
+        if (!is_array($configuration) || ($configuration['workspaceId'] ?? null) !== $connection['workspaceId'] || ($configuration['siteId'] ?? null) !== $connection['siteId']
+            || ($configuration['pluginKey'] ?? null) !== 'aiKit' || !is_int($configuration['revision'] ?? null) || $configuration['revision'] < 1 || !is_array($configuration['settings'] ?? null)
+            || ($settings !== null && $configuration['revision'] !== $expectedRevision + 1)) return self::error(__('Site configuration response does not match the connection or revision. Reload before saving.', 'smartcloud-ai-kit'), 502);
+        return array_merge($site, array('accountId' => $connection['workspaceId'], 'settings' => $configuration['settings'], 'revision' => $configuration['revision']));
+    }
+}
+
 /** Presentation-only adapter over the existing canonical cloud site settings. */
 final class AnswersSettings
 {
@@ -16,45 +89,18 @@ final class AnswersSettings
         return new \WP_Error('ai_kit_answers_settings', $message, array('status' => $status));
     }
 
-    /** @return array<string,string>|\WP_Error */
+    /** @return array<string,mixed>|\WP_Error */
     private static function connection(): array|\WP_Error
     {
-        $raw = get_option('smartcloud-wpsuite/site-settings', false);
-        if (false === $raw) { $raw = get_option('hub-for-wpsuiteio/site-settings', false); }
-        $settings = is_object($raw) ? get_object_vars($raw) : (is_array($raw) ? $raw : array());
-        $result = array();
-        foreach (array('accountId', 'siteId', 'siteKey') as $key) {
-            if (!is_string($settings[$key] ?? null) || '' === trim($settings[$key])) {
-                return self::error(__('Connect this site to WP Suite to save assistant settings.', 'smartcloud-ai-kit'), 409);
-            }
-            $result[$key] = $settings[$key];
-        }
-        $base = 'https://api.wpsuite.io' . (wp_parse_url(get_site_url(), PHP_URL_HOST) === 'dev.wpsuite.io' ? '/dev' : '');
-        $result['endpoint'] = $base . '/account/' . rawurlencode($result['accountId']) . '/site/' . rawurlencode($result['siteId']) . '/settings';
-        return $result;
+        return SiteSettingsTransport::connection();
     }
 
     /** Never return remote error bodies, credentials or arbitrary configuration. */
-    private static function remote(array $connection, ?array $settings = null): array|\WP_Error
+    private static function remote(array $connection, ?array $settings = null, ?int $expectedRevision = null): array|\WP_Error
     {
-        $args = array('timeout' => 20, 'redirection' => 0, 'headers' => array('X-Site-Key' => $connection['siteKey'], 'X-Plugin' => 'ai-kit'));
-        if (null === $settings) {
-            $response = wp_remote_get($connection['endpoint'], $args);
-        } else {
-            unset($settings['subscriptionType']);
-            $args['method'] = 'PUT';
-            $args['headers']['Content-Type'] = 'application/json';
-            $args['body'] = wp_json_encode(array('settings' => $settings));
-            $response = wp_remote_request($connection['endpoint'], $args);
-        }
-        if (is_wp_error($response)) { return self::error(__('The WP Suite settings service could not be reached. Retry without discarding your edits.', 'smartcloud-ai-kit'), 502); }
-        $status = wp_remote_retrieve_response_code($response);
-        $data = json_decode(wp_remote_retrieve_body($response), true);
-        if (200 !== $status) {
-            /* translators: %d: HTTP response status from the settings service. */
-            return self::error(sprintf(__('WP Suite settings request failed (HTTP %d).', 'smartcloud-ai-kit'), $status), $status >= 400 && $status < 500 ? $status : 502);
-        }
-        if (!is_array($data) || ($data['accountId'] ?? null) !== $connection['accountId'] || ($data['siteId'] ?? null) !== $connection['siteId'] || !is_array($data['settings'] ?? null)) {
+        $data = SiteSettingsTransport::request($connection, $settings, $expectedRevision);
+        if (is_wp_error($data)) return $data;
+        if (($data['accountId'] ?? null) !== $connection['accountId'] || ($data['siteId'] ?? null) !== $connection['siteId'] || !is_array($data['settings'] ?? null)) {
             return self::error(__('The settings response did not match the connected site. Reload the connection before saving.', 'smartcloud-ai-kit'), 502);
         }
         return $data;
@@ -62,7 +108,7 @@ final class AnswersSettings
 
     private static function revision(array $data, array $connection): string
     {
-        return hash('sha256', serialize(array($connection, $data['settings'])));
+        return hash('sha256', serialize(array($connection, $data['settings'], $data['revision'] ?? null)));
     }
 
     private static function projection(array $data, array $connection): array
@@ -129,8 +175,8 @@ final class AnswersSettings
             }
             else { $next['chatbot'] = is_array($next['chatbot'] ?? null) ? $next['chatbot'] : array(); $next['chatbot'][$field] = $value; }
         }
-        // This detects changes before PUT; the legacy settings API has no atomic revision contract.
-        $updated = self::remote($connection, $next); if (is_wp_error($updated)) { return $updated; }
+        // Foundation uses its read revision; legacy retains the existing snapshot guard.
+        $updated = self::remote($connection, $next, $current['revision'] ?? null); if (is_wp_error($updated)) { return $updated; }
         $result = self::projection($updated, $connection);
         foreach ($input['values'] as $field => $value) {
             if ($result['values'][$field] !== $value) { return self::error(__('The service did not confirm the requested settings. Reload before retrying.', 'smartcloud-ai-kit'), 502); }

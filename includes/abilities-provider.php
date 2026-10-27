@@ -13,6 +13,10 @@ use WP_Error;
 if (!defined('ABSPATH')) {
     exit;
 }
+$profileStateFile = dirname(__DIR__) . '/admin/kb/backend-profile-state.php';
+if (!is_file($profileStateFile)) $profileStateFile = dirname(__DIR__) . '/admin/php/kb/backend-profile-state.php';
+require_once $profileStateFile;
+unset($profileStateFile);
 
 final class Provider extends Product_Provider_Base
 {
@@ -122,7 +126,7 @@ final class Provider extends Product_Provider_Base
             'policies' => (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncPolicyStore())->getAll(),
             'outbox' => (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncOutboxRepository())->counts(),
             'baselines' => (new \SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncBaselineRepository())->listAll(),
-            'last_run' => get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRuntime::LAST_RUN_OPTION, null),
+            'last_run' => get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRuntime::LAST_RUN_OPTION), null),
             'next_run_gmt' => ($timestamp = wp_next_scheduled(\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncRuntime::CRON_HOOK))
                 ? gmdate('c', $timestamp)
                 : null,
@@ -428,7 +432,7 @@ final class Provider extends Product_Provider_Base
         global $wpdb;
 
         $cache_group = 'smartcloud_ai_kit_abilities';
-        $db_version = (string) get_option('smartcloud_ai_kit_db_version', '0');
+        $db_version = (string) get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName('smartcloud_ai_kit_db_version'), '0');
         $cache_key = 'knowledge_metadata_' . md5($db_version);
         $cached = wp_cache_get($cache_key, $cache_group);
         if (is_array($cached)) {
@@ -447,7 +451,7 @@ final class Provider extends Product_Provider_Base
             return $metadata;
         }
 
-        $table = $wpdb->prefix . 'smartcloud_ai_kit_kb_generated';
+        $table = \SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::table('kb_generated');
         $previous_suppress = $wpdb->suppress_errors(true);
         try {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Custom AI-Kit KB metadata table has no WordPress core API; result is cached with wp_cache_get/wp_cache_set.

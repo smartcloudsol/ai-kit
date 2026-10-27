@@ -11,6 +11,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 // Load dependencies
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/schema.php')) {
     require_once SMARTCLOUD_AI_KIT_PATH . 'admin/kb/schema.php';
@@ -110,6 +112,8 @@ class Admin
         add_action('admin_enqueue_scripts', [$this, 'enqueueQuickEditScript']);
         add_action('quick_edit_custom_box', [$this, 'renderQuickEditField'], 10, 2);
         add_action('bulk_edit_custom_box', [$this, 'renderBulkEditField'], 10, 2);
+        add_action('restrict_manage_posts', [$this, 'renderClassicProfileField']);
+        add_action('edit_form_top', [$this, 'renderClassicProfileField']);
         add_action('manage_posts_custom_column', [$this, 'renderKbColumn'], 10, 2);
         add_action('manage_pages_custom_column', [$this, 'renderKbColumn'], 10, 2);
         add_filter('manage_posts_columns', [$this, 'addKbColumn']);
@@ -146,7 +150,7 @@ class Admin
     public function onActivate(): void
     {
         Schema::createTables();
-        update_option('smartcloud_ai_kit_db_version', SMARTCLOUD_AI_KIT_DB_VERSION);
+        update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), SMARTCLOUD_AI_KIT_DB_VERSION);
     }
 
     /**
@@ -155,12 +159,12 @@ class Admin
      */
     public function checkDatabaseVersion(): void
     {
-        $current_db_version = get_option('smartcloud_ai_kit_db_version', '0');
+        $current_db_version = get_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), '0');
 
         // If DB version is outdated or not set, check if we should auto-migrate
         if (version_compare($current_db_version, SMARTCLOUD_AI_KIT_DB_VERSION, '<')) {
             // Check if auto-migration is allowed (not dismissed)
-            $dismissed = get_option('smartcloud_ai_kit_db_migration_dismissed', false);
+            $dismissed = get_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_dismissed'), false);
 
             if (!$dismissed) {
                 // Auto-migrate in background (safe operation with dbDelta)
@@ -175,13 +179,13 @@ class Admin
     private function runMigration(): bool
     {
         try {
-            $previous_db_version = (string) get_option('smartcloud_ai_kit_db_version', '0');
+            $previous_db_version = (string) get_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), '0');
             Schema::createTables();
             if (version_compare($previous_db_version, '1.4.2', '<')) {
                 (new KnowledgeSyncOutboxRepository())->retryLegacyProjectionFailures();
             }
-            update_option('smartcloud_ai_kit_db_version', SMARTCLOUD_AI_KIT_DB_VERSION);
-            update_option('smartcloud_ai_kit_db_migration_dismissed', false);
+            update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), SMARTCLOUD_AI_KIT_DB_VERSION);
+            update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_dismissed'), false);
             return true;
         } catch (\Exception $e) {
             Logger::error('DB Migration Error: ' . $e->getMessage(), [
@@ -202,12 +206,12 @@ class Admin
             return;
         }
 
-        $current_db_version = get_option('smartcloud_ai_kit_db_version', '0');
-        $dismissed = get_option('smartcloud_ai_kit_db_migration_dismissed', false);
+        $current_db_version = get_option(BackendProfileState::optionName('smartcloud_ai_kit_db_version'), '0');
+        $dismissed = get_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_dismissed'), false);
 
         // Show notice if migration is needed and not dismissed
         if (version_compare($current_db_version, SMARTCLOUD_AI_KIT_DB_VERSION, '<') && !$dismissed) {
-            $migration_status = get_option('smartcloud_ai_kit_db_migration_status', 'pending');
+            $migration_status = get_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_status'), 'pending');
 
             if ($migration_status === 'running') {
                 echo '<div class="notice notice-info"><p>';
@@ -234,7 +238,8 @@ class Admin
 
                     $.post(ajaxurl, {
                         action: "smartcloud_ai_kit_run_db_migration",
-                        nonce: $(".aikit-migration-notice").data("nonce")
+                        nonce: $(".aikit-migration-notice").data("nonce"),
+                        smartcloud_ai_kit_backend_profile: ' . wp_json_encode(BackendProfileState::requestContextJson()) . '
                     }, function(response) {
                         if (response.success) {
                             $(".aikit-migration-notice").removeClass("notice-warning").addClass("notice-success");
@@ -250,7 +255,8 @@ class Admin
                 $("#aikit-dismiss-migration").on("click", function() {
                     $.post(ajaxurl, {
                         action: "smartcloud_ai_kit_dismiss_migration_notice",
-                        nonce: $(".aikit-migration-notice").data("nonce")
+                        nonce: $(".aikit-migration-notice").data("nonce"),
+                        smartcloud_ai_kit_backend_profile: ' . wp_json_encode(BackendProfileState::requestContextJson()) . '
                     }, function() {
                         $(".aikit-migration-notice").fadeOut();
                     });
@@ -271,7 +277,7 @@ class Admin
 
         global $wpdb;
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Revalidate a persisted notice against current source states.
-        $source_ids = $wpdb->get_col($wpdb->prepare('SELECT post_id FROM %i', $wpdb->prefix . 'smartcloud_ai_kit_kb_sources'));
+        $source_ids = $wpdb->get_col($wpdb->prepare('SELECT post_id FROM %i', BackendProfileState::table('kb_sources')));
         $needs_review = false;
         foreach ($source_ids as $source_id) {
             if ($this->calculate_kb_publish_status((int) $source_id) === 'needs_review') {
@@ -290,6 +296,7 @@ class Admin
                     'page' => SMARTCLOUD_AI_KIT_SLUG,
                     'aikit-page' => 'kb-admin',
                     'smartcloud_ai_kit_kb_review_notice' => 'acknowledge',
+                    'smartcloud_ai_kit_backend_profile' => BackendProfileState::requestContextJson(),
                 ],
                 admin_url('admin.php')
             ),
@@ -325,6 +332,8 @@ class Admin
             return;
         }
 
+        BackendProfileState::assertClassicMutation(true);
+
         ReviewNotice::acknowledge();
 
         wp_safe_redirect(
@@ -350,18 +359,20 @@ class Admin
             wp_send_json_error(['message' => __('Permission denied.', 'smartcloud-ai-kit')]);
         }
 
-        update_option('smartcloud_ai_kit_db_migration_status', 'running');
+        BackendProfileState::assertClassicMutation(true);
+
+        update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_status'), 'running');
 
         $success = $this->runMigration();
 
         if ($success) {
-            delete_option('smartcloud_ai_kit_db_migration_status');
+            delete_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_status'));
             wp_send_json_success([
                 'message' => __('Database updated successfully!', 'smartcloud-ai-kit'),
                 'version' => SMARTCLOUD_AI_KIT_DB_VERSION
             ]);
         } else {
-            update_option('smartcloud_ai_kit_db_migration_status', 'failed');
+            update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_status'), 'failed');
             wp_send_json_error([
                 'message' => __('Database update failed. Please check error logs.', 'smartcloud-ai-kit')
             ]);
@@ -379,7 +390,9 @@ class Admin
             wp_send_json_error();
         }
 
-        update_option('smartcloud_ai_kit_db_migration_dismissed', true);
+        BackendProfileState::assertClassicMutation(true);
+
+        update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_dismissed'), true);
         wp_send_json_success();
     }
 
@@ -394,6 +407,8 @@ class Admin
         if (!current_user_can('edit_posts')) {
             wp_send_json_error(['message' => 'Insufficient permissions']);
         }
+
+        BackendProfileState::assertClassicMutation(true);
 
         $post_ids = isset($_POST['post_ids']) ? array_map('intval', wp_unslash($_POST['post_ids'])) : [];
         $action = isset($_POST['kb_action']) ? sanitize_text_field(wp_unslash($_POST['kb_action'])) : '';
@@ -460,6 +475,8 @@ class Admin
         if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
             return;
         }
+
+        BackendProfileState::assertClassicMutation();
 
         // Handle Quick Edit / Bulk Edit KB source actions
         if (isset($_POST['smartcloud_ai_kit_kb_source_action']) || isset($_POST['smartcloud_ai_kit_kb_source_bulk_action'])) {
@@ -611,6 +628,7 @@ class Admin
      */
     public function onPostDelete(int $post_id, ?\WP_Post $post): void
     {
+        BackendProfileState::assertClassicMutation();
         if (!$post) {
             return;
         }
@@ -1074,9 +1092,9 @@ class Admin
             'outbox' => $this->knowledge_sync_outbox->counts(),
             'blockedReasons' => $this->knowledge_sync_outbox->blockedReasonCounts(),
             'publicReleaseGate' => KnowledgeSyncPublicReleaseGate::status($release_gate_post_types),
-            'lastRun' => get_option(KnowledgeSyncRuntime::LAST_RUN_OPTION, null),
+            'lastRun' => get_option(BackendProfileState::optionName(KnowledgeSyncRuntime::LAST_RUN_OPTION), null),
             'fullResync' => $this->knowledge_sync_runtime->fullResyncStatus(),
-            'vocabulary' => get_option('smartcloud_ai_kit_kb_sync_vocabulary_state', null),
+            'vocabulary' => get_option(BackendProfileState::optionName('smartcloud_ai_kit_kb_sync_vocabulary_state'), null),
             'nextRunGmt' => ($timestamp = wp_next_scheduled(KnowledgeSyncRuntime::CRON_HOOK))
                 ? gmdate('c', $timestamp)
                 : null,
@@ -1161,8 +1179,12 @@ class Admin
                 array('status' => 400)
             );
         }
+        $replacement = $request->get_param('replacement');
+        if ($replacement !== null && (!is_array($replacement) || array_diff(array_keys($replacement), array('expectedKeyId', 'backendBaseUrl', 'workspaceId', 'siteId', 'environment')) !== array())) {
+            return new \WP_Error('smartcloud_ai_kit_knowledge_sync_invalid_replacement', __('The requested enrollment replacement is invalid.', 'smartcloud-ai-kit'), array('status' => 400));
+        }
         return $this->knowledgeSyncTransportOperation(
-            fn(): array => $this->knowledge_sync_transport->enroll($pairing_code),
+            fn(): array => $this->knowledge_sync_transport->enroll($pairing_code, $replacement),
             201
         );
     }
@@ -1170,7 +1192,7 @@ class Admin
     public function restVerifyKnowledgeSyncTransport(): \WP_REST_Response|\WP_Error
     {
         return $this->knowledgeSyncTransportOperation(
-            fn(): array => $this->knowledge_sync_transport->verifyStatus()
+            fn(): array => $this->knowledge_sync_transport->verifyStatus(null, 25, true)
         );
     }
 
@@ -1206,8 +1228,14 @@ class Admin
                 $error->getMessage(),
                 array('status' => in_array($error->errorCode, array(
                     'site_not_enrolled',
+                    'backend_authentication_failed',
                     'private_key_missing',
                     'enrollment_identity_mismatch',
+                    'enrollment_backend_unverified',
+                    'enrollment_backend_mismatch',
+                    'enrollment_changed',
+                    'enrollment_busy',
+                    'already_enrolled',
                 ), true) ? 409 : 400)
             );
         } catch (\Throwable $error) {
@@ -1246,10 +1274,10 @@ class Admin
         $offset = ($page - 1) * $per_page;
 
         // Build query
-        $sources_table = $wpdb->prefix . 'smartcloud_ai_kit_kb_sources';
+        $sources_table = BackendProfileState::table('kb_sources');
         $posts_table = $wpdb->posts;
-        $generated_table = $wpdb->prefix . 'smartcloud_ai_kit_kb_generated';
-        $publish_state_table = $wpdb->prefix . 'smartcloud_ai_kit_kb_publish_state';
+        $generated_table = BackendProfileState::table('kb_generated');
+        $publish_state_table = BackendProfileState::table('kb_publish_state');
         $kb_status_filter = $request->get_param('kb_status');
 
         // Include both enabled sources AND disabled sources that still have published content
@@ -2524,7 +2552,7 @@ class Admin
     public function restGetSettings(\WP_REST_Request $request): \WP_REST_Response
     {
         $settings = [
-            'base_url_override' => get_option('smartcloud_ai_kit_kb_base_url_override', '')
+            'base_url_override' => get_option(BackendProfileState::optionName('smartcloud_ai_kit_kb_base_url_override'), '')
         ];
 
         return new \WP_REST_Response($settings, 200);
@@ -2546,7 +2574,7 @@ class Admin
             $base_url_override = rtrim($base_url_override, '/');
         }
 
-        update_option('smartcloud_ai_kit_kb_base_url_override', $base_url_override);
+        update_option(BackendProfileState::optionName('smartcloud_ai_kit_kb_base_url_override'), $base_url_override);
 
         return new \WP_REST_Response([
             'success' => true,
@@ -2752,9 +2780,17 @@ class Admin
         wp_localize_script('aikit-kb-quick-edit', 'aikitKBQuickEdit', [
             'nonce' => wp_create_nonce('smartcloud_ai_kit_kb_quick_edit'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
+            'backendProfile' => BackendProfileState::requestContextJson(),
             'enabledText' => __('Enabled', 'smartcloud-ai-kit'),
             'disabledText' => __('Disabled', 'smartcloud-ai-kit'),
         ]);
+    }
+
+    /** Native classic forms carry the profile rendered with the tab, never the later active one. */
+    public function renderClassicProfileField(): void
+    {
+        $context = BackendProfileState::requestContextJson();
+        if ($context !== '') echo '<input type="hidden" name="smartcloud_ai_kit_backend_profile" value="' . esc_attr($context) . '" />';
     }
 
     /**
@@ -2772,6 +2808,7 @@ class Admin
 
         ?>
         <fieldset class="inline-edit-col-right inline-edit-kb-source">
+            <?php $this->renderClassicProfileField(); ?>
             <div class="inline-edit-col">
                 <label class="inline-edit-group">
                     <span class="title"><?php esc_html_e('KB Source', 'smartcloud-ai-kit'); ?></span>
@@ -2801,6 +2838,7 @@ class Admin
 
         ?>
         <fieldset class="inline-edit-col-right inline-edit-kb-source-bulk">
+            <?php $this->renderClassicProfileField(); ?>
             <div class="inline-edit-col">
                 <label class="inline-edit-group">
                     <span class="title"><?php esc_html_e('KB Source', 'smartcloud-ai-kit'); ?></span>
@@ -2833,6 +2871,8 @@ class Admin
         if (!in_array($doaction, ['smartcloud_ai_kit_kb_enable', 'smartcloud_ai_kit_kb_disable'])) {
             return $redirect_to;
         }
+
+        BackendProfileState::assertClassicMutation(true);
 
         $processed = 0;
 

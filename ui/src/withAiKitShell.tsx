@@ -6,6 +6,8 @@ import {
   DEFAULT_THEME,
   MantineColorsTuple,
   MantineProvider,
+  MantineContext,
+  useMantineStyleNonce,
 } from "@mantine/core";
 import {
   AiWorkerProps,
@@ -15,8 +17,9 @@ import {
 import { useSelect } from "@wordpress/data";
 import { resolveComponentLocale, getLocaleDirection } from "@smart-cloud/wpsuite-core";
 import { AiKitLocaleProvider, useSiteLocale } from "./locale";
-import { type ComponentType, useEffect, useMemo, useState } from "react";
+import { type ComponentType, useContext, useId, useMemo, useState } from "react";
 import { ShadowBoundary } from "./ShadowBoundary";
+import { createPortal } from "react-dom";
 
 export type AiKitShellInjectedProps = {
   language?: string;
@@ -48,6 +51,25 @@ const sanitizeThemeOverrides = (input: string): string =>
 
 const STYLE_TEXT_ID = "ai-kit-style-text";
 
+/** Render the same sanitized authored CSS in each independent shadow tree. */
+function ThemeOverrides({ css, hash, rootElement }: { css?: string; hash: string; rootElement: HTMLElement }) {
+  const getNonce = useMantineStyleNonce();
+  // Keep authored overrides after all component styles, as the legacy effect did.
+  return css ? createPortal(
+    <style id={STYLE_TEXT_ID} data-hash={hash} nonce={getNonce?.()}>
+      {sanitizeThemeOverrides(css)}
+    </style>,
+    rootElement.getRootNode() as ShadowRoot,
+  ) : null;
+}
+
+function applyRootContext(root: HTMLElement, variation: string, direction: string, language?: string) {
+  root.setAttribute("data-ai-kit-variation", variation);
+  root.setAttribute("dir", direction);
+  if (language) root.setAttribute("lang", language);
+  else root.removeAttribute("lang");
+}
+
 export function withAiKitShell<P extends object>(
   RootComponent: ComponentType<P & AiKitShellInjectedProps>,
   propOverrides?: AiKitShellOptions,
@@ -66,7 +88,10 @@ export function withAiKitShell<P extends object>(
       direction,
     } = { ...props, ...propOverrides } as AiWorkerProps & P;
 
-    const [host, setHost] = useState<HTMLElement | null>(null);
+    const overlayInstanceId = useId();
+    const inheritedMantine = useContext(MantineContext);
+    const styleNonce = inheritedMantine?.getStyleNonce?.();
+    const getStyleNonce = styleNonce ? () => styleNonce : undefined;
     const [modalRootElement, setModalRootElement] =
       useState<HTMLDivElement | null>(null);
     const overlayWholeComponent = Boolean(propOverrides?.overlayWholeComponent);
@@ -230,32 +255,9 @@ export function withAiKitShell<P extends object>(
       return themeOverrides ? hashStringDjb2(themeOverrides) : "";
     }, [themeOverrides]);
 
-    useEffect(() => {
-      if (!host) {
-        return;
-      }
-
-      const existingStyle = host.shadowRoot!.getElementById(
-        STYLE_TEXT_ID,
-      ) as HTMLStyleElement | null;
-
-      if (themeOverrides) {
-        if (!existingStyle) {
-          const s = host.shadowRoot!.ownerDocument.createElement("style");
-          s.id = STYLE_TEXT_ID;
-          s.setAttribute("data-hash", themeOverridesHash);
-          s.textContent = sanitizeThemeOverrides(themeOverrides);
-          host.shadowRoot!.appendChild(s);
-        } else {
-          const prevHash = existingStyle.getAttribute("data-hash") || "";
-          if (prevHash !== themeOverridesHash) {
-            existingStyle.textContent = sanitizeThemeOverrides(themeOverrides);
-          }
-        }
-      } else if (existingStyle) {
-        existingStyle.remove();
-      }
-    }, [host, themeOverrides, themeOverridesHash]);
+    const resolved = colorMode === "auto"
+      ? window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light"
+      : colorMode;
 
     const usesSeparateModalPortal =
       variation === "modal" && !overlayWholeComponent;
@@ -265,13 +267,28 @@ export function withAiKitShell<P extends object>(
         {usesSeparateModalPortal ? (
           <ShadowBoundary
             mode="overlay"
-            overlayRootId="ai-kit-overlay-root"
+            overlayRootId={`ai-kit-overlay-${overlayInstanceId}`}
+            ownedOverlay
             stylesheets={stylesheets}
             setHost={() => undefined}
             setRootElement={setModalRootElement}
             rootElementId="ai-kit-portal-root"
           >
-            {() => null}
+            {({ rootElement }) => {
+              applyRootContext(rootElement, "modal", currentDirection, currentLanguage);
+              return (
+                <MantineProvider
+                  forceColorScheme={resolved}
+                  theme={theme}
+                  getStyleNonce={getStyleNonce}
+                  getRootElement={() => rootElement}
+                  cssVariablesSelector=":host"
+                  withGlobalClasses={false}
+                >
+                  <ThemeOverrides css={themeOverrides} hash={themeOverridesHash} rootElement={rootElement} />
+                </MantineProvider>
+              );
+            }}
           </ShadowBoundary>
         ) : null}
         <ShadowBoundary
@@ -281,7 +298,7 @@ export function withAiKitShell<P extends object>(
           variation={variation}
           overlayRootId="ai-kit-overlay-root"
           stylesheets={stylesheets}
-          setHost={setHost}
+          setHost={() => undefined}
           rootElementId={
             overlayWholeComponent && variation === "modal"
               ? "ai-kit-portal-root"
@@ -289,38 +306,7 @@ export function withAiKitShell<P extends object>(
           }
         >
           {({ rootElement }) => {
-          rootElement.setAttribute(
-            "data-ai-kit-variation",
-            variation || "default",
-          );
-          rootElement.setAttribute("dir", currentDirection);
-          if (currentLanguage) {
-            rootElement.setAttribute("lang", currentLanguage);
-          }
-
-          const resolved =
-            colorMode === "auto"
-              ? window.matchMedia?.("(prefers-color-scheme: dark)")?.matches
-                ? "dark"
-                : "light"
-              : colorMode;
-
-          // Modal content is portalled into a different shadow tree. Mantine
-          // color-scheme attributes do not cross that boundary, so copy the
-          // contextual attributes that the global overlay needs explicitly.
-          if (usesSeparateModalPortal && modalRootElement) {
-            modalRootElement.setAttribute("data-ai-kit-variation", "modal");
-            modalRootElement.setAttribute(
-              "data-mantine-color-scheme",
-              resolved ?? "light",
-            );
-            modalRootElement.setAttribute("dir", currentDirection);
-            if (currentLanguage) {
-              modalRootElement.setAttribute("lang", currentLanguage);
-            } else {
-              modalRootElement.removeAttribute("lang");
-            }
-          }
+          applyRootContext(rootElement, variation || "default", currentDirection, currentLanguage);
 
           return (
             <AiKitLocaleProvider language={currentLanguage} customTranslations={customTranslations}>
@@ -328,8 +314,10 @@ export function withAiKitShell<P extends object>(
               <MantineProvider
                 forceColorScheme={resolved}
                 theme={theme}
+                getStyleNonce={getStyleNonce}
                 getRootElement={() => rootElement as unknown as HTMLElement}
               >
+                <ThemeOverrides css={themeOverrides} hash={themeOverridesHash} rootElement={rootElement} />
                 <RootComponent
                   {...props}
                   colorMode={resolved}

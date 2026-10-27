@@ -9,6 +9,17 @@
         return;
     }
 
+    // Native row trash/restore/delete links also retain the profile of this rendered list.
+    $(document).on('click', '.row-actions a', function () {
+        if (!aikitKBQuickEdit.backendProfile) { return; }
+        var url = new URL(this.href, window.location.href);
+        if (url.origin === window.location.origin && /\/wp-admin\/post\.php$/.test(url.pathname) &&
+            ['trash', 'untrash', 'delete'].indexOf(url.searchParams.get('action')) !== -1) {
+            url.searchParams.set('smartcloud_ai_kit_backend_profile', aikitKBQuickEdit.backendProfile);
+            this.href = url.href;
+        }
+    });
+
     // Store original edit function
     var wp_inline_edit = inlineEditPost.edit;
 
@@ -87,6 +98,7 @@
             data: {
                 action: 'smartcloud_ai_kit_bulk_edit_kb_source',
                 nonce: aikitKBQuickEdit.nonce,
+                smartcloud_ai_kit_backend_profile: aikitKBQuickEdit.backendProfile || '',
                 post_ids: post_ids,
                 kb_action: kbAction
             },

@@ -4,6 +4,17 @@ This archive preserves the original changelog and upgrade guidance verbatim. The
 
 == Changelog ==
 
+= 1.6.8 =
+* Review approved structured fields in a searchable, bounded list with one editable details panel.
+* Show source descriptions before approval, clarify fixed field types and keep nested schemas collapsible and scrollable.
+* Collapse message entry after a valid submission without stealing focus back when the response finishes.
+* Update AI Kit UI to 1.5.38; retain Core 1.5.22 and Hub 2.6.1.
+
+= 1.6.7 =
+* Show distinct source-document totals on compatible backends; hide legacy chunk counts.
+* Remove the unused prompt template editor and clarify the remaining templates' roles.
+* Update AI Kit Core to 1.5.22 and UI to 1.5.37; retain Hub 2.6.1.
+
 = 1.6.6 =
 * Keep a localized response-generation status visible after source checks and completed tool operations while the reply is still being prepared.
 * Preserve operation history without duplicating active progress or retaining pending status after the request ends.

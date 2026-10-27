@@ -2,6 +2,7 @@
 namespace SmartCloud\WPSuite\AiKit;
 
 if (!defined('ABSPATH')) { exit; }
+require_once __DIR__ . '/kb/backend-profile-state.php';
 
 /** Plugin-owned preferences, knowledge status and frontend guidance. */
 final class AdminSurface
@@ -15,7 +16,7 @@ final class AdminSurface
     public static function tools(): array|\WP_Error
     {
         if (!current_user_can('manage_options')) { return self::error(__('Forbidden', 'smartcloud-ai-kit'), 403); }
-        $raw = get_option(SMARTCLOUD_AI_KIT_SLUG, false);
+        $raw = get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(SMARTCLOUD_AI_KIT_SLUG), false);
         $settings = AiKitSettings::fromMixed($raw);
         $saved = is_object($raw) ? get_object_vars($raw) : (is_array($raw) ? $raw : array());
         $configured = (array_key_exists('enablePoweredBy', $saved) && is_bool($saved['enablePoweredBy']))
@@ -113,7 +114,7 @@ final class AdminSurface
     public static function save(array $values, string $revision): array|\WP_Error
     {
         if (!current_user_can('manage_options')) { return self::error(__('Forbidden', 'smartcloud-ai-kit'), 403); }
-        $raw = get_option(SMARTCLOUD_AI_KIT_SLUG, false);
+        $raw = get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(SMARTCLOUD_AI_KIT_SLUG), false);
         if (!hash_equals(self::revision($raw), $revision)) { return self::error(__('Settings changed. Reload before saving.', 'smartcloud-ai-kit'), 409); }
         if (!$values || array_diff(array_keys($values), array('defaultOutputLanguage', 'enablePoweredBy'))) {
             return self::error(__('Unsupported AI preference.', 'smartcloud-ai-kit'));
@@ -126,7 +127,7 @@ final class AdminSurface
         foreach ($values as $key => $value) {
             if (is_array($updated)) { $updated[$key] = $value; } else { $updated->{$key} = $value; }
         }
-        update_option(SMARTCLOUD_AI_KIT_SLUG, $updated);
+        update_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName(SMARTCLOUD_AI_KIT_SLUG), $updated);
         return self::tools();
     }
 
@@ -155,7 +156,7 @@ final class AdminSurface
                 break;
             }
         }
-        $configured = $knowledgeConfigured || in_array(get_option('smartcloud_ai_kit_answers_setup_completed', false), array(true, 1, '1'), true);
+        $configured = $knowledgeConfigured || in_array(get_option(\SmartCloud\WPSuite\AiKit\KnowledgeBase\BackendProfileState::optionName('smartcloud_ai_kit_answers_setup_completed'), false), array(true, 1, '1'), true);
         $metrics = array();
         if (!is_wp_error($sources)) { $metrics[] = array('label' => __('Knowledge sources', 'smartcloud-ai-kit'), 'help_id' => 'answers-knowledge', 'value' => (int) ($sources['total'] ?? 0)); }
         if (!is_wp_error($sync)) {

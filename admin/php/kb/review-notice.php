@@ -9,6 +9,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once __DIR__ . '/backend-profile-state.php';
+
 final class ReviewNotice
 {
     private const OPTION_NAME = 'smartcloud_ai_kit_kb_review_notice_pending';
@@ -21,16 +23,16 @@ final class ReviewNotice
      */
     public static function markPending(): bool
     {
-        return add_option(self::OPTION_NAME, current_time('mysql'), '', false);
+        return add_option(BackendProfileState::optionName(self::OPTION_NAME), current_time('mysql'), '', false);
     }
 
     public static function isPending(): bool
     {
-        return get_option(self::OPTION_NAME, false) !== false;
+        return get_option(BackendProfileState::optionName(self::OPTION_NAME), false) !== false;
     }
 
     public static function acknowledge(): void
     {
-        delete_option(self::OPTION_NAME);
+        delete_option(BackendProfileState::optionName(self::OPTION_NAME));
     }
 }
