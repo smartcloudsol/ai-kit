@@ -16,13 +16,14 @@ final class BackendProfileState
             || ($context['namespace'] !== '' && $context['namespace'] !== $context['id'])) {
             throw new \RuntimeException('Invalid backend profile context.');
         }
+        if (isset($context['stateNamespace']) && $context['stateNamespace'] !== $context['id'] . '/bindings/' . $context['bindingRevision']) throw new \RuntimeException('Invalid backend state namespace.');
         return $context;
     }
 
     public static function optionName(string $name): string
     {
         $context = self::context();
-        return $context === null || $context['namespace'] === '' ? $name : 'wpsuite-profile/' . $context['id'] . '/' . $name;
+        return $context === null || $context['namespace'] === '' ? $name : 'wpsuite-profile/' . ($context['stateNamespace'] ?? $context['id']) . '/' . $name;
     }
 
     /** Browser form identity includes the selection generation; queued jobs deliberately do not. */
@@ -69,7 +70,7 @@ final class BackendProfileState
         global $wpdb;
         $context = self::context();
         $suffix = $context === null || $context['namespace'] === '' ? '' : ($context['id'] === 'production' ? 'bp_p_' : 'bp_d_');
-        $prefix = $wpdb->prefix . 'smartcloud_ai_kit_' . $suffix;
+        $prefix = $wpdb->prefix . 'smartcloud_ai_kit_' . $suffix . (isset($context['stateNamespace']) ? 'r' . $context['bindingRevision'] . '_' : '');
         if (strlen($prefix . 'kb_sync_release_cursors') > 64) throw new \RuntimeException('Knowledge table prefix exceeds the database limit.');
         return $prefix;
     }
@@ -85,7 +86,7 @@ final class BackendProfileState
     public static function fileSuffix(): string
     {
         $context = self::context();
-        return $context === null || $context['namespace'] === '' ? '' : '-profile-' . $context['id'];
+        return $context === null || $context['namespace'] === '' ? '' : '-profile-' . $context['id'] . (isset($context['stateNamespace']) ? '-binding-' . $context['bindingRevision'] : '');
     }
 
     /** Stable cron identity: switching away/back does not create duplicate schedules. */

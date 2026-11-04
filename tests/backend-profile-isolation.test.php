@@ -82,6 +82,12 @@ namespace {
         $profile = ['enabled' => true, 'id' => 'development', 'namespace' => '', 'bindingRevision' => 1, 'legacyStateOwner' => 'development'];
         check((new KnowledgeSyncEncryptedOptionPrivateKeyStore(1))->readCurrent() === 'synthetic-development-option', 'Switching back must recover the exact previous enrolled key.');
         check(BackendProfileState::fileSuffix() === '' && BackendProfileState::tablePrefix() === 'wp_smartcloud_ai_kit_', 'Legacy owner paths/tables remain unchanged.');
+    $profile = ['enabled' => true, 'id' => 'production', 'namespace' => 'production', 'bindingRevision' => 1];
+    $oldTable = BackendProfileState::tablePrefix(); $oldFile = BackendProfileState::fileSuffix();
+    $profile['bindingRevision'] = 2; $profile['stateNamespace'] = 'production/bindings/2';
+    check(BackendProfileState::tablePrefix() !== $oldTable && str_contains(BackendProfileState::tablePrefix(), 'bp_p_r2_'), 'Replacement AI tables reused historical state.');
+    check(BackendProfileState::fileSuffix() !== $oldFile, 'Replacement AI files reused historical state.');
+    check(BackendProfileState::optionName('smartcloud-ai-kit') === 'wpsuite-profile/production/bindings/2/smartcloud-ai-kit', 'Replacement AI option reused historical namespace.');
         echo "AI Kit backend profile isolation: {$checks} checks PASS\n";
     } finally {
         foreach (glob($fixture . '/keys/*') as $path) unlink($path);

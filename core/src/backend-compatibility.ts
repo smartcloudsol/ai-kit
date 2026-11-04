@@ -39,6 +39,8 @@ const cache = new Map<
   { expiresAt: number; value: BackendCompatibility }
 >();
 
+const gateyTargets = new WeakMap<BackendCompatibility, GateyTarget>();
+
 export function capabilityForFeature(
   context: ContextKind,
   feature: BuiltInAiFeature,
@@ -84,46 +86,96 @@ function isManifest(value: unknown): value is BackendManifest {
   );
 }
 
-async function requestManifest(input: {
+type CompatibilityInput = {
   transport: BackendTransport;
   apiName?: string;
   baseUrl?: string;
-}): Promise<unknown> {
+};
+
+type GateyTarget = {
+  cognito: NonNullable<ReturnType<typeof getGateyPlugin>>["cognito"];
+  apiName: string;
+  endpoint: string;
+};
+
+function normalizedEndpoint(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) throw new Error("Backend endpoint is unavailable");
+  const endpoint = value.replace(/\/+$/, "");
+  const url = new URL(endpoint);
+  if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("Backend endpoint is invalid");
+  return endpoint;
+}
+
+function currentGateyEndpoint(target: GateyTarget): string {
+  if (getGateyPlugin()?.cognito !== target.cognito) throw new Error("Gatey backend changed during capability discovery");
+  return normalizedEndpoint(target.cognito.getAmplifyConfig().API?.REST?.[target.apiName]?.endpoint);
+}
+
+function requireCurrentGateyTarget(target: GateyTarget): void {
+  if (currentGateyEndpoint(target) !== target.endpoint) throw new Error("Gatey backend changed during capability discovery");
+}
+
+/** Internal dispatch fence; older caller-created decisions without discovery metadata remain compatible. */
+export function assertBackendCompatibilityTargetCurrent(compatibility: BackendCompatibility | undefined): void {
+  const target = compatibility && gateyTargets.get(compatibility);
+  if (target) requireCurrentGateyTarget(target);
+}
+
+async function requestManifest(input: CompatibilityInput, gateyTarget?: GateyTarget): Promise<unknown> {
   if (input.transport === "fetch") {
-    if (!input.baseUrl) throw new Error("backendBaseUrl is missing");
     const response = await fetch(
-      `${input.baseUrl.replace(/\/+$/, "")}${MANIFEST_PATH}`,
+      `${normalizedEndpoint(input.baseUrl)}${MANIFEST_PATH}`,
       { method: "GET", credentials: "omit" },
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }
 
-  if (!input.apiName) throw new Error("backendApiName is missing");
-  const get = getGateyPlugin()?.cognito?.get;
+  if (!gateyTarget) throw new Error("Gatey backend identity is unavailable");
+  requireCurrentGateyTarget(gateyTarget);
+  const get = gateyTarget.cognito.get;
   if (!get) throw new Error("Gatey GET transport is unavailable");
   const call = get({
-    apiName: input.apiName,
+    apiName: gateyTarget.apiName,
     path: MANIFEST_PATH,
     options: { retryStrategy: { strategy: "no-retry" } },
   }) as unknown as {
     response: Promise<{ body: { json: () => Promise<unknown> } }>;
   };
-  return (await call.response).body.json();
+  const manifest = await (await call.response).body.json();
+  requireCurrentGateyTarget(gateyTarget);
+  return manifest;
 }
 
-export async function resolveBackendCompatibility(input: {
-  transport: BackendTransport;
-  apiName?: string;
-  baseUrl?: string;
-}): Promise<BackendCompatibility> {
-  const key = `${input.transport}:${input.apiName ?? input.baseUrl ?? ""}`;
-  const cached = cache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
-
+export async function resolveBackendCompatibility(input: CompatibilityInput): Promise<BackendCompatibility> {
+  let key: string | undefined;
+  let gateyTarget: GateyTarget | undefined;
   let value: BackendCompatibility;
   try {
-    const manifest = await requestManifest(input);
+    if (input.transport === "fetch") {
+      // apiName is unrelated metadata for direct fetch transports.
+      key = `fetch:${normalizedEndpoint(input.baseUrl)}`;
+    } else {
+      if (!input.apiName) throw new Error("backendApiName is missing");
+      const cognito = getGateyPlugin()?.cognito;
+      if (!cognito) throw new Error("Gatey backend identity is unavailable");
+      await cognito.store;
+      gateyTarget = { cognito, apiName: input.apiName, endpoint: "" };
+      gateyTarget.endpoint = currentGateyEndpoint(gateyTarget);
+      key = JSON.stringify(["gatey", input.apiName, gateyTarget.endpoint]);
+    }
+    const cached = cache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      // Never repin an existing result: an earlier decision may still hold it.
+      try {
+        assertBackendCompatibilityTargetCurrent(cached.value);
+        return cached.value;
+      } catch {
+        cache.delete(key);
+      }
+    }
+
+    const manifest = await requestManifest(input, gateyTarget);
     value = isManifest(manifest)
       ? { status: "verified", manifest }
       : {
@@ -138,9 +190,16 @@ export async function resolveBackendCompatibility(input: {
           ? `Capability manifest is unavailable: ${error.message}`
           : "Capability manifest is unavailable.",
     };
+    // A response racing a retarget must not seed a cache entry for either target.
+    if (gateyTarget) {
+      try { requireCurrentGateyTarget(gateyTarget); } catch { key = undefined; }
+    }
   }
 
-  cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+  if (key) {
+    if (gateyTarget) gateyTargets.set(value, gateyTarget);
+    cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, value });
+  }
   return value;
 }
 

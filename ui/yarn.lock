@@ -1534,13 +1534,13 @@
   resolved "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.62.3.tgz#0ccafd44a8cbcb33f7feaa9e3e85033e7a52295c"
   integrity sha512-MOG/3gTOn4Fwf574RVOaY61I5o6P90legkFADiTyn1hyjNydT+cerU2rLUwPdZkKKyJ+iT+K9p7WXK4LM1Ka6g==
 
-"@smart-cloud/ai-kit-core@^1.5.26":
-  version "1.5.26"
-  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-core/-/ai-kit-core-1.5.26.tgz#112b8ef03b2bca0c352516a2244e77777e385a89"
-  integrity sha512-4JVOknaKtcGpyTWmYr6p03J/TLgz7LAMj8aH1btrohz4PVe9in9d6HBQ+sh2USRQf9uO6vLb2ZxJ2ojtWIUckg==
+"@smart-cloud/ai-kit-core@^1.5.27":
+  version "1.5.27"
+  resolved "https://registry.npmjs.org/@smart-cloud/ai-kit-core/-/ai-kit-core-1.5.27.tgz#3dcf633064134666b66880e7c81bdf6772755cb5"
+  integrity sha512-/WaIz8HLyi1/+YZU7aOoxpoXZWuiVquXnZ8sD3aWlefxZV5nlxuobSjIeJJn0srEwjRn6OpChhvKQWyrwMw6pw==
   dependencies:
-    "@smart-cloud/gatey-core" "^2.4.0"
-    "@smart-cloud/wpsuite-core" "^2.5.0"
+    "@smart-cloud/gatey-core" "^2.4.1"
+    "@smart-cloud/wpsuite-core" "^2.5.1"
     aws-amplify "^6.20.0"
 
 "@smart-cloud/aws-amplify-ui-react-core@3.6.7-preview.1":
@@ -1580,17 +1580,17 @@
     lodash "4.18.1"
     tslib "^2.5.2"
 
-"@smart-cloud/gatey-core@^2.4.0":
-  version "2.4.0"
-  resolved "https://registry.npmjs.org/@smart-cloud/gatey-core/-/gatey-core-2.4.0.tgz#4a5ee9374064893cce3c5b15d2779318e6b197eb"
-  integrity sha512-2/e4UosO27V7eG2nvgZZjoVGExo6AAJJTAvGKbQzq8fYasQhrdKY+FbSZ8y3iSItw0Jcrxr9SPHSyS9BoisFIQ==
+"@smart-cloud/gatey-core@^2.4.1":
+  version "2.4.1"
+  resolved "https://registry.npmjs.org/@smart-cloud/gatey-core/-/gatey-core-2.4.1.tgz#b42ceecc44980694faca041cc4edc0d4908281c6"
+  integrity sha512-JLTHaM7C/ozmXVdkRMHXrjO0ui+nDjjtzo9IO5QTPQNkUv8Rxpi1asog0++nPaWl3MzLTV7INW/96cCp0Dz9jg==
   dependencies:
-    "@smart-cloud/wpsuite-core" "^2.5.0"
+    "@smart-cloud/wpsuite-core" "^2.5.1"
 
-"@smart-cloud/wpsuite-core@^2.5.0":
-  version "2.5.0"
-  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.5.0.tgz#8d2d5c99f245ae6ddcc95e828af404087b1ea89b"
-  integrity sha512-ZNrHjDwuZ2xWXKdtttJkXZEA3RjdhFhqBLfzzgBvE04yRPKdDYRSXoGRery+0UnqkuO36PvVYqimPBYTrQizMQ==
+"@smart-cloud/wpsuite-core@^2.5.1":
+  version "2.5.1"
+  resolved "https://registry.npmjs.org/@smart-cloud/wpsuite-core/-/wpsuite-core-2.5.1.tgz#2ce50938634f61c57d263968417dc39b7e18f0b7"
+  integrity sha512-Y9bCD9Z++nF6UA6lyNU35LEbe0+Zl22EFMKcNEeWLzvFggBMmQyAXHDFcfhI9Vwf2F9S1QTSw+EviVtnrnBleQ==
   dependencies:
     tldts "^7.4.12"
 

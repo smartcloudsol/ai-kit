@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.7.1
+Stable tag: 1.7.2
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -194,6 +194,9 @@ The bundled WP Suite Hub admin originates from the `wpsuite-admin/` module in ht
 AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, backend processing, and the frontend Feature block/shortcode experience. The code that enables these paid-only features is distributed to Pro users but is not published in the public repository.
 
 == Changelog ==
+
+= 1.7.2 =
+* Improve reliability and compatibility with WP Suite Hub 2.7.2.
 
 = 1.7.1 =
 * Improve the shared WordPress admin backend selectors and clarify production and development connection setup.

@@ -1,3 +1,4 @@
+import { aiKitPlatformTargets } from "./platform-targets";
 import {
   Accordion,
   ActionIcon,
@@ -256,7 +257,10 @@ const legacyConfigUrl =
     ? "https://wpsuite.io/static/config/dev.json"
     : "https://wpsuite.io/static/config/prod.json";
 
-const { apiBaseUrl: apiUrl, configUrl } = resolveBackendProfileLegacyTargets(legacyApiUrl, legacyConfigUrl);
+const { apiBaseUrl: apiUrl, configUrl } = aiKitPlatformTargets(
+  getWpSuite()?.siteSettings,
+  resolveBackendProfileLegacyTargets(legacyApiUrl, legacyConfigUrl),
+);
 
 const aiKit = getAiKitPlugin();
 
