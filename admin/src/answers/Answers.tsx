@@ -367,7 +367,7 @@ export default function Answers({
                     </Accordion.Panel>
                   </Accordion.Item>
                 </Accordion>
-                <Switch
+                {snapshot.settings && <Switch
                   label="Show the assistant across this site"
                   description="Add a floating chatbot visitors can open from any page."
                   checked={draft.appearance.enableChatbot}
@@ -380,17 +380,27 @@ export default function Answers({
                   styles={{
                     input: { appearance: "none", WebkitAppearance: "none" },
                   }}
-                />
-                {!snapshot.settings?.connected && (
+                />}
+                {!snapshot.settings ? (
+                  <Alert color="yellow" title="Assistant settings unavailable">
+                    The site's saved assistant settings could not be loaded. Check the WordPress server's connection to WP Suite, then retry. You can still choose knowledge content.
+                    <Button variant="subtle" onClick={() => {
+                      if (!dirty || window.confirm("Reload setup and discard unsaved edits? Already saved changes will be kept.")) {
+                        setupRequested.current = true;
+                        void load();
+                      }
+                    }}>Retry loading settings</Button>
+                  </Alert>
+                ) : !snapshot.settings.connected && (
                   <Text size="sm">
                     Connect this site to WP Suite to save assistant appearance.
                     You can choose knowledge content now.
                   </Text>
                 )}
-                <Text size="sm">
+                {snapshot.settings && <Text size="sm">
                   Leave the assistant off to go straight to knowledge content.
                   You can enable it later.
-                </Text>
+                </Text>}
                 <Text size="sm" c="dimmed">
                   {environment}
                 </Text>
@@ -586,14 +596,14 @@ export default function Answers({
                   <div>
                     <Text fw={600}>Assistant</Text>
                     <Text>
-                      {draft.appearance.enableChatbot ? "Enabled" : "Off"}
+                      {!snapshot.settings ? "Unavailable" : draft.appearance.enableChatbot ? "Enabled" : "Off"}
                       {draft.appearance.title
                         ? ` · ${draft.appearance.title}`
                         : ""}
                     </Text>
-                    <Text size="sm">
+                    {snapshot.settings && <Text size="sm">
                       {draft.appearance.openButtonPosition || "bottom-right"}
-                    </Text>
+                    </Text>}
                   </div>
                   <div>
                     <Text fw={600}>Knowledge content</Text>
@@ -733,7 +743,7 @@ export default function Answers({
                   Site-wide assistant
                 </Text>
                 <Text>
-                  {snapshot.settings?.values.enableChatbot ? "Enabled" : "Off"}
+                  {!snapshot.settings ? "Unavailable" : snapshot.settings.values.enableChatbot ? "Enabled" : "Off"}
                 </Text>
               </div>
               <div>

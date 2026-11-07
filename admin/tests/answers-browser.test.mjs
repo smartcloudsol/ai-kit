@@ -77,16 +77,18 @@ async function fixture({
   connected = true,
   resetSetup = false,
   failInitialKnowledge = false,
+  failInitialSettings = false,
 } = {}) {
   const page = await browser.newPage({ viewport: { width, height: 1000 } });
   page.setDefaultTimeout(5000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(
-    ({ backend, configured, connected, failInitialKnowledge }) => {
+    ({ backend, configured, connected, failInitialKnowledge, failInitialSettings }) => {
       window.fixture = {
         backend,
         failKnowledge: failInitialKnowledge,
+        failSettings: failInitialSettings,
         store: {},
         writes: [],
         help: [],
@@ -141,7 +143,7 @@ async function fixture({
         },
       };
     },
-    { backend, configured, connected, failInitialKnowledge },
+    { backend, configured, connected, failInitialKnowledge, failInitialSettings },
   );
   let onboardingCompleted = false;
   await page.route("**/*", async (route) => {
@@ -157,6 +159,9 @@ async function fixture({
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ completed: onboardingCompleted }) });
     }
     if (url.pathname === "/api/answers-settings") {
+      if (route.request().method() === "GET" && await page.evaluate(() => window.fixture.failSettings)) {
+        return route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ message: "Settings service unavailable" }) });
+      }
       if (route.request().method() === "POST") {
         const input = route.request().postDataJSON();
         const result = await page.evaluate((input) => {
@@ -321,6 +326,32 @@ test("without connection or backend content setup is available and cancel perfor
   } finally {
     await page.close();
   }
+});
+test("unavailable settings are not shown as disconnected or off and a retry restores saved state", async () => {
+  const { page } = await fixture({ backend: true, configured: true, resetSetup: true, failInitialSettings: true });
+  try {
+    await page.getByText("Assistant settings unavailable", { exact: true }).waitFor();
+    assert.equal(await page.getByRole("switch", { name: "Show the assistant across this site" }).count(), 0);
+    assert.equal(await page.getByText(/Connect this site to WP Suite to save assistant appearance/).count(), 0);
+    assert.deepEqual(await page.evaluate(() => window.fixture.writes), []);
+    await page.evaluate(() => { window.fixture.failSettings = false; });
+    await page.getByRole("button", { name: "Retry loading settings" }).click();
+    assert.equal(await page.getByRole("switch", { name: "Show the assistant across this site" }).isChecked(), true);
+    assert.deepEqual(await page.evaluate(() => window.fixture.writes), []);
+  } finally { await page.close(); }
+});
+test("unavailable appearance stays unknown throughout content-only setup without changing saved settings", async () => {
+  const { page } = await fixture({ backend: true, configured: true, resetSetup: true, failInitialSettings: true });
+  try {
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByText("Unavailable", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Finish setup", exact: true }).click();
+    await page.getByText("Answers setup", { exact: true }).waitFor();
+    await page.getByText("Unavailable", { exact: true }).waitFor();
+    assert.deepEqual(await page.evaluate(() => window.fixture.writes), []);
+    assert.equal(await page.evaluate(() => window.fixture.server.values.enableChatbot), true);
+  } finally { await page.close(); }
 });
 test("actual index mounts native details and Answers together; mobile tools show guidance without repeated destination actions", async () => {
   const { page, errors } = await fixture({
