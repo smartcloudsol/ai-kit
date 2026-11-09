@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.7.5
+Stable tag: 1.7.6
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -195,6 +195,11 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 == Changelog ==
 
+= 1.7.6 =
+* Load block renderers only where needed and defer chatbot UI until enabled, while preserving the global frontend API.
+* Improve WordPress compatibility and shared administration dependencies.
+* Bundle the coordinated WP Suite Hub 2.7.6 update.
+
 = 1.7.5 =
 * Improve update tracking for shared licence, configuration and translation assets.
 
@@ -239,21 +244,12 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 * Honor explicitly excluded KB sections during automatic template rendering and nested content conversion without hiding those sections on the public page.
 * Keep AI Kit Core 1.5.24, UI 1.5.42 and Hub 2.6.1. The separate filtered-page, source-count and answer-recovery backend corrections require orchestration v1.0.130 or equivalent.
 
-= 1.6.9 =
-* Structured sources: Review explicit plain-text, HTML or Markdown formats with a compatible backend. Preserve original values; declared HTML defaults to readable plain text. Separately opt a structured display template into restricted rich-text formatting without enabling links, images or raw HTML.
-* Configure authenticated Shopify Storefront reads for supported product, option, price and inventory filters; report incomplete or unsupported coverage honestly.
-* Request shipping estimates through a separate visible visitor-confirmed form. It may create a cart but never orders or pays; normal catalog searches stay read-only.
-* Browse verified catalog pages with previous/next controls on compatible backends; show a total only when supplied by the source.
-* Keep larger result groups in an accessible carousel and bound Markdown images with a keyboard-accessible enlarged preview.
-* Keep saved Markdown text, images and links in reading order, and align card buttons at the bottom with or without images.
-* Style catalog page navigation, show references below it and hide redundant internal display markers beside verified cards in saved replies.
-* Explain Shopify UCP capabilities in Answers setup and open reviewed advanced connection settings without discarding the setup draft.
-* Configure catalog, carousel and image labels in chatbot settings. Preserve compatibility with backends without pagination support.
-* Resolve card headings, field and action labels, and catalog/carousel navigation through the shared translation catalog in the chatbot UI language. Preserve source values and the answer language.
-* Support JSON-encoded OAuth client-credentials token requests alongside the existing form encoding.
-* Update AI Kit Core to 1.5.24 and UI to 1.5.42; retain Hub 2.6.1.
+Earlier releases and detailed upgrade guidance: [full changelog](https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md).
 
 == Upgrade Notice ==
+
+= 1.7.6 =
+Update WP Suite plugins together and reload open administration pages. Existing site connections and settings are preserved.
 
 = 1.7.4 =
 When using multiple WP Suite plugins, update them together and reload open administration pages. Existing configuration is preserved.

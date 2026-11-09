@@ -4,9 +4,8 @@
  * Plugin URI:        https://wpsuite.io/ai-kit/
  * Description:       Help visitors find answers in your content with a chatbot and semantic search. Pro connects to your own AI backend; free tools support on-device editor and media workflows.
  * Requires at least: 6.9
- * Tested up to:      7.1
  * Requires PHP:      8.1
- * Version:           1.7.5
+ * Version:           1.7.6
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -18,7 +17,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.7.5';
+const VERSION = '1.7.6';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {
@@ -100,6 +99,7 @@ final class AiKit
         add_filter('bulk_actions-upload', array($this, 'registerMediaBulkActions'), 10, 1);
         add_filter('handle_bulk_actions-upload', array($this, 'handleMediaBulkAction'), 10, 3);
 
+        $this->registerFormViewAssets();
         $this->registerBlocks();
 
         // Assets
@@ -655,7 +655,7 @@ final class AiKit
     /**
      * Enqueue inline scripts that expose PHP constants to JS.
      */
-    private function enqueueMainRuntimeScript(): void
+    private function enqueueMainRuntimeScript(bool $frontend = false): void
     {
         $main_script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'main/index.asset.php')) {
@@ -663,7 +663,8 @@ final class AiKit
         }
         $main_script_dependencies = array_merge(
             $main_script_asset['dependencies'] ?? array(),
-            array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-amplify-vendor', 'smartcloud-wpsuite-mantine-vendor')
+            array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-amplify-vendor'),
+            $frontend ? array() : array('smartcloud-wpsuite-mantine-vendor')
         );
         if (wp_script_is('smartcloud-wpsuite-main-script', 'registered')) {
             $main_script_dependencies[] = 'smartcloud-wpsuite-main-script';
@@ -674,7 +675,7 @@ final class AiKit
         //add_editor_style(SMARTCLOUD_AI_KIT_URL . 'main/index.css');
     }
 
-    private function enqueueFormViewAssets(): void
+    private function registerFormViewAssets(): void
     {
         $view_script_asset = array();
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'blocks/view.asset.php')) {
@@ -682,13 +683,13 @@ final class AiKit
         }
         $view_script_dependencies = array_merge(
             $view_script_asset['dependencies'] ?? array(),
-            array('smartcloud-ai-kit-main-script')
+            array('smartcloud-ai-kit-main-script', 'smartcloud-wpsuite-mantine-vendor')
         );
         if (wp_script_is('smartcloud-wpsuite-main-script', 'registered')) {
             $view_script_dependencies[] = 'smartcloud-wpsuite-main-script';
         }
         $view_script_asset['dependencies'] = array_values(array_unique($view_script_dependencies));
-        wp_enqueue_script('smartcloud-ai-kit-view-script', SMARTCLOUD_AI_KIT_URL . 'blocks/view.js', $view_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
+        wp_register_script('smartcloud-ai-kit-view-script', SMARTCLOUD_AI_KIT_URL . 'blocks/view.js', $view_script_asset['dependencies'], SMARTCLOUD_AI_KIT_VERSION, array('in_footer' => true, 'strategy' => 'defer'));
     }
 
     /**
@@ -708,6 +709,7 @@ final class AiKit
             'nonce' => wp_create_nonce('wp_rest'),
         );
         $constants = array(
+            'mantineJsHref' => add_query_arg('ver', \SmartCloud\WPSuite\Hub\VERSION_MANTINE, SMARTCLOUD_WPSUITE_URL . 'assets/js/mantine-vendor.min.js'),
             'mantineCssHref' => add_query_arg(
                 'ver',
                 \SmartCloud\WPSuite\Hub\VERSION_MANTINE,
@@ -729,7 +731,7 @@ final class AiKit
                 ? $constants['wpsuiteThemeCssHrefs']
                 : array($constants['wpsuiteThemeCssHref']);
             $assets = array_merge(
-                array($constants['mantineCssHref'], $constants['aiKitUiCssHref']),
+                array($constants['mantineCssHref'], $constants['aiKitUiCssHref'], $constants['mantineJsHref']),
                 $shared_stylesheets
             );
             $assets = array_values(array_unique(array_filter($assets, static function ($url) {
@@ -761,8 +763,9 @@ var WpSuite = __aikitGlobal.WpSuite;
 
     public function enqueueFrontendAssets(): void
     {
-        $this->enqueueMainRuntimeScript();
-        $this->enqueueFormViewAssets();
+        $this->enqueueMainRuntimeScript(true);
+        $this->registerFormViewAssets();
+        if (class_exists('\\Elementor\\Plugin')) wp_enqueue_script('smartcloud-ai-kit-view-script');
     }
 
     public function enqueueAdminRuntimeAssets(): void
@@ -988,6 +991,8 @@ var WpSuite = __aikitGlobal.WpSuite;
 
     public function shortcodeFeature($atts = array(), $content = null): string
     {
+        $this->registerFormViewAssets();
+        wp_enqueue_script('smartcloud-ai-kit-view-script');
 
         $attribute_defaults = array(
             'mode' => null,
@@ -1060,6 +1065,8 @@ var WpSuite = __aikitGlobal.WpSuite;
      */
     public function shortcodeDocSearch($atts = array(), $content = null): string
     {
+        $this->registerFormViewAssets();
+        wp_enqueue_script('smartcloud-ai-kit-view-script');
 
         $attribute_defaults = array(
             'inputSelector' => null,

@@ -274,6 +274,7 @@ final class KnowledgeSyncPublicReleaseGate
         if (!self::enabled()) {
             return null;
         }
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- Stable prefixed Publisher integration contract.
         $state = apply_filters(self::PROVIDER_STATE_FILTER, null, array(
             'contractVersion' => 1,
             'blogId' => $blog_id,
@@ -401,6 +402,7 @@ final class KnowledgeSyncPublicReleaseGate
      */
     public static function providerState(array $query = array()): ?array
     {
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- Stable prefixed Publisher integration contract.
         $state = apply_filters(self::PROVIDER_STATE_FILTER, null, array_merge(
             array('contractVersion' => 1),
             $query
@@ -1098,7 +1100,7 @@ final class KnowledgeSyncOutboxRepository
                 WHERE state = 'blocked'
                   AND last_error_code = 'manual_review_required'{$scope_sql}";
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared -- Explicit administrator approval transitions only manual-review rows.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Explicit administrator approval transitions only manual-review rows.
         $updated = $wpdb->query($wpdb->prepare($sql, ...$args));
         return $updated === false ? 0 : (int) $updated;
     }
@@ -1119,7 +1121,7 @@ final class KnowledgeSyncOutboxRepository
                     last_error_code = NULL, updated_gmt = %s
                 WHERE state = 'blocked'
                   AND last_error_code = 'mass_delete_review_required'{$scope_sql}";
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared -- Explicit administrator approval marks only the current delete generation.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Explicit administrator approval marks only the current delete generation.
         $updated = $wpdb->query($wpdb->prepare($sql, ...$args));
         return $updated === false ? 0 : (int) $updated;
     }
@@ -1333,6 +1335,7 @@ final class KnowledgeSyncCapture
         do {
             $ids = get_posts(array('post_type' => 'any', 'post_status' => 'publish', 'fields' => 'ids',
                 'posts_per_page' => 100, 'offset' => $offset, 'orderby' => 'ID', 'order' => 'ASC',
+                // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Bounded pages are required to invalidate all posts referencing this attachment.
                 'meta_key' => '_thumbnail_id', 'meta_value' => (string) $attachment_id, 'suppress_filters' => false));
             foreach ($ids as $id) { $this->onStructuredMetadataChanged(null, (int) $id, '_thumbnail_id', null); }
             $offset += count($ids);

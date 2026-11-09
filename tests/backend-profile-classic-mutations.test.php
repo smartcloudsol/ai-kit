@@ -12,7 +12,7 @@ function wp_is_post_autosave(int $id): bool { return false; }
 function wp_is_post_revision(int $id): bool { return false; }
 function wp_doing_cron(): bool { return $GLOBALS['fixture_cron'] ?? false; }
 function wp_doing_ajax(): bool { return $GLOBALS['fixture_ajax'] ?? true; }
-function wp_unslash(mixed $value): mixed { return $value; }
+function esc_html(string $value): string { return htmlspecialchars($value, ENT_QUOTES); }
 function check_ajax_referer(string $action, string $field): void { $GLOBALS['native_nonce_checks'][] = [$action, $field]; }
 class AjaxReply extends RuntimeException { public function __construct(public mixed $payload, public int $status, public bool $success) { parent::__construct('AJAX_RESPONSE'); } }
 function wp_send_json_error(mixed $data = null, int $status = 200): never { throw new AjaxReply($data, $status, false); }
@@ -50,6 +50,15 @@ foreach ([$oldTab, '', '{broken', ['id' => 'production']] as $payload) {
     }
 }
 check(count($GLOBALS['native_nonce_checks']) === 12, 'Native AJAX nonce checks were bypassed');
+// Headers must not become valid only after sanitization or slash removal.
+$_POST = ['smartcloud_ai_kit_backend_profile' => BackendProfileState::requestContextJson()];
+foreach (['production ', '<b>production</b>', "pro\\duction"] as $badHeader) {
+    $_SERVER['HTTP_X_WPSUITE_BACKEND_PROFILE'] = $badHeader;
+    $denied = false;
+    try { BackendProfileState::assertClassicMutation(true); } catch (AjaxReply $reply) { $denied = !$reply->success && $reply->status === 409; }
+    check($denied, 'Normalized invalid backend header accepted');
+}
+unset($_SERVER['HTTP_X_WPSUITE_BACKEND_PROFILE']);
 // Matching classic request reaches only its own scoped option; native authentication remains in place.
 $_POST = ['smartcloud_ai_kit_backend_profile' => BackendProfileState::requestContextJson()];
 try { $admin->ajaxDismissNotice(); } catch (AjaxReply $reply) { check($reply->success, 'Matching profile mutation was blocked'); }

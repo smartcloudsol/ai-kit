@@ -41,10 +41,13 @@ final class BackendProfileState
         if (!$explicit && ((!function_exists('is_admin') || !is_admin()) || !isset($_SERVER['REQUEST_METHOD'])
             || (defined('REST_REQUEST') && REST_REQUEST) || (defined('WP_CLI') && WP_CLI)
             || (function_exists('wp_doing_cron') && wp_doing_cron()))) return;
-        $payload = $_POST['smartcloud_ai_kit_backend_profile'] ?? $_GET['smartcloud_ai_kit_backend_profile'] ?? '';
+        // This is a profile binding guard, not the mutation's nonce check; each action verifies its own nonce.
+        $rawPayload = $_POST['smartcloud_ai_kit_backend_profile'] ?? $_GET['smartcloud_ai_kit_backend_profile'] ?? ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Untrusted JSON is normalized and validated immediately below.
+        $payload = is_string($rawPayload) ? wp_unslash($rawPayload) : '';
+        if ($payload !== sanitize_text_field($payload)) $payload = '';
         $tuple = [];
         if (is_string($payload) && strlen($payload) <= 1024) {
-            $decoded = json_decode(function_exists('wp_unslash') ? wp_unslash($payload) : $payload, true);
+            $decoded = json_decode($payload, true);
             if (is_array($decoded)) $tuple = $decoded;
         }
         $manager = '\\SmartCloud\\WPSuite\\Hub\\BackendProfiles';
@@ -54,15 +57,17 @@ final class BackendProfileState
             foreach (['Profile' => 'id', 'Generation' => 'generation', 'Binding-Revision' => 'bindingRevision'] as $suffix => $field) {
                 $header = 'X-WPSuite-Backend-' . $suffix;
                 $serverKey = 'HTTP_' . strtoupper(str_replace('-', '_', $header));
-                $value = $_SERVER[$serverKey] ?? $tuple[$field] ?? '';
-                $request->set_header($header, is_string($value) || is_int($value) ? (string) $value : '');
+                $raw = $_SERVER[$serverKey] ?? $tuple[$field] ?? ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Preserve exact binding bytes for fail-closed comparison below.
+                $value = is_string($raw) ? wp_unslash($raw) : (is_int($raw) ? (string) $raw : '');
+                if (sanitize_text_field($value) !== $value || (is_string($raw) && $raw !== $value)) $value = '';
+                $request->set_header($header, $value);
             }
             $result = $manager::guardRequest(null, null, $request);
             if ($result === null) return;
         }
         $message = 'The backend profile changed or is missing. Reload this page before saving.';
         if (function_exists('wp_doing_ajax') && wp_doing_ajax()) wp_send_json_error(['message' => $message, 'code' => 'backend_profile_changed'], 409);
-        wp_die($message, '', ['response' => 409]);
+        wp_die(esc_html($message), '', ['response' => 409]);
     }
 
     public static function tablePrefix(): string

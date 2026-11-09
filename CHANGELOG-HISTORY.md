@@ -4,6 +4,20 @@ This archive preserves the original changelog and upgrade guidance verbatim. The
 
 == Changelog ==
 
+= 1.6.9 =
+* Structured sources: Review explicit plain-text, HTML or Markdown formats with a compatible backend. Preserve original values; declared HTML defaults to readable plain text. Separately opt a structured display template into restricted rich-text formatting without enabling links, images or raw HTML.
+* Configure authenticated Shopify Storefront reads for supported product, option, price and inventory filters; report incomplete or unsupported coverage honestly.
+* Request shipping estimates through a separate visible visitor-confirmed form. It may create a cart but never orders or pays; normal catalog searches stay read-only.
+* Browse verified catalog pages with previous/next controls on compatible backends; show a total only when supplied by the source.
+* Keep larger result groups in an accessible carousel and bound Markdown images with a keyboard-accessible enlarged preview.
+* Keep saved Markdown text, images and links in reading order, and align card buttons at the bottom with or without images.
+* Style catalog page navigation, show references below it and hide redundant internal display markers beside verified cards in saved replies.
+* Explain Shopify UCP capabilities in Answers setup and open reviewed advanced connection settings without discarding the setup draft.
+* Configure catalog, carousel and image labels in chatbot settings. Preserve compatibility with backends without pagination support.
+* Resolve card headings, field and action labels, and catalog/carousel navigation through the shared translation catalog in the chatbot UI language. Preserve source values and the answer language.
+* Support JSON-encoded OAuth client-credentials token requests alongside the existing form encoding.
+* Update AI Kit Core to 1.5.24 and UI to 1.5.42; retain Hub 2.6.1.
+
 = 1.6.8 =
 * Review approved structured fields in a searchable, bounded list with one editable details panel.
 * Show source descriptions before approval, clarify fixed field types and keep nested schemas collapsible and scrollable.

@@ -1156,6 +1156,7 @@ final class KnowledgeSyncTransport
         }
         $error = $this->bindingError($registration, $this->settings->get());
         if ($error !== null && !($allow_unbound && $error === 'enrollment_backend_unverified')) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- Internal error code is not HTML output; response rendering escapes it at the boundary.
             throw new KnowledgeSyncTransportException($error, 'The saved Knowledge Sync enrollment does not match the selected backend or site. Verify the original connection or explicitly pair the selected backend.');
         }
         return $registration;

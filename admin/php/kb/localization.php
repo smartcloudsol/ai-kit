@@ -30,7 +30,7 @@ final class KnowledgeBaseLocalization
         }
 
         if (function_exists('has_filter') && has_filter('wpml_post_language_details')) {
-            $details = apply_filters('wpml_post_language_details', null, (int) $post->ID);
+            $details = apply_filters('wpml_post_language_details', null, (int) $post->ID); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party WPML integration hook.
             if (is_array($details)) {
                 $locale = $details['language_code'] ?? $details['locale'] ?? '';
                 if (is_string($locale) && $locale !== '') {
@@ -112,15 +112,15 @@ final class KnowledgeBaseLocalization
     /** @return array<string,mixed>|null */
     private static function describeWpml(\WP_Post $post): ?array
     {
-        $elementType = sanitize_key((string) apply_filters('wpml_element_type', $post->post_type));
-        $trid = absint(apply_filters('wpml_element_trid', null, (int) $post->ID, $elementType));
-        $details = apply_filters('wpml_post_language_details', null, (int) $post->ID);
+        $elementType = sanitize_key((string) apply_filters('wpml_element_type', $post->post_type)); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party WPML integration hook.
+        $trid = absint(apply_filters('wpml_element_trid', null, (int) $post->ID, $elementType)); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party WPML integration hook.
+        $details = apply_filters('wpml_post_language_details', null, (int) $post->ID); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party WPML integration hook.
         if ($trid < 1 || !is_array($details)) {
             return null;
         }
         $current = self::normalizeLocale($details['language_code'] ?? $details['locale'] ?? '');
-        $default = self::normalizeLocale(apply_filters('wpml_default_language', null));
-        $translations = apply_filters('wpml_get_element_translations', array(), $trid, $elementType);
+        $default = self::normalizeLocale(apply_filters('wpml_default_language', null)); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party WPML integration hook.
+        $translations = apply_filters('wpml_get_element_translations', array(), $trid, $elementType); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party WPML integration hook.
         $variants = array();
         foreach (is_array($translations) ? $translations : array() as $languageCode => $translation) {
             $postId = absint(is_object($translation)

@@ -13,10 +13,10 @@ use WP_Error;
 if (!defined('ABSPATH')) {
     exit;
 }
-$profileStateFile = dirname(__DIR__) . '/admin/kb/backend-profile-state.php';
-if (!is_file($profileStateFile)) $profileStateFile = dirname(__DIR__) . '/admin/php/kb/backend-profile-state.php';
-require_once $profileStateFile;
-unset($profileStateFile);
+$smartcloud_ai_kit_profile_state_file = dirname(__DIR__) . '/admin/kb/backend-profile-state.php';
+if (!is_file($smartcloud_ai_kit_profile_state_file)) $smartcloud_ai_kit_profile_state_file = dirname(__DIR__) . '/admin/php/kb/backend-profile-state.php';
+require_once $smartcloud_ai_kit_profile_state_file;
+unset($smartcloud_ai_kit_profile_state_file);
 
 final class Provider extends Product_Provider_Base
 {

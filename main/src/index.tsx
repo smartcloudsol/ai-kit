@@ -17,6 +17,7 @@ import {
   getTranslateOptions,
   getWriteOptions,
   initializeAiKit,
+  observeStore,
   isOnDeviceLanguageSupported,
   PromptArgs,
   RewriteArgs,
@@ -34,6 +35,31 @@ import "jquery";
 import "@smart-cloud/ai-kit-ui/styles.css";
 
 import { observe } from "./observer";
+
+// UI vendor code is needed by a rendered feature, not by the global SDK API.
+let uiVendorPromise: Promise<void> | undefined;
+async function ensureUiVendor(): Promise<void> {
+  const runtime = globalThis as unknown as {
+    WpSuiteMantine?: unknown;
+    WpSuite?: { constants?: { aiKit?: { mantineJsHref?: string } } };
+  };
+  if (runtime.WpSuiteMantine) return;
+  if (!uiVendorPromise) {
+    const url = runtime.WpSuite?.constants?.aiKit?.mantineJsHref;
+    if (!url) throw new Error("AI Kit UI vendor URL is unavailable.");
+    uiVendorPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = url;
+      script.onload = () => {
+        if (runtime.WpSuiteMantine) resolve();
+        else { script.remove(); reject(new Error("AI Kit UI vendor did not initialize.")); }
+      };
+      script.onerror = () => { script.remove(); reject(new Error("AI Kit UI vendor could not be loaded.")); };
+      document.head.appendChild(script);
+    }).catch((error: unknown) => { uiVendorPromise = undefined; throw error; });
+  }
+  return uiVendorPromise;
+}
 
 function onDomReady(fn: () => void) {
   if (document.readyState === "loading") {
@@ -108,6 +134,7 @@ async function renderFeature(args: AiFeatureArgs): Promise<AiWorkerHandle> {
       `AI feature "${feature}" is not available, reason: ${capability.reason}`,
     );
   }
+  await ensureUiVendor();
   const AiFeature = (
     await import(/* webpackChunkName: "ai-kit-ui" */ "@smart-cloud/ai-kit-ui")
   ).AiFeature;
@@ -186,6 +213,7 @@ const ChatbotComponent = (
 async function renderSearchComponent(
   args: DocSearchArgs,
 ): Promise<AiWorkerHandle> {
+  await ensureUiVendor();
   const DocSearch = (
     await import(/* webpackChunkName: "ai-kit-ui" */ "@smart-cloud/ai-kit-ui")
   ).DocSearch;
@@ -240,6 +268,7 @@ async function renderSearchComponent(
 }
 
 async function renderChatbot(args: AiWorkerProps): Promise<AiWorkerHandle> {
+  await ensureUiVendor();
   const AiChatbot = (
     await import(/* webpackChunkName: "ai-kit-ui" */ "@smart-cloud/ai-kit-ui")
   ).AiChatbot;
@@ -289,6 +318,17 @@ onDomReady(async () => {
   initializeAiKit(renderFeature, renderSearchComponent);
   observe();
   getStore().then((store) => {
-    renderChatbot({ store, onClose: () => void 0 });
+    let mounted = false;
+    const mountChatbot = (enabled: unknown) => {
+      if (!enabled || mounted) return;
+      mounted = true;
+      renderChatbot({ store, onClose: () => void 0 }).catch((error: unknown) => {
+        mounted = false;
+        console.error("AI Kit chatbot could not be mounted:", error);
+      });
+    };
+    const enabled = () => getStoreSelect(store).getConfig()?.enableChatbot;
+    mountChatbot(enabled());
+    observeStore(store, enabled, mountChatbot);
   });
 });

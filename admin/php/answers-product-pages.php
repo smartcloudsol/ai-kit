@@ -54,7 +54,7 @@ final class AnswersProductPages
         $value = null;
         if (function_exists('pll_get_post_language')) { $value = pll_get_post_language((int) $post->ID, 'locale'); }
         if ((!is_string($value) || $value === '') && function_exists('has_filter') && has_filter('wpml_post_language_details')) {
-            $details = apply_filters('wpml_post_language_details', null, (int) $post->ID);
+            $details = apply_filters('wpml_post_language_details', null, (int) $post->ID); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party WPML integration hook.
             if (is_array($details)) { $value = $details['locale'] ?? $details['language_code'] ?? null; }
         }
         if (!is_string($value) || !preg_match('/^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{2,8})*$/D', $value)) { return null; }

@@ -114,7 +114,7 @@ try {
     expect($declaration[0]['attributes']['data-static-export-assets'] === '', 'Declaration marker must have no executable payload.');
     $payload = json_decode($declaration[0]['text'], true, 512, JSON_THROW_ON_ERROR);
     $constants = $constantsFrom($scripts);
-    $own = array($constants['mantineCssHref'], $constants['aiKitUiCssHref']);
+    $own = array($constants['mantineCssHref'], $constants['aiKitUiCssHref'], $constants['mantineJsHref']);
     expect($payload === array('schemaVersion' => 1, 'assets' => array_merge($own, array($shared))), 'Actual own stylesheet URLs and deduplicated shared plurality must be declared.');
     expect(!in_array($singular, $payload['assets'], true), 'Plural theme assets must take precedence over singular fallback.');
 

@@ -30,11 +30,11 @@ final class SiteSettingsTransport
         if (!in_array($mode, array('legacy', 'workspace'), true)) return self::error(__('Invalid workspace API mode.', 'smartcloud-ai-kit'));
         $api = $values['platformApiBaseUrl'] ?? ''; $config = $values['platformConfigUrl'] ?? '';
         $explicit = $mode === 'workspace' || $api !== '' || $config !== '';
-        $base = strtolower((string) parse_url(get_site_url(), PHP_URL_HOST)) === 'dev.wpsuite.io' ? 'https://api-dev.wpsuite.io' : 'https://api.wpsuite.io';
+        $base = strtolower((string) wp_parse_url(get_site_url(), PHP_URL_HOST)) === 'dev.wpsuite.io' ? 'https://api-dev.wpsuite.io' : 'https://api.wpsuite.io';
         if ($explicit) {
             if ($mode !== 'workspace') return self::error(__('Explicit platform connection requires workspace API mode.', 'smartcloud-ai-kit'));
             foreach (array('api' => $api, 'config' => $config) as $name => $url) {
-                $parts = is_string($url) ? parse_url($url) : false;
+                $parts = is_string($url) ? wp_parse_url($url) : false;
                 if (!is_string($url) || preg_match('/[\\\\\s?#\x00-\x1f\x7f]/', $url) || filter_var($url, FILTER_VALIDATE_URL) === false || !is_array($parts)
                     || strtolower($parts['scheme'] ?? '') !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
                     || ($name === 'config' && !preg_match('/\.json$/iD', $parts['path'] ?? ''))) return self::error(__('Explicit platform connection requires HTTPS API and JSON configuration URLs without credentials, query or fragment.', 'smartcloud-ai-kit'));
@@ -61,6 +61,7 @@ final class SiteSettingsTransport
         }
         if (is_wp_error($response)) return self::error(__('The WP Suite settings service could not be reached. Retry without discarding your edits.', 'smartcloud-ai-kit'), 502);
         $status = wp_remote_retrieve_response_code($response);
+        // translators: %d is the HTTP status returned by the WP Suite settings service.
         if ($status !== 200) return self::error(sprintf(__('WP Suite settings request failed (HTTP %d).', 'smartcloud-ai-kit'), $status), $status >= 400 && $status < 500 ? $status : 502);
         $data = json_decode(wp_remote_retrieve_body($response), true);
         if (!is_array($data)) return self::error(__('Invalid site settings response.', 'smartcloud-ai-kit'), 502);

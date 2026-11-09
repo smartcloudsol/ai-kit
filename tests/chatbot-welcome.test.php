@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 define('ABSPATH', __DIR__ . '/');
+// These fixtures supply absolute HTTPS URLs to WordPress' parsing adapter.
+function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
 
 final class WP_Error
 {

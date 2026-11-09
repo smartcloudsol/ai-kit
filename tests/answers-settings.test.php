@@ -11,7 +11,7 @@ function get_option(string $key, mixed $default = false): mixed { return $key ==
 function home_url(string $path): string { return 'https://dev.example.test/site-home' . $path; }
 function admin_url(string $path): string { return 'https://dev.example.test/wordpress/wp-admin/' . $path; }
 function get_site_url(): string { return $GLOBALS['answers_site_url'] ?? 'https://dev.wpsuite.io'; }
-function wp_parse_url(string $url, int $component): mixed { return parse_url($url, $component); }
+function wp_parse_url(string $url, int $component = -1): mixed { return parse_url($url, $component); }
 function wp_json_encode(mixed $value): string { return json_encode($value, JSON_THROW_ON_ERROR); }
 class WP_Error { public function __construct(public string $code, public string $message, public array $data = []) {} }
 function is_wp_error(mixed $value): bool { return $value instanceof WP_Error; }
