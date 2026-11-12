@@ -5,7 +5,7 @@
  * Description:       Help visitors find answers in your content with a chatbot and semantic search. Pro connects to your own AI backend; free tools support on-device editor and media workflows.
  * Requires at least: 6.9
  * Requires PHP:      8.1
- * Version:           1.7.6
+ * Version:           1.7.7
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -17,7 +17,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.7.6';
+const VERSION = '1.7.7';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {
