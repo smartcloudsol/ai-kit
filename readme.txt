@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.7.8
+Stable tag: 1.7.9
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -195,6 +195,9 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 == Changelog ==
 
+= 1.7.9 =
+* Updates the shared WP Suite Hub for more reliable passkey MFA status and preserves existing authenticator preferences.
+
 = 1.7.8 =
 * Update the shared WP Suite Hub for authentication compatibility across installed WP Suite plugins.
 
@@ -253,6 +256,9 @@ Full release history and detailed upgrade guidance: https://github.com/smartclou
 Earlier releases and detailed upgrade guidance: [full changelog](https://github.com/smartcloudsol/ai-kit/blob/main/CHANGELOG-HISTORY.md).
 
 == Upgrade Notice ==
+
+= 1.7.9 =
+Updates the shared WP Suite Hub for more reliable passkey MFA status and preserves existing authenticator preferences.
 
 = 1.7.8 =
 Update installed WP Suite plugins together to keep their shared Hub compatible.
