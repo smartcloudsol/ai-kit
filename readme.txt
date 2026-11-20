@@ -4,7 +4,7 @@ Tags: ai, chatbot, semantic search, knowledge base, summarizer
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.7.10
+Stable tag: 1.7.11
 License: MIT
 License URI: https://mit-license.org/
 Text Domain: smartcloud-ai-kit
@@ -195,8 +195,9 @@ AI-Kit Pro includes additional functionality such as the chatbot, DocSearch, bac
 
 == Changelog ==
 
-= 1.7.10 =
+= 1.7.11 =
 
+* Reduce shared authentication and configuration scripts loaded by the frontend.
 * Support indexing protected Commerce articles under their configured knowledge access policy. Update the shared WP Suite Hub.
 
 = 1.7.9 =

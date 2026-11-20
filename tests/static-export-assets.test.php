@@ -26,8 +26,14 @@ $GLOBALS['fixture_plural'] = array();
 $GLOBALS['fixture_singular'] = null;
 $GLOBALS['fixture_scripts'] = array();
 $GLOBALS['fixture_style_calls'] = 0;
+$GLOBALS['fixture_enqueued'] = array();
 
 function add_action(...$args): void {}
+function wp_script_is(string $handle, string $status): bool { return $handle === 'smartcloud-wpsuite-main-script'; }
+function wp_enqueue_script(string $handle, string $src, array $dependencies, ...$args): void
+{
+    $GLOBALS['fixture_enqueued'][$handle] = $dependencies;
+}
 function is_admin(): bool { return $GLOBALS['fixture_admin']; }
 function apply_filters(string $hook, $default)
 {
@@ -82,6 +88,20 @@ try {
     $reflection = new ReflectionClass('SmartCloud\\WPSuite\\AiKit\\AiKit');
     $plugin = $reflection->newInstanceWithoutConstructor();
     $reflection->getProperty('admin')->setValue($plugin, new StaticExportFixtureAdmin());
+
+    $enqueueRuntime = $reflection->getMethod('enqueueMainRuntimeScript');
+    mkdir($fixturePath . 'main');
+    file_put_contents($fixturePath . 'main/index.asset.php', "<?php return array('dependencies' => array('fixture-explicit-dependency'));\n");
+    $enqueueRuntime->invoke($plugin, true);
+    $frontendDeps = $GLOBALS['fixture_enqueued']['smartcloud-ai-kit-main-script'];
+    expect(in_array('fixture-explicit-dependency', $frontendDeps, true), 'Frontend retains generated asset dependencies.');
+    expect(in_array('smartcloud-wpsuite-webcrypto-vendor', $frontendDeps, true), 'Frontend retains crypto.');
+    expect(in_array('smartcloud-wpsuite-main-script', $frontendDeps, true), 'Frontend retains the registered Hub runtime.');
+    expect(!in_array('smartcloud-wpsuite-amplify-vendor', $frontendDeps, true), 'Frontend does not force the unused Amplify vendor.');
+    $enqueueRuntime->invoke($plugin, false);
+    $adminDeps = $GLOBALS['fixture_enqueued']['smartcloud-ai-kit-main-script'];
+    expect(in_array('smartcloud-wpsuite-amplify-vendor', $adminDeps, true), 'Admin and editor retain Amplify.');
+    expect(in_array('smartcloud-wpsuite-mantine-vendor', $adminDeps, true), 'Admin and editor retain Mantine.');
 
     $invoke = static function (array $plural, ?string $singular, bool $admin = false) use ($plugin): array {
         $GLOBALS['fixture_plural'] = $plural;
@@ -141,6 +161,8 @@ try {
     fwrite(STDOUT, "AiKit static export asset/security contract: PASS\n");
 } finally {
 
+    @unlink($fixturePath . 'main/index.asset.php');
+    @rmdir($fixturePath . 'main');
     rmdir($fixturePath);
 }
 

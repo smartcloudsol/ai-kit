@@ -5,7 +5,7 @@
  * Description:       Help visitors find answers in your content with a chatbot and semantic search. Pro connects to your own AI backend; free tools support on-device editor and media workflows.
  * Requires at least: 6.9
  * Requires PHP:      8.1
- * Version:           1.7.10
+ * Version:           1.7.11
  * Author:            Smart Cloud Solutions Inc.
  * Author URI:        https://smart-cloud-solutions.com
  * License:           MIT
@@ -17,7 +17,7 @@
 
 namespace SmartCloud\WPSuite\AiKit;
 
-const VERSION = '1.7.10';
+const VERSION = '1.7.11';
 const DB_VERSION = '1.4.3';
 
 if (!defined('ABSPATH')) {
@@ -661,10 +661,13 @@ final class AiKit
         if (file_exists(filename: SMARTCLOUD_AI_KIT_PATH . 'main/index.asset.php')) {
             $main_script_asset = require(SMARTCLOUD_AI_KIT_PATH . 'main/index.asset.php');
         }
+        $crypto = $frontend && wp_script_is('smartcloud-wpsuite-config-crypto', 'registered')
+            ? 'smartcloud-wpsuite-config-crypto'
+            : 'smartcloud-wpsuite-webcrypto-vendor';
         $main_script_dependencies = array_merge(
             $main_script_asset['dependencies'] ?? array(),
-            array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-amplify-vendor'),
-            $frontend ? array() : array('smartcloud-wpsuite-mantine-vendor')
+            array($crypto),
+            $frontend ? array() : array('smartcloud-wpsuite-amplify-vendor', 'smartcloud-wpsuite-mantine-vendor')
         );
         if (wp_script_is('smartcloud-wpsuite-main-script', 'registered')) {
             $main_script_dependencies[] = 'smartcloud-wpsuite-main-script';
