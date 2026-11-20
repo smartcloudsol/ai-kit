@@ -42,6 +42,7 @@ final class KnowledgeSyncTestWpdb
 {
     public string $prefix = 'wp_';
     public string $posts = 'wp_posts';
+    public string $term_relationships = 'wp_term_relationships';
     /** @var list<array<int, mixed>> */
     public array $preparedArguments = [];
     /** @var list<string> */
@@ -73,6 +74,9 @@ final class KnowledgeSyncTestWpdb
 
     public function get_col(string $query): array
     {
+        if (isset($GLOBALS['test_db_columns_resolver'])) {
+            return ($GLOBALS['test_db_columns_resolver'])($query, end($this->preparedArguments));
+        }
         unset($query);
         return $GLOBALS['test_db_columns'] ?? [];
     }
@@ -167,6 +171,9 @@ function do_action(string $hook, mixed ...$args): void
 
 function apply_filters(string $hook, mixed $value, mixed ...$args): mixed
 {
+    if (isset($GLOBALS['test_vocabulary_filter']) && in_array($hook, ['smartcloud_ai_kit_knowledge_sync_transport_available', 'smartcloud_ai_kit_knowledge_sync_dispatch_vocabulary'], true)) {
+        return ($GLOBALS['test_vocabulary_filter'])($hook, $value, $args);
+    }
     if (isset($GLOBALS['test_dispatch_error'])) {
         if ($hook === 'smartcloud_ai_kit_knowledge_sync_transport_available') {
             return true;
@@ -709,8 +716,10 @@ $expect_path_error('category_paths_too_many', static fn() => $path_class::classi
 
 final class CategoryPathTestTransport {
     public static bool $enabled = false;
+    public static bool $privateArticles = false;
     public static function create(): self { return new self(); }
     public function supportsTaxonomyPaths(): bool { return self::$enabled; }
+    public function supportsCommercePrivateArticles(): bool { return self::$privateArticles; }
     public function supportsStructuredContent(): bool
     {
         $capability = $GLOBALS['structured_test_capability'] ?? [];
@@ -906,3 +915,39 @@ $dispatch = new \ReflectionMethod($runtime, 'dispatchOutbox');
 $unavailable = $dispatch->invoke($runtime, 10);
 expect(($unavailable['status'] ?? '') === 'transport-unavailable' && ($unavailable['processed'] ?? -1) === 0, 'Unavailable automation transport must produce an explicit zero-delivery outcome.');
 echo "Knowledge-sync unavailable transport diagnostic test passed.\n";
+
+final class CommerceArticleTestProvider
+{
+    public static array $articles = [];
+    public static function knowledgeArticles(): array { return self::$articles; }
+}
+class_alias(CommerceArticleTestProvider::class, 'SmartCloud\\WPSuite\\Commerce\\WordPressProtection');
+$posts[420] = new WP_Post(420, 'page', 'private');
+$policies->saveForPostType('page', ['enabled' => true, 'reviewPolicy' => 'manual-kb-review']);
+CommerceArticleTestProvider::$articles[420] = [
+    'url' => 'https://example.com/paid/article/',
+    'group' => 'commerce-paid',
+];
+$article_lease = (object) [
+    'leased_operation' => 'upsert', 'leased_source_version' => '1',
+    'leased_correlation_id' => 'article-test', 'blog_id' => 1, 'post_type' => 'page', 'post_id' => 420,
+];
+try {
+    $builder->build($article_lease);
+    throw new RuntimeException('Private bodies must never be projected for a legacy backend.');
+} catch (\SmartCloud\WPSuite\AiKit\KnowledgeBase\KnowledgeSyncProjectionException $error) {
+    expect($error->error_code === 'commerce_private_articles_unavailable', 'A private projection requires explicit backend capability.');
+}
+CategoryPathTestTransport::$privateArticles = true;
+$article_projection = $builder->build($article_lease);
+expect($article_projection['schemaVersion'] === 4, 'Private upserts require the protected wire envelope.');
+expect($article_projection['document']['canonicalUrl'] === 'https://example.com/paid/article/', 'Citations must use the protected route.');
+expect($article_projection['document']['protectedArticleGroup'] === 'commerce-paid', 'The WordPress rule determines the required group.');
+expect(!isset($article_projection['document']['structuredContent']), 'Private content must not be exposed through structured records.');
+$capture->onCommerceArticleRulesChanged([420]);
+$article_args = end($wpdb->preparedArguments);
+expect($article_args[5] === 'upsert' && $article_args[6] === 'blocked' && $article_args[10] === 0, 'Private sources retain review and do not require a public release.');
+CommerceArticleTestProvider::$articles = [];
+$capture->onCommerceArticleRulesChanged([420]);
+expect(end($wpdb->preparedArguments)[5] === 'delete', 'Removing the protected article rule must queue deletion.');
+echo "Commerce private article capture and projection tests passed.\n";

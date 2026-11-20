@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 require_once __DIR__ . '/backend-profile-state.php';
+require_once __DIR__ . '/commerce-access.php';
 
 // Load dependencies
 if (file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/kb/schema.php')) {
@@ -651,6 +652,17 @@ class Admin
     {
         $namespace = SMARTCLOUD_AI_KIT_SLUG . '/v1';
 
+        register_rest_route($namespace, '/kb/commerce-access/context', [
+            'methods' => 'GET',
+            'callback' => [$this, 'restGetCommerceAccessContext'],
+            'permission_callback' => [$this, 'checkManagePermission'],
+            'args' => [
+                'taxonomy' => ['type' => 'string', 'default' => '', 'maxLength' => 32],
+                'search' => ['type' => 'string', 'default' => '', 'maxLength' => 100],
+                'page' => ['type' => 'integer', 'default' => 1, 'minimum' => 1, 'maximum' => 1000],
+            ],
+        ]);
+
         // Get all KB sources
         register_rest_route($namespace, '/kb/sources', [
             'methods' => 'GET',
@@ -1256,6 +1268,21 @@ class Admin
     public function checkManagePermission(): bool
     {
         return current_user_can('manage_options');
+    }
+
+    public function restGetCommerceAccessContext(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
+    {
+        $result = CommerceAccessContext::read((string) $request['taxonomy'], (string) $request['search'], (int) $request['page']);
+        if (is_wp_error($result)) { return $result; }
+        $status = $this->knowledge_sync_transport->localStatus();
+        $result['transport'] = array(
+            'configured' => !empty($status['configured']),
+            'enrolled' => !empty($status['enrolled']),
+            'bindingStatus' => $status['bindingStatus'] ?? 'none',
+            'commerceKnowledgeAccessSupported' => !empty($status['commerceKnowledgeAccessSupported']),
+            'commercePrivateArticlesSupported' => !empty($status['commercePrivateArticlesSupported']),
+        );
+        return rest_ensure_response($result);
     }
 
     /**
@@ -2413,7 +2440,9 @@ class Admin
     public function regeneratePost(int $post_id, bool $preserve_publish_state = false): bool
     {
         $post = get_post($post_id);
-        if (!$post) {
+        if (!$post || ($post->post_status === 'private'
+            && function_exists(__NAMESPACE__ . '\\knowledge_sync_has_private_article_rule')
+            && knowledge_sync_has_private_article_rule($post_id))) {
             return false;
         }
 

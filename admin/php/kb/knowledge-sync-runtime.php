@@ -415,6 +415,9 @@ final class KnowledgeSyncBaselineService
     {
         $contract = self::SERIALIZER_VERSION . ':' . KnowledgeSyncDocumentMetadata::baseUrlOverride();
         $contract .= ':' . KnowledgeSyncCategoryPaths::mode();
+        if (method_exists(KnowledgeSyncTransport::class, 'supportsCommerceKnowledgeAccess') && KnowledgeSyncTransport::create()->supportsCommerceKnowledgeAccess()) {
+            $contract .= ':commerce-access-taxonomies-v1';
+        }
         // Hierarchy edits affect every descendant even without assignment changes.
         $namespaces = (new KnowledgeSyncVocabularyService())->desiredNamespaces();
         $contract .= ':' . hash('sha256', (string) wp_json_encode($namespaces));
@@ -472,8 +475,12 @@ final class KnowledgeSyncBaselineService
             return array('status' => 'ready', 'processed' => 0, 'postType' => $post_type);
         }
 
+        $articles = $post_type === 'page' ? knowledge_sync_private_articles() : array();
         if ($baseline->status !== 'building') {
-            $this->baselines->begin((int) $baseline->id, $this->highestPublishedPostId($post_type));
+            $this->baselines->begin((int) $baseline->id, max(
+                $this->highestPublishedPostId($post_type),
+                $articles === array() ? 0 : max(array_keys($articles))
+            ));
             $baseline = $this->baselines->get($consumer_id, $blog_id, $post_type);
         }
         if (!$baseline) {
@@ -488,12 +495,21 @@ final class KnowledgeSyncBaselineService
             $limit
         );
         $cursor = (int) $baseline->cursor_post_id;
+        foreach (array_keys($articles) as $id) {
+            if ($id > $cursor && $id <= (int) $baseline->high_water_post_id) {
+                $post_ids[] = $id;
+            }
+        }
+        sort($post_ids, SORT_NUMERIC);
+        $post_ids = array_slice(array_unique($post_ids), 0, $limit);
         foreach ($post_ids as $post_id) {
             $post = get_post($post_id);
-            if (!knowledge_sync_post_is_public($post)) {
+            $cursor = max($cursor, $post_id);
+            $article = knowledge_sync_private_article($post);
+            if (!knowledge_sync_post_is_public($post) && $article === null) {
                 continue;
             }
-            if ($publisher_cursor !== null) {
+            if ($article === null && $publisher_cursor !== null) {
                 $covered_by_release = KnowledgeSyncPublicReleaseGate::postCoveredByCursor(
                     $blog_id,
                     $post_type,
@@ -508,12 +524,11 @@ final class KnowledgeSyncBaselineService
                     );
                 }
                 if (!$covered_by_release) {
-                    $cursor = max($cursor, $post_id);
                     continue;
                 }
             }
             $manual_review = $policy['reviewPolicy'] === 'manual-kb-review';
-            $url = get_permalink($post);
+            $url = $article['url'] ?? get_permalink($post);
             $this->outbox->enqueue(
                 $blog_id,
                 $post_type,
@@ -523,11 +538,10 @@ final class KnowledgeSyncBaselineService
                 $manual_review ? 'blocked' : 'pending',
                 is_string($url) && !str_contains($url, '__trashed') ? $url : null,
                 $manual_review ? 'manual_review_required' : null,
-                KnowledgeSyncPublicReleaseGate::enabled(),
-                $publisher_consumer_id,
-                $publisher_sequence
+                $article === null && KnowledgeSyncPublicReleaseGate::enabled(),
+                $article === null ? $publisher_consumer_id : null,
+                $article === null ? $publisher_sequence : null
             );
-            $cursor = max($cursor, $post_id);
         }
 
         $complete = count($post_ids) < $limit || $cursor >= (int) $baseline->high_water_post_id;
@@ -780,10 +794,17 @@ final class KnowledgeSyncProjectionBuilder
         }
 
         $post = get_post((int) $lease->post_id);
-        if (!knowledge_sync_post_is_public($post)) {
+        $article = knowledge_sync_private_article($post);
+        if (!knowledge_sync_post_is_public($post) && $article === null) {
             throw new KnowledgeSyncProjectionException(
                 'source_no_longer_public',
                 'Leased upsert source is no longer public; its newer desired state must be processed.'
+            );
+        }
+        if ($article !== null && !KnowledgeSyncTransport::create()->supportsCommercePrivateArticles()) {
+            throw new KnowledgeSyncProjectionException(
+                'commerce_private_articles_unavailable',
+                'The configured AI Kit backend does not support protected Commerce articles.'
             );
         }
         $policy = (new KnowledgeSyncPolicyStore())->getForPostType($post->post_type);
@@ -812,7 +833,7 @@ final class KnowledgeSyncProjectionBuilder
          * that is not persisted in post_content.
          *
          * @param string   $markdown Generated source markdown.
-         * @param \WP_Post $post      Public source post.
+         * @param \WP_Post $post      Eligible source post.
          * @param array    $policy    Effective sync policy for the post type.
          */
         $markdown = (string) apply_filters(
@@ -824,7 +845,7 @@ final class KnowledgeSyncProjectionBuilder
         if (trim($markdown) === '') {
             $markdown = '# ' . $title;
         }
-        $url = $resolved_metadata['canonicalUrl'];
+        $url = $article['url'] ?? $resolved_metadata['canonicalUrl'];
         if (!is_string($url) || $url === '' || str_contains($url, '__trashed')) {
             throw new KnowledgeSyncProjectionException('invalid_public_url', 'Public source has no stable canonical URL.');
         }
@@ -846,7 +867,15 @@ final class KnowledgeSyncProjectionBuilder
             'metadata' => $this->metadata((int) $post->ID, $policy['includeTaxonomies']),
         );
 
-        if (array_key_exists('structuredContent', $policy)) {
+        if ($article !== null) {
+            $projection['schemaVersion'] = 4;
+            $projection['document']['protectedArticleGroup'] = $article['group'];
+            $projection['document']['accessTaxonomies'] = array();
+        } elseif (method_exists(KnowledgeSyncTransport::class, 'supportsCommerceKnowledgeAccess') && KnowledgeSyncTransport::create()->supportsCommerceKnowledgeAccess()) {
+            $projection['document']['accessTaxonomies'] = CommerceAccessContext::assignedTerms((int) $post->ID, $post->post_type);
+        }
+
+        if ($article === null && array_key_exists('structuredContent', $policy)) {
             $projection['schemaVersion'] = 3;
             $projection['document']['structuredContent'] = KnowledgeSyncStructuredContent::project(
                 (int) $post->ID, $post->post_type, $policy['structuredContent']
@@ -993,7 +1022,8 @@ final class KnowledgeSyncVocabularyService
             'schemaVersion' => 2,
             'blogId' => (string) get_current_blog_id(),
             'enabled' => $namespaces !== array(),
-            'namespaces' => $namespaces,
+            // The wire contract is a map, including an empty disabled vocabulary.
+            'namespaces' => (object) $namespaces,
         );
         $encoded = wp_json_encode($desired, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if (!is_string($encoded)) {
@@ -2064,11 +2094,12 @@ final class KnowledgeSyncRuntime
                 $post_type = sanitize_key($post_type);
                 $policy = $policies->getForPostType($post_type);
                 $post = get_post((int) $post_id);
+                $article = knowledge_sync_private_article($post);
                 $is_orphaned_remote_source =
                     $policy === null ||
                     empty($policy['enabled']) ||
                     ($policy['reviewPolicy'] ?? 'disabled') === 'disabled' ||
-                    !knowledge_sync_post_is_public($post) ||
+                    (!knowledge_sync_post_is_public($post) && $article === null) ||
                     $post->post_type !== $post_type;
                 if ($is_orphaned_remote_source) {
                     if (($source['status'] ?? '') === 'tombstoned') {
@@ -2089,7 +2120,7 @@ final class KnowledgeSyncRuntime
                     continue;
                 }
                 $manual_review = $policy['reviewPolicy'] === 'manual-kb-review';
-                $url = get_permalink($post);
+                $url = $article['url'] ?? get_permalink($post);
                 $outbox->enqueue(
                     get_current_blog_id(),
                     $post_type,

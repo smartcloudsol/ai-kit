@@ -170,6 +170,7 @@ function wp_remote_request(string $url, array $arguments): array
                 'apiSchemaVersion' => 7,
                 'capabilities' => array(
                     ...($capability_mode === 'paths' ? ['knowledge.taxonomy-paths' => 1] : ($capability_mode === 'invalid-paths' ? ['knowledge.taxonomy-paths' => '1'] : [])),
+                    ...($capability_mode === 'commerce-access' ? ['knowledge.commerce-access' => 1] : ($capability_mode === 'invalid-commerce-access' ? ['knowledge.commerce-access' => '1'] : [])),
                     ...(in_array($capability_mode, ['structured', 'structured-document', 'invalid-structured-document', 'structured-text-formats', 'invalid-structured-text-formats'], true) ? ['knowledge.structured-content' => 1] : ($capability_mode === 'invalid-structured' ? ['knowledge.structured-content' => '1'] : [])),
                     ...($capability_mode === 'structured-document' ? ['knowledge.structured-content.document-v2' => 1] : ($capability_mode === 'invalid-structured-document' ? ['knowledge.structured-content.document-v2' => '1'] : [])),
                     ...($capability_mode === 'structured-text-formats' ? ['knowledge.structured-content.text-formats' => 1] : ($capability_mode === 'invalid-structured-text-formats' ? ['knowledge.structured-content.text-formats' => '1'] : [])),
@@ -248,7 +249,7 @@ function wp_remote_request(string $url, array $arguments): array
 
     if ($path === '/base/automation/kb/metadata-inputs/wordpress') {
         transport_expect($arguments['method'] === 'PUT', 'Vocabulary reconciliation must use PUT.');
-        transport_expect($body['sourceVersion'] === '1', 'Vocabulary source version must be preserved.');
+        transport_expect(in_array($body['sourceVersion'], ['1', '2'], true), 'Vocabulary source version must be preserved.');
         return array(
             'response' => array('code' => 200),
             'body' => '{"status":"accepted","changed":true}',
@@ -347,6 +348,13 @@ $vocabulary = $transport->dispatchVocabulary(null, array(
     )),
 ));
 transport_expect($vocabulary['status'] === 'accepted' && $vocabulary['changed'], 'Signed WordPress vocabulary reconciliation must complete.');
+$empty_vocabulary = $transport->dispatchVocabulary(null, array(
+    'schemaVersion' => 2, 'sourceVersion' => '2', 'blogId' => '1',
+    'enabled' => false, 'namespaces' => (object) array(),
+));
+transport_expect($empty_vocabulary['status'] === 'accepted', 'Empty vocabulary must complete the signed transport.');
+$empty_wire = json_decode((string) end($requests)['arguments']['body'], false, 512, JSON_THROW_ON_ERROR);
+transport_expect($empty_wire->enabled === false && $empty_wire->namespaces instanceof stdClass && get_object_vars($empty_wire->namespaces) === [], 'Actual signed request body must carry an empty JSON object.');
 $before_guard_requests = count($requests);
 $transients = [];
 $capability_mode = 'v4';
@@ -390,7 +398,7 @@ try {
 }
 transport_expect($unsafe_directory_rejected, 'File key storage must reject the WordPress webroot.');
 
-transport_expect(count($requests) - $guard_requests === 7, 'Capability discovery, enrollment, status, rotation, promoted-key status, vocabulary reconciliation, and revocation must each make one request.');
+transport_expect(count($requests) - $guard_requests === 8, 'Capability discovery, enrollment, status, rotation, promoted-key status, vocabulary reconciliation, an empty vocabulary, and revocation must each make one request.');
 
 $transients = [];
 $capability_mode = 'legacy';
@@ -421,6 +429,13 @@ $transients = [];
 $capability_mode = 'legacy';
 transport_expect(!KnowledgeSyncTransport::create()->supportsTaxonomyPaths(), 'Unavailable manifest must preserve legacy projections.');
 echo "Category path capability tests passed.\n";
+
+$transients = []; $capability_mode = 'commerce-access';
+transport_expect(KnowledgeSyncTransport::create()->supportsCommerceKnowledgeAccess(), 'Verified commerce access capability enables trusted taxonomy projection.');
+foreach (['invalid-commerce-access', 'verified', 'legacy'] as $mode) {
+    $transients = []; $capability_mode = $mode;
+    transport_expect(!KnowledgeSyncTransport::create()->supportsCommerceKnowledgeAccess(), 'Missing or invalid commerce capability must fail closed.');
+}
 
 $transients = [];
 $capability_mode = 'structured';

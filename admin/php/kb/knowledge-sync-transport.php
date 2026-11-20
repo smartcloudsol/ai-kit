@@ -506,6 +506,9 @@ final class KnowledgeSyncTransport
         $settings = $this->configuredSettings();
         $this->requireCapability('knowledge.automation', $settings['backendBaseUrl'], 6);
         foreach ($projections as $projection) {
+            if (($projection['schemaVersion'] ?? null) === 4) {
+                $this->requireCapability('knowledge.commerce-private-articles', $settings['backendBaseUrl']);
+            }
             if (($projection['schemaVersion'] ?? null) === 3) {
                 // Includes revocation. Never silently downgrade a v3 payload:
                 // that would pretend removal succeeded on an unknown backend.
@@ -656,6 +659,12 @@ final class KnowledgeSyncTransport
             'taxonomyPathsSupported' => ($compatibility['status'] ?? '') === 'verified'
                 && is_int($compatibility['capabilities']['knowledge.taxonomy-paths'] ?? null)
                 && $compatibility['capabilities']['knowledge.taxonomy-paths'] >= 1,
+            'commerceKnowledgeAccessSupported' => ($compatibility['status'] ?? '') === 'verified'
+                && is_int($compatibility['capabilities']['knowledge.commerce-access'] ?? null)
+                && $compatibility['capabilities']['knowledge.commerce-access'] >= 1,
+            'commercePrivateArticlesSupported' => ($compatibility['status'] ?? '') === 'verified'
+                && is_int($compatibility['capabilities']['knowledge.commerce-private-articles'] ?? null)
+                && $compatibility['capabilities']['knowledge.commerce-private-articles'] >= 1,
             'structuredContentSupported' => ($compatibility['status'] ?? '') === 'verified'
                 && is_int($compatibility['capabilities']['knowledge.structured-content'] ?? null)
                 && $compatibility['capabilities']['knowledge.structured-content'] >= 1,
@@ -743,6 +752,20 @@ final class KnowledgeSyncTransport
     {
         $compatibility = $this->backendCompatibility();
         $version = $compatibility['capabilities']['knowledge.taxonomy-paths'] ?? null;
+        return ($compatibility['status'] ?? '') === 'verified' && is_int($version) && $version >= 1;
+    }
+
+    public function supportsCommerceKnowledgeAccess(): bool
+    {
+        $compatibility = $this->backendCompatibility();
+        $version = $compatibility['capabilities']['knowledge.commerce-access'] ?? null;
+        return ($compatibility['status'] ?? '') === 'verified' && is_int($version) && $version >= 1;
+    }
+
+    public function supportsCommercePrivateArticles(): bool
+    {
+        $compatibility = $this->backendCompatibility();
+        $version = $compatibility['capabilities']['knowledge.commerce-private-articles'] ?? null;
         return ($compatibility['status'] ?? '') === 'verified' && is_int($version) && $version >= 1;
     }
 

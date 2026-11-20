@@ -175,7 +175,7 @@ class Admin
         $asset = file_exists(SMARTCLOUD_AI_KIT_PATH . 'admin/index.asset.php')
             ? require SMARTCLOUD_AI_KIT_PATH . 'admin/index.asset.php' : array();
         $asset_version = $asset['version'] ?? SMARTCLOUD_AI_KIT_VERSION;
-        $dependencies = array_merge($asset['dependencies'] ?? array(), array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-mantine-vendor'));
+        $dependencies = array_merge($asset['dependencies'] ?? array(), array('smartcloud-wpsuite-webcrypto-vendor', 'smartcloud-wpsuite-mantine-vendor', 'smartcloud-wpsuite-amplify-vendor'));
         wp_enqueue_script('smartcloud-ai-kit-admin-script', SMARTCLOUD_AI_KIT_URL . 'admin/index.js', $dependencies, $asset_version, array('in_footer' => true, 'strategy' => 'defer'));
         if (function_exists('wp_set_script_translations')) {
             wp_set_script_translations('smartcloud-ai-kit-admin-script', 'smartcloud-ai-kit', SMARTCLOUD_AI_KIT_PATH . 'languages');

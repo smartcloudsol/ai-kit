@@ -56,6 +56,11 @@ module.exports = function () {
     },
     externals: {
       ...defaultConfig.externals,
+      "aws-amplify": "WpSuiteAmplify",
+      "aws-amplify/auth": "WpSuiteAmplify",
+      "aws-amplify/auth/cognito": "WpSuiteAmplify",
+      "aws-amplify/api": "WpSuiteAmplify",
+      "aws-amplify/utils": "WpSuiteAmplify",
       "@smart-cloud/aws-amplify-ui": "WpSuiteAmplify",
       "@smart-cloud/aws-amplify-ui-react": "WpSuiteAmplify",
       "@smart-cloud/aws-amplify-ui-react-core": "WpSuiteAmplify",

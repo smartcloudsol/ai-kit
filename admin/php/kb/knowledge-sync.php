@@ -38,6 +38,28 @@ function knowledge_sync_post_is_public(mixed $post): bool
         empty($post->post_password) && knowledge_sync_post_type_is_viewable(get_post_type_object($post->post_type));
 }
 
+/** Sources eligible for the explicit protected-article protocol. */
+function knowledge_sync_private_articles(): array
+{
+    $provider = '\\SmartCloud\\WPSuite\\Commerce\\WordPressProtection';
+    return method_exists($provider, 'knowledgeArticles') ? $provider::knowledgeArticles() : array();
+}
+
+function knowledge_sync_private_article(mixed $post): ?array
+{
+    if (!$post instanceof \WP_Post || $post->post_type !== 'page' ||
+        $post->post_status !== 'private' || !empty($post->post_password)) {
+        return null;
+    }
+    return knowledge_sync_private_articles()[(int) $post->ID] ?? null;
+}
+
+function knowledge_sync_has_private_article_rule(int $post_id): bool
+{
+    $provider = '\\SmartCloud\\WPSuite\\Commerce\\WordPressProtection';
+    return method_exists($provider, 'hasKnowledgeArticleRule') && $provider::hasKnowledgeArticleRule($post_id);
+}
+
 final class KnowledgeSyncPolicyStore
 {
     public const OPTION_NAME = 'smartcloud_ai_kit_kb_sync_policies';
@@ -1318,12 +1340,59 @@ final class KnowledgeSyncCapture
     public function registerHooks(): void
     {
         add_action('wp_after_insert_post', array($this, 'onAfterInsertPost'), 20, 4);
+        add_action('smartcloud_commerce_knowledge_articles_changed', array($this, 'onCommerceArticleRulesChanged'));
         add_action('before_delete_post', array($this, 'onBeforeDeletePost'), 20, 2);
         add_action('set_object_terms', array($this, 'onSetObjectTerms'), 20, 6);
+        add_action('edited_term', array($this, 'onAccessTermEdited'), 20, 3);
+        add_action('delete_term', array($this, 'onAccessTermDeleted'), 20, 5);
         foreach (array('added_post_meta', 'updated_post_meta', 'deleted_post_meta') as $hook) {
             add_action($hook, array($this, 'onStructuredMetadataChanged'), 20, 4);
         }
         add_action('delete_attachment', array($this, 'onFeaturedAttachmentChanged'), 20, 1);
+    }
+
+    /** Term slug changes affect matching even when assignments remain unchanged. */
+    public function onAccessTermEdited(int $term_id, int $term_taxonomy_id, string $taxonomy): void
+    {
+        unset($term_id);
+        if (!class_exists(CommerceAccessContext::class) || !CommerceAccessContext::captureEnabled() || !isset(CommerceAccessContext::publicTaxonomies()[$taxonomy])) { return; }
+        global $wpdb;
+        $cursor = 0;
+        do {
+            // Read current relationships directly: caching can omit invalidation after a term edit.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- The indexed, cursor-bounded scan must observe fresh relationships.
+            $ids = $wpdb->get_col($wpdb->prepare(
+                "SELECT rel.object_id FROM %i AS rel INNER JOIN %i AS posts ON posts.ID = rel.object_id WHERE rel.term_taxonomy_id = %d AND rel.object_id > %d AND posts.post_status = 'publish' ORDER BY rel.object_id ASC LIMIT 100",
+                $wpdb->term_relationships,
+                $wpdb->posts,
+                $term_taxonomy_id,
+                $cursor
+            ));
+            $previous = $cursor;
+            foreach ($ids as $id) {
+                $post_id = (int) $id;
+                if ($post_id <= $cursor) { return; }
+                $cursor = $post_id;
+                $this->enqueueAccessTermPost($post_id);
+            }
+            if ($cursor <= $previous) { break; }
+        } while (count($ids) === 100);
+    }
+
+    /** WordPress supplies affected IDs after the deleted relationships have gone. */
+    public function onAccessTermDeleted(int $term_id, int $term_taxonomy_id, string $taxonomy, mixed $deleted_term, array $object_ids): void
+    {
+        unset($term_id, $term_taxonomy_id, $deleted_term);
+        if (!class_exists(CommerceAccessContext::class) || !CommerceAccessContext::captureEnabled() || !isset(CommerceAccessContext::publicTaxonomies()[$taxonomy])) { return; }
+        foreach ($object_ids as $id) { $this->enqueueAccessTermPost((int) $id); }
+    }
+
+    private function enqueueAccessTermPost(int $post_id): void
+    {
+        $post = get_post($post_id);
+        if ($post instanceof \WP_Post && knowledge_sync_post_is_public($post)) {
+            $this->onAfterInsertPost($post_id, $post, true, $post);
+        }
     }
 
     /** Invalidate every referencing public post in bounded pages; never export attachment data on its own. */
@@ -1411,7 +1480,17 @@ final class KnowledgeSyncCapture
         }
     }
 
-    public function onAfterInsertPost(int $post_id, \WP_Post $post, bool $update, ?\WP_Post $post_before): void
+    public function onCommerceArticleRulesChanged(array $ids): void
+    {
+        foreach ($ids as $id) {
+            $post = get_post((int) $id);
+            if ($post instanceof \WP_Post && $post->post_type === 'page') {
+                $this->onAfterInsertPost((int) $post->ID, $post, true, $post, true);
+            }
+        }
+    }
+
+    public function onAfterInsertPost(int $post_id, \WP_Post $post, bool $update, ?\WP_Post $post_before, bool $article_rule_changed = false): void
     {
         BackendProfileState::assertClassicMutation();
         unset($update);
@@ -1430,9 +1509,10 @@ final class KnowledgeSyncCapture
         }
 
         $before_status = $post_before instanceof \WP_Post ? $post_before->post_status : 'new';
-        if (knowledge_sync_post_is_public($post)) {
+        $article = knowledge_sync_private_article($post);
+        if (knowledge_sync_post_is_public($post) || $article !== null) {
             $manual_review = $policy['reviewPolicy'] === 'manual-kb-review';
-            $gate_required = KnowledgeSyncPublicReleaseGate::enabled();
+            $gate_required = $article === null && KnowledgeSyncPublicReleaseGate::enabled();
             $publisher_position = $gate_required
                 ? KnowledgeSyncPublicReleaseGate::desiredPosition(get_current_blog_id(), $post->post_type, $post_id)
                 : null;
@@ -1443,7 +1523,7 @@ final class KnowledgeSyncCapture
                 'upsert',
                 $this->correlationId(),
                 $manual_review ? 'blocked' : 'pending',
-                $this->publicPermalink($post),
+                $article['url'] ?? $this->publicPermalink($post),
                 $manual_review ? 'manual_review_required' : null,
                 $gate_required,
                 $publisher_position['consumerId'] ?? null,
@@ -1452,8 +1532,10 @@ final class KnowledgeSyncCapture
             return;
         }
 
-        if ($before_status === 'publish') {
-            $gate_required = KnowledgeSyncPublicReleaseGate::enabled();
+        $has_article_rule = $before_status === 'private' && $post->post_type === 'page'
+            && knowledge_sync_has_private_article_rule($post_id);
+        if ($before_status === 'publish' || $article_rule_changed || $has_article_rule) {
+            $gate_required = $before_status === 'publish' && KnowledgeSyncPublicReleaseGate::enabled();
             $publisher_position = $gate_required
                 ? KnowledgeSyncPublicReleaseGate::desiredPosition(get_current_blog_id(), $post->post_type, $post_id)
                 : null;
@@ -1513,7 +1595,9 @@ final class KnowledgeSyncCapture
             return;
         }
 
-        $gate_required = KnowledgeSyncPublicReleaseGate::enabled();
+        $is_private_article = $post->post_status === 'private' && $post->post_type === 'page'
+            && knowledge_sync_has_private_article_rule($post_id);
+        $gate_required = !$is_private_article && KnowledgeSyncPublicReleaseGate::enabled();
         $publisher_position = $gate_required
             ? KnowledgeSyncPublicReleaseGate::desiredPosition(get_current_blog_id(), $post->post_type, $post_id)
             : null;
@@ -1550,6 +1634,9 @@ final class KnowledgeSyncCapture
         BackendProfileState::assertClassicMutation();
         unset($terms, $append);
 
+        // Term assignments are sets; insertion order does not change access.
+        sort($term_taxonomy_ids, SORT_NUMERIC);
+        sort($old_term_taxonomy_ids, SORT_NUMERIC);
         if ($term_taxonomy_ids === $old_term_taxonomy_ids) {
             return;
         }
@@ -1562,7 +1649,9 @@ final class KnowledgeSyncCapture
         $policy = $this->eligiblePolicy($post->post_type);
         if (
             $policy === null ||
-            !in_array(sanitize_key($taxonomy), $policy['includeTaxonomies'], true)
+            (!in_array(sanitize_key($taxonomy), $policy['includeTaxonomies'], true) &&
+                !(class_exists(CommerceAccessContext::class) && CommerceAccessContext::captureEnabled() &&
+                    isset(CommerceAccessContext::publicTaxonomies()[$taxonomy])))
         ) {
             return;
         }
