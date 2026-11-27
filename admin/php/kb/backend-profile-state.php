@@ -34,13 +34,10 @@ final class BackendProfileState
             'bindingRevision' => $context['bindingRevision']], JSON_THROW_ON_ERROR);
     }
 
-    /** Reuse the Hub's atomic REST lease for these plugin-owned classic/AJAX mutations. */
-    public static function assertClassicMutation(bool $explicit = false): void
+    /** Validate deliberate AI Kit actions using the Hub's atomic REST lease. */
+    public static function assertClassicMutation(): void
     {
         if (self::context() === null) return;
-        if (!$explicit && ((!function_exists('is_admin') || !is_admin()) || !isset($_SERVER['REQUEST_METHOD'])
-            || (defined('REST_REQUEST') && REST_REQUEST) || (defined('WP_CLI') && WP_CLI)
-            || (function_exists('wp_doing_cron') && wp_doing_cron()))) return;
         // This is a profile binding guard, not the mutation's nonce check; each action verifies its own nonce.
         $rawPayload = $_POST['smartcloud_ai_kit_backend_profile'] ?? $_GET['smartcloud_ai_kit_backend_profile'] ?? ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Untrusted JSON is normalized and validated immediately below.
         $payload = is_string($rawPayload) ? wp_unslash($rawPayload) : '';

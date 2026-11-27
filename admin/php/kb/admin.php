@@ -114,7 +114,6 @@ class Admin
         add_action('quick_edit_custom_box', [$this, 'renderQuickEditField'], 10, 2);
         add_action('bulk_edit_custom_box', [$this, 'renderBulkEditField'], 10, 2);
         add_action('restrict_manage_posts', [$this, 'renderClassicProfileField']);
-        add_action('edit_form_top', [$this, 'renderClassicProfileField']);
         add_action('manage_posts_custom_column', [$this, 'renderKbColumn'], 10, 2);
         add_action('manage_pages_custom_column', [$this, 'renderKbColumn'], 10, 2);
         add_filter('manage_posts_columns', [$this, 'addKbColumn']);
@@ -333,7 +332,7 @@ class Admin
             return;
         }
 
-        BackendProfileState::assertClassicMutation(true);
+        BackendProfileState::assertClassicMutation();
 
         ReviewNotice::acknowledge();
 
@@ -360,7 +359,7 @@ class Admin
             wp_send_json_error(['message' => __('Permission denied.', 'smartcloud-ai-kit')]);
         }
 
-        BackendProfileState::assertClassicMutation(true);
+        BackendProfileState::assertClassicMutation();
 
         update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_status'), 'running');
 
@@ -391,7 +390,7 @@ class Admin
             wp_send_json_error();
         }
 
-        BackendProfileState::assertClassicMutation(true);
+        BackendProfileState::assertClassicMutation();
 
         update_option(BackendProfileState::optionName('smartcloud_ai_kit_db_migration_dismissed'), true);
         wp_send_json_success();
@@ -409,7 +408,7 @@ class Admin
             wp_send_json_error(['message' => 'Insufficient permissions']);
         }
 
-        BackendProfileState::assertClassicMutation(true);
+        BackendProfileState::assertClassicMutation();
 
         $post_ids = isset($_POST['post_ids']) ? array_map('intval', wp_unslash($_POST['post_ids'])) : [];
         $action = isset($_POST['kb_action']) ? sanitize_text_field(wp_unslash($_POST['kb_action'])) : '';
@@ -472,12 +471,9 @@ class Admin
      */
     public function onPostSave(int $post_id, \WP_Post $post, bool $update): void
     {
-        // Skip autosaves and revisions
         if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
             return;
         }
-
-        BackendProfileState::assertClassicMutation();
 
         // Handle Quick Edit / Bulk Edit KB source actions
         if (isset($_POST['smartcloud_ai_kit_kb_source_action']) || isset($_POST['smartcloud_ai_kit_kb_source_bulk_action'])) {
@@ -502,10 +498,10 @@ class Admin
                 ? sanitize_text_field(wp_unslash($_POST['smartcloud_ai_kit_kb_source_action']))
                 : sanitize_text_field(wp_unslash($_POST['smartcloud_ai_kit_kb_source_bulk_action'] ?? ''));
 
-            // Skip if no action selected (bulk edit "No Change" option)
-            if (empty($action)) {
+            if (!in_array($action, ['enable', 'disable'], true)) {
                 return;
             }
+            BackendProfileState::assertClassicMutation();
 
             // Debug logging
             Logger::info(
@@ -629,7 +625,6 @@ class Admin
      */
     public function onPostDelete(int $post_id, ?\WP_Post $post): void
     {
-        BackendProfileState::assertClassicMutation();
         if (!$post) {
             return;
         }
@@ -2901,7 +2896,7 @@ class Admin
             return $redirect_to;
         }
 
-        BackendProfileState::assertClassicMutation(true);
+        BackendProfileState::assertClassicMutation();
 
         $processed = 0;
 

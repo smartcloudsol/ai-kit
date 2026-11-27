@@ -1398,7 +1398,6 @@ final class KnowledgeSyncCapture
     /** Invalidate every referencing public post in bounded pages; never export attachment data on its own. */
     public function onFeaturedAttachmentChanged(int $attachment_id): void
     {
-        BackendProfileState::assertClassicMutation();
         if (!function_exists('get_posts')) { return; }
         $offset = 0;
         do {
@@ -1427,7 +1426,6 @@ final class KnowledgeSyncCapture
     /** Own-field edits use the normal publisher-gated capture path, never the KB override bypass. */
     public function onStructuredMetadataChanged(mixed $meta_id, int $post_id, string $meta_key, mixed $meta_value): void
     {
-        BackendProfileState::assertClassicMutation();
         unset($meta_id, $meta_value);
         if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) { return; }
         $post = get_post($post_id);
@@ -1492,7 +1490,6 @@ final class KnowledgeSyncCapture
 
     public function onAfterInsertPost(int $post_id, \WP_Post $post, bool $update, ?\WP_Post $post_before, bool $article_rule_changed = false): void
     {
-        BackendProfileState::assertClassicMutation();
         unset($update);
 
         if ($post->post_type === 'attachment') { $this->onFeaturedAttachmentChanged($post_id); }
@@ -1558,7 +1555,6 @@ final class KnowledgeSyncCapture
     /** Metadata edits do not fire WordPress post-save hooks. */
     public function onBaseMetadataChanged(int $post_id, string $doc_id, string $section_id): void
     {
-        BackendProfileState::assertClassicMutation();
         if ($doc_id !== 'post-' . $post_id . '/base' || $section_id !== 'main') {
             return;
         }
@@ -1589,7 +1585,6 @@ final class KnowledgeSyncCapture
 
     public function onBeforeDeletePost(int $post_id, \WP_Post $post): void
     {
-        BackendProfileState::assertClassicMutation();
         if ($post->post_type !== 'attachment') { $this->onAttachmentParentChanged($post_id); }
         if ($this->eligiblePolicy($post->post_type) === null) {
             return;
@@ -1631,7 +1626,6 @@ final class KnowledgeSyncCapture
         bool $append,
         array $old_term_taxonomy_ids
     ): void {
-        BackendProfileState::assertClassicMutation();
         unset($terms, $append);
 
         // Term assignments are sets; insertion order does not change access.
